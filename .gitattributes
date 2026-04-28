@@ -1,0 +1,47 @@
+# Auto detect text files and normalize line endings to LF
+* text=auto
+
+# Source code
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mov binary
+*.mp4 binary
+*.zip binary
+*.tar binary
+*.gz binary
+
+# Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.ps1 text eol=crlf
+
+# Windows-specific
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Documentation
+*.md text eol=lf
+*.markdown text eol=lf
+
+# Node specific
+.npmrc text eol=lf
+.nvmrc text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf

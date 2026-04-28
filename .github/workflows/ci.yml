@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["*"]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pern_baseline
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Backend build
+        run: npm run build -w backend
+        env:
+          NODE_ENV: test
+          PORT: 4000
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pern_baseline
+          JWT_ACCESS_SECRET: dev_access_secret_change_me
+          JWT_REFRESH_SECRET: dev_refresh_secret_change_me
+          JWT_ACCESS_TTL: 15m
+          JWT_REFRESH_TTL: 7d
+          CORS_ORIGIN: http://localhost:5173
+          FASTAPI_URL: http://localhost:8001
+
+      - name: Frontend build
+        run: npm run build -w frontend
+
+      - name: Backend tests
+        run: npm run test -w backend
+        env:
+          NODE_ENV: test
+          PORT: 4000
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pern_baseline
+          JWT_ACCESS_SECRET: dev_access_secret_change_me
+          JWT_REFRESH_SECRET: dev_refresh_secret_change_me
+          JWT_ACCESS_TTL: 15m
+          JWT_REFRESH_TTL: 7d
+          CORS_ORIGIN: http://localhost:5173
+          FASTAPI_URL: http://localhost:8001

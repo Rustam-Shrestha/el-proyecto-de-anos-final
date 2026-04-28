@@ -1,0 +1,25 @@
+{
+  "name": "projectiii-pern-ts-baseline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Baseline PERN + TypeScript monorepo scaffold for ERP-style projects",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "tests/e2e"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "test": "npm run test -w backend && npm run test -w tests/e2e",
+    "lint": "npm run lint -w backend && npm run lint -w frontend"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

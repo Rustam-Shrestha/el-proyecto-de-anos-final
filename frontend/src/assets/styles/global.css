@@ -1,0 +1,147 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Base Styles */
+
+@layer base {
+  :root {
+    --font-family-sans: "Poppins", sans-serif;
+    --theme-primary: 142.1 76.2% 36.3%;
+    --font-family-serif: "Inter", serif;
+    --bg-color: #eef5ef;
+    --surface-color: #ffffff;
+    --surface-muted: #f4f8f5;
+    --text-color: #1f2937;
+    --border-color: #dbe5dc;
+    --green-icon: #3c8743;
+    /* --green-background: #0F6B18; */
+    --green-background: #006039;
+    --green-footer: #e2ede3;
+    --green-border: #b8d2bb;
+    --green-table-border: #0f6b18;
+    --yellow-status: #fde282;
+    --yellow-background-card: #fceecb;
+    --yellow-in-progress: #fde282;
+    --gray-column-text: #7b7b7b;
+    --gray-logo-header: #929292;
+    --gray-nav-items: #6e6e6e;
+    --red: #f44336;
+    --white: #ffffff;
+  }
+}
+
+/* Ensure section headers with red background always have white text */
+.bg-red-600,
+tr.bg-red-600,
+.section-header-red {
+  color: #fff !important;
+}
+
+/* Global Reset */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family-sans);
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-family: var(--font-family-serif);
+}
+
+p,
+span,
+a,
+button {
+  font-family: var(--font-family-sans);
+}
+
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* For Chrome, Safari, and Edge */
+}
+
+.pop-message {
+  z-index: 999999 !important;
+}
+
+/* Hide number input spinners but keep keyboard typing */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Better keyboard input for number fields */
+input[type="number"] {
+  font-size: 1rem;
+  letter-spacing: 0;
+  padding: 0.5rem;
+}
+
+/* Global dark-mode fallbacks for legacy components without explicit dark:* classes */
+.dark body {
+  background-color: #10211a;
+  color: #e5efe8;
+}
+
+.dark .bg-white {
+  background-color: #18251f !important;
+}
+
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: #203027 !important;
+}
+
+.dark .text-black,
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #d9e7dd !important;
+}
+
+.dark .border,
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: #314238 !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #18251f !important;
+  color: #f3f7f4 !important;
+  border-color: #314238 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #a8b7ad !important;
+}
