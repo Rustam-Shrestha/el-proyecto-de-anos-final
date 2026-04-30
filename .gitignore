@@ -129,3 +129,9 @@ yarn.lock
 .eslintcache
 .stylelintcache
 .prettierignore
+
+
+
+
+# Python dependencies
+venv/
