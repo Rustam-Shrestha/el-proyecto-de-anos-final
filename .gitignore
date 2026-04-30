@@ -135,3 +135,9 @@ yarn.lock
 
 # Python dependencies
 venv/
+
+
+# dataset and other files in restriction
+.csv
+application_train.csv
+X_train_full.csv
