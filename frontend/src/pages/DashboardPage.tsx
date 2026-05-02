@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { memo, useMemo, useState, type ChangeEvent } from "react";
-import { Link } from "react-router-dom";
 import InputField from "@components/common/InputField";
 import Modal from "@components/common/Modal";
 import { PrimaryButton } from "@components/common/Button";
@@ -28,12 +27,7 @@ const DashboardPage = () => {
     <section className="panel bg-[var(--surface-color)] text-[var(--text-color)]">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-primary text-xl font-semibold">ERP Dashboard</h2>
-        <div className="flex items-center gap-2">
-          <Link to="/app/user-access" className="text-sm underline text-primary">
-            User Access
-          </Link>
-          <PrimaryButton label="Add User" onClick={() => setShowModal(true)} />
-        </div>
+        <PrimaryButton label="Add User" onClick={() => setShowModal(true)} />
       </div>
 
       <div className="mb-4">

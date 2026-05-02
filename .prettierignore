@@ -1,0 +1,38 @@
+# Ignore artifacts
+node_modules/
+dist/
+build/
+coverage/
+.next/
+out/
+
+# Ignore files
+*.min.js
+*.min.css
+*.lock
+
+# Ignore test outputs
+test-results/
+playwright-report/
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore git-related files
+.git/
+.gitignore
+
+# Ignore Docker files
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Ignore CI files
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Ignore generated files
+**/*.generated.ts
+**/*.generated.js
