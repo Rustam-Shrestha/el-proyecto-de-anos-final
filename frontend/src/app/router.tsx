@@ -7,6 +7,7 @@ import { AdminOnlyRoute } from "@shared/components/auth/AdminOnlyRoute";
 const LoginPage = lazy(() => import("@auth/index"));
 const UsersPage = lazy(() => import("@features/users/pages/UsersPage"));
 const UserAccessPage = lazy(() => import("@features/users/pages/UserAccessPage"));
+const KYCPage = lazy(() => import("@features/kyc/pages/KYCPage"));
 const DashboardPage = lazy(() => import("@pages/DashboardPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 const AccessDeniedPage = lazy(() => import("@pages/AccessDeniedPage"));
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/app/dashboard" replace /> },
       { path: "dashboard", element: <DashboardPage /> },
       { path: "users", element: <UsersPage /> },
+      { path: "kyc", element: <KYCPage /> },
       { path: "access-denied", element: <AccessDeniedPage /> },
       {
         element: <AdminOnlyRoute />,

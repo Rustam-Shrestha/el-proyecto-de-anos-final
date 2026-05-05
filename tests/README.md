@@ -2,11 +2,11 @@
 
 ## Backend tests
 - Frameworks: Jest + Supertest
-- Location: backend/tests
+- Location: backend-node/tests
 - Covers: auth payload validation and protected CRUD validation path
 
 Command:
-- npm run test -w backend
+- npm run test -w backend-node
 
 ## Frontend E2E tests
 - Framework: Playwright

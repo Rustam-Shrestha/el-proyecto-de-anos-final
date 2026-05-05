@@ -17,7 +17,8 @@ A comprehensive guide to understanding the entire frontend, backend, and project
 ## Project Overview
 
 This is a **Full-Stack Web Application** built with:
-- **Backend**: Node.js/Express with TypeScript
+- **Backend (Node)**: Node.js/Express with TypeScript
+- **Backend (FastAPI)**: Python FastAPI for KYC/OCR/face verification
 - **Frontend**: React with TypeScript, Redux, and Tailwind CSS
 - **Database**: PostgreSQL (or in-memory for testing)
 - **Authentication**: JWT + OAuth2 support
@@ -35,18 +36,19 @@ This is a **Full-Stack Web Application** built with:
 ├── package.json             # Root-level dependencies (if any)
 ├── README.md                # Main project documentation
 ├── frontend/                # React frontend application
-├── backend/                 # Node.js/Express backend application
+├── backend-node/            # Node.js/Express backend application
+├── backend-fastapi/         # FastAPI KYC service
 ├── tests/                   # End-to-end tests
 └── infra/                   # Infrastructure scripts
 ```
 
 ---
 
-## BACKEND STRUCTURE & EXPLANATION
+## BACKEND-NODE STRUCTURE & EXPLANATION
 
 ### Backend Root Directory
 ```
-backend/
+backend-node/
 ├── .env.example             # Example environment variables (copy to .env)
 ├── Dockerfile               # Instructions to create backend Docker image
 ├── README.md                # Backend documentation
@@ -62,7 +64,26 @@ backend/
 
 ---
 
-### Backend `/src` Directory - Complete Breakdown
+## BACKEND-FASTAPI STRUCTURE & EXPLANATION
+
+### Backend-FastAPI Root Directory
+```
+backend-fastapi/
+├── main.py                   # FastAPI entry point
+├── requirements.txt          # Python dependencies
+├── Dockerfile                # FastAPI Docker image
+├── app/                      # Application package
+│   ├── config.py             # Settings (Pydantic)
+│   ├── api/                  # API routers
+│   ├── db/                   # SQLAlchemy async session
+│   ├── models/               # ORM models
+│   └── services/             # OCR/face verification services
+└── scripts/                  # PowerShell helpers
+```
+
+---
+
+### Backend-Node `/src` Directory - Complete Breakdown
 
 ```
 src/

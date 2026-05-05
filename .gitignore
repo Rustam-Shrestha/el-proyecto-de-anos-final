@@ -135,9 +135,13 @@ yarn.lock
 
 # Python dependencies
 venv/
-
+.venv/
 
 # dataset and other files in restriction
 .csv
 application_train.csv
 X_train_full.csv
+
+
+# python residues
+__pycache__/

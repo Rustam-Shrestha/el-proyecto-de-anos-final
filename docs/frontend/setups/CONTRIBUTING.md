@@ -3,7 +3,8 @@
 ## Project Overview
 
 This is a full-stack PERN (PostgreSQL, Express, React, Node.js) + TypeScript monorepo application with:
-- **Backend**: Express.js API with PostgreSQL, JWT auth, RBAC, and optional OAuth2
+- **Backend (Node)**: Express.js API with PostgreSQL, JWT auth, RBAC, and optional OAuth2
+- **Backend (FastAPI)**: Python FastAPI service for KYC/OCR/face verification
 - **Frontend**: React + Redux Toolkit + TanStack Query + Tailwind CSS
 - **E2E Tests**: Playwright test suite
 - **Infrastructure**: Docker support with Docker Toolbox compatibility scripts
@@ -31,31 +32,26 @@ npm run dev:frontend  # Vite on http://localhost:5173
 
 ### Environment Setup
 
-1. **Backend**: Copy `backend/.env.example` to `backend/.env` and update values
-2. **Frontend**: Copy `frontend/.env.example` to `frontend/.env` if needed
+1. **Backend (Node)**: Copy `backend-node/.env.example` to `backend-node/.env` and update values
+2. **Backend (FastAPI)**: Copy `backend-fastapi/.env.example` to `backend-fastapi/.env` if needed
+3. **Frontend**: Copy `frontend/.env.example` to `frontend/.env` if needed
 
 ## Project Structure
 
 ```
 projectIII/
 ├── .github/workflows/      # CI/CD pipelines
-├── backend/                # Express API
-│   ├── src/
-│   │   ├── config/        # Configuration (env, logger)
-│   │   ├── controllers/   # Route handlers
-│   │   ├── db/            # Database setup & migrations
-│   │   ├── middleware/    # Express middleware
-│   │   ├── models/        # Data models
-│   │   ├── routes/        # API endpoints & schemas
-│   │   ├── services/      # Business logic (auth, user, audit)
-│   │   ├── types/         # TypeScript definitions
-│   │   ├── utils/         # Utilities (response, pagination)
-│   │   ├── app.ts        # Express app setup
-│   │   ├── server.ts     # Server entry point
-│   │   └── seed.ts       # Database seeding
-│   ├── migrations/        # SQL migration files
-│   ├── tests/             # Backend unit tests
-│   └── package.json
+├── backend-node/           # Express API
+├── backend-fastapi/        # FastAPI KYC service
+│   ├── app/                # FastAPI application package
+│   │   ├── api/            # API routers
+│   │   ├── config.py       # Pydantic settings
+│   │   ├── db/             # SQLAlchemy async session
+│   │   ├── models/         # ORM models
+│   │   └── services/       # OCR/face verification services
+│   ├── scripts/            # PowerShell helpers
+│   ├── main.py             # FastAPI entry point
+│   └── requirements.txt    # Python dependencies
 ├── frontend/              # React + Vite app
 │   ├── src/
 │   │   ├── api/          # API integration
@@ -94,7 +90,7 @@ projectIII/
 ### Code Style
 
 - **EditorConfig**: Ensures consistent formatting across editors (see `.editorconfig`)
-- **ESLint**: TypeScript/JavaScript linting in `backend` and `frontend`
+- **ESLint**: TypeScript/JavaScript linting in `backend-node` and `frontend`
 - **Prettier**: Code formatting (auto-run via editor or manually with `npm run format`)
 
 ### Running Commands
@@ -102,12 +98,12 @@ projectIII/
 Use npm workspace flags (`-w`) when running scripts:
 
 ```bash
-# Backend only
-npm run lint -w backend
-npm run test -w backend
-npm run build -w backend
-npm run dev -w backend
-npm run seed -w backend
+# Backend (Node) only
+npm run lint -w backend-node
+npm run test -w backend-node
+npm run build -w backend-node
+npm run dev -w backend-node
+npm run seed -w backend-node
 
 # Frontend only
 npm run lint -w frontend
@@ -122,12 +118,12 @@ npm run test
 
 ### Creating Features
 
-#### Backend
-1. Create controller in `backend/src/controllers/`
-2. Add business logic in `backend/src/services/`
-3. Define routes in `backend/src/routes/`
-4. Add TypeScript types in `backend/src/types/`
-5. Write tests in `backend/tests/`
+#### Backend (Node)
+1. Create controller in `backend-node/src/controllers/`
+2. Add business logic in `backend-node/src/services/`
+3. Define routes in `backend-node/src/routes/`
+4. Add TypeScript types in `backend-node/src/types/`
+5. Write tests in `backend-node/tests/`
 
 #### Frontend
 1. Create feature module in `frontend/src/features/<feature>/`
@@ -139,20 +135,20 @@ npm run test
 ## Database
 
 ### Migrations
-SQL migrations go in `backend/migrations/` with format `NNN_description.sql`.
+SQL migrations go in `backend-node/migrations/` with format `NNN_description.sql`.
 
 ### Seeding
 Run database seed script:
 ```bash
-npm run seed -w backend
+npm run seed -w backend-node
 ```
 
 ## Testing
 
 ### Backend Tests (Jest)
 ```bash
-npm run test -w backend          # Run tests
-npm run test:watch -w backend    # Watch mode
+npm run test -w backend-node          # Run tests
+npm run test:watch -w backend-node    # Watch mode
 ```
 
 ### E2E Tests (Playwright)
@@ -167,11 +163,11 @@ npm run test -w tests/e2e
 npm run build
 
 # Build specific workspace
-npm run build -w backend
+npm run build -w backend-node
 npm run build -w frontend
 
 # Start production server
-npm start -w backend
+npm start -w backend-node
 ```
 
 ## Docker
@@ -186,7 +182,7 @@ npm start -w backend
 ```
 
 ### Production
-Use `Dockerfile` in backend and frontend directories. Build and push to your registry.
+Use `Dockerfile` in backend-node, backend-fastapi, and frontend directories. Build and push to your registry.
 
 ## Code Conventions
 
@@ -235,7 +231,7 @@ taskkill /PID <PID> /F
 ### Database Connection Issues
 - Ensure PostgreSQL is running
 - Verify DATABASE_URL in `.env`
-- Check DB credentials in `backend/.env.example`
+- Check DB credentials in `backend-node/.env.example`
 
 ### npm Workspace Issues
 ```bash
@@ -261,7 +257,7 @@ npm cache clean --force
 - Use HTTPS in production
 - Sanitize user inputs (Zod validation)
 - Implement rate limiting on API endpoints
-- Use CORS properly (allowed origins in `backend/.env`)
+- Use CORS properly (allowed origins in `backend-node/.env`)
 - Keep dependencies updated regularly
 
 ## Deployment

@@ -31,11 +31,11 @@
 4. Apply SQL migration manually once:
    - psql "$env:DATABASE_URL" -f migrations/001_init.sql
 5. Start API:
-   - npm run dev -w backend
+   - npm run dev -w backend-node
 
 Local development falls back from the Docker-only `postgres` hostname to `localhost` automatically so Windows runs work without Docker Toolbox networking.
 
-If you see EADDRINUSE on port 4000, stop the process currently using that port or run backend with a different PORT value in backend/.env.
+If you see EADDRINUSE on port 4000, stop the process currently using that port or run backend with a different PORT value in backend-node/.env.
 
 Note: dependencies may appear in root node_modules because npm workspaces hoist shared packages.
 
@@ -50,7 +50,7 @@ Note: dependencies may appear in root node_modules because npm workspaces hoist 
 
 ## Testing
 - Jest + Supertest tests in tests/
-- Run: npm run test -w backend
+- Run: npm run test -w backend-node
 
 ## Build
-- npm run build -w backend
+- npm run build -w backend-node
