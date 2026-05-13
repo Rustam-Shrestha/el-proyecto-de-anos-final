@@ -69,7 +69,7 @@ docker-compose -f docker-compose.toolbox.yml up
 This starts:
 - PostgreSQL on `localhost:5432`
 - backend-node on `localhost:4000`
-- backend-fastapi on `localhost:8000`
+- backend-fastapi on `localhost:8080`
 - frontend on `localhost:5173`
 
 ### Development (Local - Manual)
@@ -152,11 +152,11 @@ PORT=4000
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pern_baseline
 JWT_ACCESS_SECRET=your_secret_key
 JWT_REFRESH_SECRET=your_secret_key
-FASTAPI_URL=http://localhost:8000       # Local development
+FASTAPI_URL=http://localhost:8080       # Local development
 CORS_ORIGIN=http://localhost:5173,http://localhost:5176
 ```
 
-Docker Compose sets `FASTAPI_URL=http://backend-fastapi:8000` (service name).
+Docker Compose sets `FASTAPI_URL=http://backend-fastapi:8080` (service name).
 
 ### backend-fastapi (.env)
 ```env
@@ -240,8 +240,8 @@ cd backend-node
 
 **backend-fastapi**:
 - Logs: `uvicorn main:app --reload --log-level debug`
-- FastAPI docs: http://localhost:8000/docs
-- OpenAPI schema: http://localhost:8000/openapi.json
+- FastAPI docs: http://localhost:8080/docs
+- OpenAPI schema: http://localhost:8080/openapi.json
 
 **Database**:
 ```bash
@@ -267,7 +267,7 @@ Both services are fully typed:
 
 ### FastAPI Service Not Found
 ```
-Error: FastAPI service unavailable at http://localhost:8000
+Error: FastAPI service unavailable at http://localhost:8080
 ```
 **Solution**: Ensure backend-fastapi is running on port 8000.
 

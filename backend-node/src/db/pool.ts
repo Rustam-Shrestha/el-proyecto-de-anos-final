@@ -35,10 +35,15 @@ const ensurePool = async (): Promise<QueryablePool> => {
         await nativePool.query("SELECT 1");
         activePool = nativePool;
         return nativePool;
-      } catch {
+      } catch (error) {
         await nativePool.end().catch(() => undefined);
-        activePool = createMemoryPool();
-        return activePool;
+
+        if (env.NODE_ENV === "test") {
+          activePool = createMemoryPool();
+          return activePool;
+        }
+
+        throw error;
       }
     })();
   }

@@ -11,7 +11,7 @@ import type { Express } from "express";
 export const kycRoutes = Router();
 
 // FastAPI KYC backend URL
-const FASTAPI_URL = env.FASTAPI_URL || "http://localhost:8000";
+const FASTAPI_URL = env.FASTAPI_URL || "http://localhost:8080";
 
 // Ensure uploads dir exists
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "kyc");

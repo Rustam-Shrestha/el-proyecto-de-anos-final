@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.git
+.cache
+.turbo
+.DS_Store
+*.log
+.env
+.env.*
+tmp
+temp
+uploads

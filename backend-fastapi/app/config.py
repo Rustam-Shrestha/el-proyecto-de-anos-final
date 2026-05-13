@@ -12,11 +12,11 @@ class Settings(BaseSettings):
     """Application settings from environment variables."""
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:admin@localhost:5432/mydb"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:admin@localhost:5432/finguard"
 
     # API
     API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
+    API_PORT: int = 8080
     DEBUG: bool = False
 
     # File Upload

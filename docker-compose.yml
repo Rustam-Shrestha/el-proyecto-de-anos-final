@@ -1,0 +1,124 @@
+version: "3.9"
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: pern_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-finguard}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend-node/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
+      - ./backend-node/migrations/kyc/001_create_kyc_tables.sql:/docker-entrypoint-initdb.d/002_kyc.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: pern_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --appendfsync everysec
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Express.js Backend
+  backend-node:
+    build:
+      context: ./backend-node
+      target: dev
+    container_name: pern_backend_node
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-4000}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-admin}
+      DB_HOST: postgres
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-finguard}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-admin}@postgres:5432/${DB_NAME:-finguard}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_change_me_in_production}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:5176}
+      FASTAPI_URL: ${FASTAPI_URL:-http://backend-fastapi:8080}
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend-node:/app
+      - /app/node_modules
+    networks:
+      - pern-network
+
+  # FastAPI Backend
+  backend-fastapi:
+    build:
+      context: ./backend-fastapi
+      target: dev
+    container_name: pern_backend_fastapi
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-admin}@postgres:5432/${DB_NAME:-finguard}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend-fastapi:/app
+    networks:
+      - pern-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    container_name: pern_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend-node
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4000/api/v1}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - pern-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  pern-network:
+    driver: bridge

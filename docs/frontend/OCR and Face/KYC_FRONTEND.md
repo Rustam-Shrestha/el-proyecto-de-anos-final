@@ -61,13 +61,13 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```bash
 cd frontend
 npm install
-# create .env.local with VITE_API_BASE_URL=http://localhost:8000
+# create .env.local with VITE_API_BASE_URL=http://localhost:8080
 npm run dev
 ```
 
 4. Access the app in the browser:
 - Frontend: http://localhost:5173
-- Backend docs & health: http://localhost:8000/docs and /health
+- Backend docs & health: http://localhost:8080/docs and /health
 
 Notes
 - The frontend uses project-wide reusable UI components; avoid raw HTML inputs unless implementing a new custom widget.

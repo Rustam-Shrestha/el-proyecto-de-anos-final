@@ -23,6 +23,7 @@ const envSchema = z.object({
   DB_HOST: optionalString,
   DB_PORT: z.coerce.number().int().positive().optional(),
   DB_NAME: optionalString,
+  REDIS_URL: z.string().default("redis://localhost:6379"),
   JWT_ACCESS_SECRET: z.string().min(16),
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_ACCESS_TTL: z.string().default("15m"),
@@ -49,13 +50,17 @@ const buildDatabaseUrl = (env: z.infer<typeof envSchema>) => {
   const password = env.DB_PASSWORD ?? "postgres";
   const host = env.DB_HOST ?? "localhost";
   const port = env.DB_PORT ?? 5432;
-  const database = env.DB_NAME ?? "pern_baseline";
+  const database = env.DB_NAME ?? "finguard";
 
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 };
 
 const normalizeDatabaseUrl = (databaseUrl: string) => {
   const url = new URL(databaseUrl);
+
+  if (url.protocol === "postgresql+asyncpg:") {
+    url.protocol = "postgresql:";
+  }
 
   if (url.hostname === "postgres") {
     url.hostname = "localhost";

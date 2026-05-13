@@ -1,12 +1,13 @@
-# PERN + TypeScript Baseline (Docker Toolbox Compatible)
+# PERN + TypeScript Baseline (Modern Docker & Redis)
 
-A professional, scalable full-stack monorepo scaffold for ERP-style academic projects.
+A professional, scalable full-stack monorepo scaffold for ERP-style academic projects with built-in Redis caching.
 
 ## Tech Stack
 - **Frontend**: React + TypeScript + Redux Toolkit + TanStack Query + Tailwind CSS + Zod
-- **Backend**: Express + TypeScript + PostgreSQL + JWT/RBAC + optional OAuth2 + OpenAPI docs
+- **Backend**: Express + TypeScript + PostgreSQL + Redis + JWT/RBAC + optional OAuth2 + OpenAPI docs
+- **Cache**: Redis 7 with persistence and TTL support
 - **Testing**: Playwright E2E tests, Jest for backend
-- **Infrastructure**: Docker Toolbox support, GitHub Actions CI/CD
+- **Infrastructure**: Modern Docker Compose, GitHub Actions CI/CD
 - **Development**: npm workspaces, Vite, ESLint, Prettier, EditorConfig
 
 ## Project Architecture
@@ -16,6 +17,7 @@ This is a **monorepo using npm workspaces** with:
 - Separate `backend`, `frontend`, and `tests/e2e` workspaces
 - Consistent configuration across all packages
 - Professional CI/CD with GitHub Actions
+- **NEW**: Redis caching layer with middleware support
 
 ### Why node_modules is at repository root
 Dependencies are installed once in root and shared by all workspaces to reduce duplication and improve install speed. Individual workspace `node_modules` directories are not needed.
@@ -27,16 +29,89 @@ npm run dev -w frontend       # Frontend only
 npm run dev                   # All workspaces
 ```
 
-## Environment files
-- Frontend template: `frontend/.env.example`
-- Backend template: `backend/.env.example`
+## 🐳 Docker Quick Start (Recommended)
+
+The easiest way to run the entire stack with Redis, PostgreSQL, and all services:
+
+```bash
+# 1. Clone the repository
+cd d:\el-proyecto-de-anos-final
+
+# 2. Copy environment file
+cp .env.example .env
+
+# 3. Start all services with one command
+docker compose up -d
+
+# 4. Access applications
+# - Frontend:     http://localhost:5173
+# - Node Backend: http://localhost:4000
+# - FastAPI:      http://localhost:8000
+# - API Docs:     http://localhost:4000/docs
+```
+
+**Services Started**:
+- ✅ PostgreSQL (port 5432)
+- ✅ Redis (port 6379)
+- ✅ Express.js Backend (port 4000)
+- ✅ FastAPI Backend (port 8000)
+- ✅ React Frontend (port 5173)
+
+### Helper Commands
+
+For Windows (PowerShell):
+```bash
+# Windows helper script with friendly interface
+.\docker-helper.ps1 up              # Start all services
+.\docker-helper.ps1 logs backend-node  # View logs
+.\docker-helper.ps1 psql            # Connect to database
+.\docker-helper.ps1 redis           # Open Redis CLI
+.\docker-helper.ps1 down            # Stop all services
+.\docker-helper.ps1 help            # Show all commands
+```
+
+For Mac/Linux:
+```bash
+chmod +x docker-helper.sh
+./docker-helper.sh up               # Start all services
+./docker-helper.sh logs backend-node   # View logs
+./docker-helper.sh psql             # Connect to database
+./docker-helper.sh down             # Stop all services
+```
+
+## Environment Files
+
+### Root Level (`.env`)
+Controls Docker Compose variables for all services:
+
+```env
+# Database
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=pern_baseline
+
+# Redis
+REDIS_URL=redis://redis:6379
+
+# Backend
+JWT_ACCESS_SECRET=your_secret_min_16_chars
+JWT_REFRESH_SECRET=your_secret_min_16_chars
+CORS_ORIGIN=http://localhost:5173,http://localhost:5176
+
+# Frontend
+VITE_API_BASE_URL=http://localhost:4000/api/v1
+```
 
 **Setup**:
-1. Copy `frontend/.env.example` → `frontend/.env`
-2. Copy `backend/.env.example` → `backend/.env`
-3. Update values as needed (DB credentials, JWT secrets, etc.)
+1. Copy `.env.example` → `.env`
+2. Customize if needed (usually not required for development)
+3. Services automatically use these values
 
-**Note**: `.env` files are git-ignored and won't be committed (see `.gitignore`)
+### Service-Specific (Optional)
+- Frontend template: `frontend/.env.example`
+- Backend template: `backend-node/.env.example`
+
+**Note**: All `.env` files are git-ignored and won't be committed (see `.gitignore`)
 
 ## Configuration Files
 
@@ -50,13 +125,17 @@ The project includes modern development tooling configuration:
 - **`.gitignore`** - Comprehensive git ignore rules
 - **`.gitattributes`** - Cross-platform line ending consistency
 - **`CONTRIBUTING.md`** - Development guidelines and workflows
+- **`docker-compose.yml`** - Modern Docker Compose setup (replaces toolbox)
+- **`DOCKER_SETUP.md`** - Comprehensive Docker guide
+- **`REDIS_INTEGRATION.md`** - Redis caching integration examples
 
-## Quick Start (Local Development)
+## Quick Start (Local Development - Without Docker)
 
 ### Prerequisites
 - **Node.js**: >= 20.11.0 (check with `node -v`)
 - **npm**: >= 9.0 (includes automatically)
-- **PostgreSQL**: 16 (local or Docker)
+- **PostgreSQL**: 16 (local installation)
+- **Redis**: 7+ (local installation)
 
 ### Setup
 
@@ -65,21 +144,30 @@ The project includes modern development tooling configuration:
 npm install
 
 # 2. Configure environment files
-cp backend/.env.example backend/.env
+cp backend-node/.env.example backend-node/.env
 cp frontend/.env.example frontend/.env
 # Edit .env files with your settings
 
-# 3. Start development servers
-npm run dev
-# Backend:  http://localhost:4000
+# 3. Start services in separate terminals
+
+# Terminal 1: Start backend
+npm run dev -w backend-node
+# Backend: http://localhost:4000
+
+# Terminal 2: Start frontend
+npm run dev -w frontend
 # Frontend: http://localhost:5173
-# API Docs: http://localhost:4000/docs
+
+# 3. Verify everything works
+# - Frontend: http://localhost:5173
+# - Backend: http://localhost:4000
+# - API Docs: http://localhost:4000/docs
 ```
 
-## Docker Toolbox Start
-1. Ensure Docker Toolbox VM is running
-2. Run: `powershell -ExecutionPolicy Bypass -File infra/scripts/toolbox-up.ps1`
-3. Stop: `powershell -ExecutionPolicy Bypass -File infra/scripts/toolbox-down.ps1`
+### Prerequisites for Local Development
+- PostgreSQL 16 running on port 5432
+- Redis 7 running on port 6379
+- Environment variables set in `.env` files
 
 ## Project Directory Structure
 
@@ -218,5 +306,6 @@ Read module-specific docs:
 - frontend/README.md
 - backend/README.md
 - tests/README.md
-#   e l - p r o y e c t o - d e - a n o s - f i n a l  
+#   e l - p r o y e c t o - d e - a n o s - f i n a l 
+ 
  

@@ -10,7 +10,7 @@
 import axios from "axios";
 import type { AxiosProgressEvent } from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export interface KYCStatus {
   kyc_application_id: string;
