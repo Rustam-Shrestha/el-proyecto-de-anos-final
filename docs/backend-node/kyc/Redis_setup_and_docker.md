@@ -33,7 +33,7 @@ docker compose up -d
 | Frontend | http://localhost:5173 |
 | Node Backend | http://localhost:4000 |
 | API Docs | http://localhost:4000/docs |
-| FastAPI Backend | http://localhost:8000 |
+| FastAPI Backend | http://localhost:8080 |
 | PostgreSQL | localhost:5432 |
 | Redis | localhost:6379 |
 

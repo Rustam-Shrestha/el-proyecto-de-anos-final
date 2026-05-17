@@ -6,7 +6,8 @@ export const apiClient = axios.create({
   baseURL: env.VITE_API_BASE_URL,
   headers: {
     "Content-Type": "application/json"
-  }
+  },
+  withCredentials: true
 });
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {

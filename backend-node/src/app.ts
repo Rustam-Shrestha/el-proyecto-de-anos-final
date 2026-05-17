@@ -36,7 +36,15 @@ const corsOrigin = (origin: string | undefined, callback: (error: Error | null, 
 
 // Security and request-parsing defaults suitable for API-first backends.
 app.use(helmet());
-app.use(cors({ origin: corsOrigin }));
+app.use(
+  cors({
+    origin: corsOrigin,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Content-Range", "X-Content-Range"]
+  })
+);
 app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger }));
 app.use(passport.initialize());

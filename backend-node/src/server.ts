@@ -6,7 +6,10 @@ import { initializeRedis, closeRedis } from "@config/redis";
 
 const startServer = async () => {
   try {
-    await initializeDatabase();
+    await initializeDatabase().catch(err => {
+      logger.error({ err }, "Database initialization error");
+      throw err;
+    });
     await initializeRedis();
 
     const server = app.listen(env.PORT, () => {
