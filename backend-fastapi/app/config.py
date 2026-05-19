@@ -43,9 +43,11 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Configure logging
+# Configure logging (accept case-insensitive level names)
+level_name = (settings.LOG_LEVEL or "INFO").upper()
+level_value = getattr(logging, level_name, logging.INFO)
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL),
+    level=level_value,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 

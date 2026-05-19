@@ -17,7 +17,7 @@ const CustomFileUpload = memo(({ onFileUpload }) => {
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      const reader = new FileReader();
+      const reader = new (window.FileReader || FileReader)();
       reader.onload = () => {
         setPreviewImage(reader.result); // Set the preview image
         if (onFileUpload) onFileUpload(file); // Pass the file to the parent component
@@ -50,7 +50,7 @@ const CustomFileUpload = memo(({ onFileUpload }) => {
 
     const file = e.dataTransfer.files[0];
     if (file) {
-      const reader = new FileReader();
+      const reader = new (window.FileReader || FileReader)();
       reader.onload = () => {
         setPreviewImage(reader.result); // Set the preview image
         if (onFileUpload) onFileUpload(file); // Pass the dropped file to the parent component
@@ -83,6 +83,8 @@ const CustomFileUpload = memo(({ onFileUpload }) => {
             className="w-20 h-20 object-cover rounded-lg"
           />
           <button
+            type="button"
+            aria-label="Remove uploaded image"
             className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center"
             onClick={handleRemoveImage}
           >
@@ -90,7 +92,7 @@ const CustomFileUpload = memo(({ onFileUpload }) => {
           </button>
         </div>
       ) : (
-        <div onClick={handleUploadClick}>
+        <div onClick={handleUploadClick} role="button" tabIndex={0} aria-label="Upload file">
           <div className="flex items-center  justify-center rounded-full mb-2">
             <CloudArrow />
           </div>
@@ -106,6 +108,7 @@ const CustomFileUpload = memo(({ onFileUpload }) => {
         ref={fileInputRef}
         className="hidden"
         onChange={handleFileChange}
+        aria-label="File upload input"
       />
     </div>
   );

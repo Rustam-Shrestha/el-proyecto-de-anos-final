@@ -1,22 +1,20 @@
-"""
-Database Migration Script for KYC Module.
+-- Database Migration Script for KYC Module.
 
-This migration creates all tables required for the KYC workflow:
-- users
-- kyc_applications
-- documents
-- ocr_results
-- face_verifications
+-- This migration creates all tables required for the KYC workflow:
+-- - users
+-- - kyc_applications
+-- - documents
+-- - ocr_results
+-- - face_verifications
 
-All string columns use UTF-8 encoding to support mixed-script (Devanagari + English).
-JSONB columns are used for structured_data and feature_vector for efficient querying.
+-- All string columns use UTF-8 encoding to support mixed-script (Devanagari + English).
+-- JSONB columns are used for structured_data and feature_vector for efficient querying.
 
-To run this migration:
-    alembic upgrade head
+-- To run this migration:
+--     alembic upgrade head
 
-Or manually with psql:
-    psql -U postgres -d kyc_db -f backend/migrations/kyc/001_create_kyc_tables.sql
-"""
+-- Or manually with psql:
+--     psql -U postgres -d kyc_db -f backend/migrations/kyc/001_create_kyc_tables.sql
 
 -- Users table is created by 001_init.sql with authentication columns
 -- This ensures a single source of truth for user data
