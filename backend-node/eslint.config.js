@@ -5,9 +5,20 @@ import tsparser from "@typescript-eslint/parser";
 export default [
   js.configs.recommended,
   {
+    ignores: ["dist/**", "**/*.d.ts"]
+  },
+  {
     files: ["src/**/*.ts", "tests/**/*.ts"],
     languageOptions: {
       parser: tsparser,
+      globals: {
+        __dirname: "readonly",
+        __filename: "readonly",
+        exports: "readonly",
+        module: "readonly",
+        process: "readonly",
+        require: "readonly"
+      },
       parserOptions: {
         ecmaVersion: "latest",
         sourceType: "module"
@@ -17,6 +28,15 @@ export default [
       "@typescript-eslint": tseslint
     },
     rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          varsIgnorePattern: "^_"
+        }
+      ],
       "@typescript-eslint/no-explicit-any": "warn"
     }
   }

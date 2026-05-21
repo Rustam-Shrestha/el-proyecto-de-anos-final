@@ -1,0 +1,609 @@
+{
+  "info": {
+    "_postman_id": "projectIII-postman-collection",
+    "name": "ProjectIII Backend Node API",
+    "description": "Import this collection together with the matching environment file. The collection stores access and refresh tokens automatically after auth responses and keeps the most frequently used IDs and variables in one place.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "try {",
+          "  const body = pm.response.json();",
+          "  const data = body && body.data ? body.data : null;",
+          "  if (data && typeof data === 'object') {",
+          "    if (data.accessToken) {",
+          "      pm.environment.set('accessToken', data.accessToken);",
+          "    }",
+          "    if (data.refreshToken) {",
+          "      pm.environment.set('refreshToken', data.refreshToken);",
+          "    }",
+          "    if (data.user && typeof data.user === 'object') {",
+          "      if (data.user.id) {",
+          "        pm.environment.set('currentUserId', data.user.id);",
+          "      }",
+          "      if (data.user.email) {",
+          "        pm.environment.set('currentUserEmail', data.user.email);",
+          "      }",
+          "      if (data.user.role) {",
+          "        pm.environment.set('currentUserRole', data.user.role);",
+          "      }",
+          "      if (typeof data.user.isVerified !== 'undefined') {",
+          "        pm.environment.set('currentUserIsVerified', String(data.user.isVerified));",
+          "      }",
+          "    }",
+          "  }",
+          "} catch (error) {",
+          "  // Ignore non-JSON or non-auth responses.",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/login"
+          }
+        },
+        {
+          "name": "Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/logout"
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/verify-email"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/forgot-password"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/reset-password"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{currentPassword}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/auth/change-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/users/me"
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"fullName\": \"Demo User\",\n  \"phone\": \"+15550000000\",\n  \"address\": \"123 Demo Street\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/users/me"
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/users?page={{page}}&limit={{limit}}&search={{search}}"
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}"
+          }
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}/role"
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "KYC",
+      "item": [
+        {
+          "name": "Submit KYC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  const body = pm.response.json();",
+                  "  if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('kycId', body.data.id);",
+                  "  }",
+                  "} catch (error) {",
+                  "  // Ignore non-JSON responses.",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documents\": [\n    {\n      \"type\": \"CITIZENSHIP_FRONT\",\n      \"filePath\": \"uploads/kyc/citizenship-front.png\",\n      \"mimeType\": \"image/png\",\n      \"sizeBytes\": 102400\n    },\n    {\n      \"type\": \"SELFIE\",\n      \"filePath\": \"uploads/kyc/selfie.png\",\n      \"mimeType\": \"image/png\",\n      \"sizeBytes\": 92340\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+              },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/kyc/submit"
+          }
+        },
+        {
+          "name": "Get My KYC Status",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "try {",
+                    "  const body = pm.response.json();",
+                    "  if (body && body.data && body.data.id) {",
+                    "    pm.environment.set('kycId', body.data.id);",
+                    "  }",
+                    "} catch (error) {",
+                    "  // Ignore non-JSON responses.",
+                    "}"
+                  ]
+                }
+              }
+            ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/kyc/status"
+          }
+        },
+        {
+          "name": "List KYC Applications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/kyc?page={{page}}&limit={{limit}}&status={{status}}&search={{search}}"
+          }
+        },
+        {
+          "name": "Get KYC By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/kyc/{{kycId}}"
+          }
+        },
+        {
+          "name": "Approve KYC",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/kyc/{{kycId}}/approve"
+          }
+        },
+        {
+          "name": "Reject KYC",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectionReason\": \"{{rejectionReason}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/kyc/{{kycId}}/reject"
+          }
+        },
+        {
+          "name": "Request KYC Resubmit",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"{{resubmitNote}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/kyc/{{kycId}}/request-resubmit"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "Upload Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  const body = pm.response.json();",
+                  "  if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('documentId', body.data.id);",
+                  "  }",
+                  "} catch (error) {",
+                  "  // Ignore non-JSON responses.",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": "{{documentFilePath}}"
+                },
+                {
+                  "key": "kycId",
+                  "type": "text",
+                  "value": "{{kycId}}"
+                },
+                {
+                  "key": "type",
+                  "type": "text",
+                  "value": "{{documentType}}"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/documents/upload"
+          }
+        },
+        {
+          "name": "Get Document",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/documents/{{documentId}}"
+          }
+        },
+        {
+          "name": "Get Document Versions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/documents/{{documentId}}/versions"
+          }
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/documents/{{documentId}}"
+          }
+        },
+        {
+          "name": "Replace Document",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": "{{replacementFilePath}}"
+                },
+                {
+                  "key": "type",
+                  "type": "text",
+                  "value": "{{documentType}}"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/{{apiVersion}}/documents/{{documentId}}/replace"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/admin/dashboard"
+          }
+        },
+        {
+          "name": "Users With KYC Status",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/admin/users-kyc?page={{page}}&limit={{limit}}&status={{status}}&search={{search}}"
+          }
+        },
+        {
+          "name": "Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/admin/audit?page={{page}}&limit={{limit}}&action=LOGIN&userId={{userId}}"
+          }
+        },
+        {
+          "name": "KYC Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/admin/stats/kyc"
+          }
+        },
+        {
+          "name": "Document Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/admin/stats/documents"
+          }
+        },
+        {
+          "name": "System Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/{{apiVersion}}/admin/stats/system"
+          }
+        }
+      ]
+    }
+  ]
+}

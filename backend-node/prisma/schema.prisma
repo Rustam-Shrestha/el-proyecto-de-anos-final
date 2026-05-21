@@ -1,0 +1,159 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Roles for RBAC
+model Role {
+  id    String @id @default(cuid())
+  name  String @unique
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Main user model
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  isVerified   Boolean @default(false)
+  isDeleted    Boolean @default(false)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  // Relations
+  profile       Profile?
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  kycApplications KycApplication[]
+  documents     Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([roleId])
+  @@map("users")
+}
+
+// User profile / extended information
+model Profile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName      String?
+  phone         String?
+  address       String?
+  dateOfBirth   DateTime?
+  avatarUrl     String?
+
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("profiles")
+}
+
+// Session management (refresh tokens)
+model Session {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash  String
+  isRevoked         Boolean @default(false)
+  expiresAt         DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// Audit logging
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  metadata  Json?
+  ip        String   @default("unknown")
+  userAgent String   @default("unknown")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// KYC Application
+model KycApplication {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         String   @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, RESUBMIT_REQUIRED
+  submittedAt    DateTime @default(now())
+  reviewedAt     DateTime?
+  reviewerId     String?
+  rejectionReason String?
+
+  // Relations
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("kyc_applications")
+}
+
+// Document storage
+model Document {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycId        String
+  kyc          KycApplication @relation(fields: [kycId], references: [id], onDelete: Cascade)
+  type         String   // CITIZENSHIP_FRONT, CITIZENSHIP_BACK, PASSPORT, SELFIE, OTHER
+  filePath     String   // e.g., kyc/documents/abc123_PASSPORT_1716000000000.pdf
+  mimeType     String
+  sizeBytes    Int
+  isDeleted    Boolean  @default(false)
+  version      Int      @default(1)
+
+  // Relations
+  versions DocumentVersion[]
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([kycId])
+  @@index([isDeleted])
+  @@map("documents")
+}
+
+// Document versioning
+model DocumentVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  filePath   String
+  version    Int
+
+  createdAt DateTime @default(now())
+
+  @@index([documentId])
+  @@map("document_versions")
+}

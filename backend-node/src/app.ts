@@ -18,7 +18,7 @@ const allowedOrigins = env.CORS_ORIGIN.split(",")
 	.map((origin) => origin.trim())
 	.filter(Boolean);
 
-const corsOrigin = (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+const corsOrigin = (origin: string | undefined, callback: (_error: Error | null, _allow?: boolean) => void) => {
 	if (!origin) {
 		return callback(null, true);
 	}

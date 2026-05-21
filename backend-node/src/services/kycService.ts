@@ -1,0 +1,477 @@
+import { prisma } from '@/config/database';
+import { logger } from '@/config/logger';
+import { AppError } from '@/utils/AppError';
+import { mailService } from '@/services/mailService';
+
+export interface SubmitKycInput {
+  userId: string;
+  documents: Array<{
+    type: string;
+    filePath: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+}
+
+export interface KycApplicationDetail {
+  id: string;
+  userId: string;
+  status: string;
+  submittedAt: Date;
+  reviewedAt: Date | null;
+  reviewerId: string | null;
+  rejectionReason: string | null;
+  documents: Array<{
+    id: string;
+    type: string;
+    filePath: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const kycService = {
+  /**
+   * Submit a new KYC application
+   */
+  async submitKyc(input: SubmitKycInput): Promise<KycApplicationDetail> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: input.userId },
+        include: { profile: true },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404);
+      }
+
+      // Check for existing active KYC application
+      const existingKyc = await prisma.kycApplication.findFirst({
+        where: {
+          userId: input.userId,
+          status: {
+            in: ['PENDING', 'UNDER_REVIEW'],
+          },
+        },
+      });
+
+      if (existingKyc) {
+        throw new AppError('You already have an active KYC application', 409);
+      }
+
+      // Create KYC application
+      const kyc = await prisma.kycApplication.create({
+        data: {
+          userId: input.userId,
+          status: 'PENDING',
+          documents: {
+            create: input.documents.map((doc) => ({
+              userId: input.userId,
+              type: doc.type,
+              filePath: doc.filePath,
+              mimeType: doc.mimeType,
+              sizeBytes: doc.sizeBytes,
+              version: 1,
+            })),
+          },
+        },
+        include: {
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      logger.info({ userId: input.userId, kycId: kyc.id }, 'KYC application submitted');
+
+      return kyc as KycApplicationDetail;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, userId: input.userId }, 'Failed to submit KYC');
+      throw new AppError('Failed to submit KYC application', 500);
+    }
+  },
+
+  /**
+   * Get user's KYC status
+   */
+  async getKycStatus(userId: string): Promise<KycApplicationDetail | null> {
+    try {
+      const kyc = await prisma.kycApplication.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      return kyc as KycApplicationDetail | null;
+    } catch (error) {
+      logger.error({ err: error, userId }, 'Failed to get KYC status');
+      throw new AppError('Failed to fetch KYC status', 500);
+    }
+  },
+
+  /**
+   * Get single KYC application by ID
+   */
+  async getKycById(kycId: string): Promise<KycApplicationDetail> {
+    try {
+      const kyc = await prisma.kycApplication.findUnique({
+        where: { id: kycId },
+        include: {
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!kyc) {
+        throw new AppError('KYC application not found', 404);
+      }
+
+      return kyc as unknown as KycApplicationDetail;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, kycId }, 'Failed to get KYC by ID');
+      throw new AppError('Failed to fetch KYC application', 500);
+    }
+  },
+
+  /**
+   * List KYC applications (admin/reviewer)
+   */
+  async listKycApplications(
+    limit: number = 10,
+    offset: number = 0,
+    status?: string,
+    search?: string
+  ): Promise<{ applications: any[]; total: number }> {
+    try {
+      const where: any = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (search) {
+        where.user = {
+          OR: [
+            { email: { contains: search, mode: 'insensitive' } },
+            { profile: { fullName: { contains: search, mode: 'insensitive' } } },
+          ],
+        };
+      }
+
+      const [applications, total] = await Promise.all([
+        prisma.kycApplication.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                profile: {
+                  select: {
+                    fullName: true,
+                  },
+                },
+              },
+            },
+            documents: {
+              select: {
+                id: true,
+                type: true,
+                filePath: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.kycApplication.count({ where }),
+      ]);
+
+      return { applications, total };
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to list KYC applications');
+      throw new AppError('Failed to fetch KYC applications', 500);
+    }
+  },
+
+  /**
+   * Approve KYC application
+   */
+  async approveKyc(kycId: string, reviewerId: string): Promise<KycApplicationDetail> {
+    try {
+      const kyc = await prisma.kycApplication.findUnique({
+        where: { id: kycId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      if (!kyc) {
+        throw new AppError('KYC application not found', 404);
+      }
+
+      if (kyc.status === 'APPROVED') {
+        throw new AppError('KYC application is already approved', 400);
+      }
+
+      const updated = await prisma.kycApplication.update({
+        where: { id: kycId },
+        data: {
+          status: 'APPROVED',
+          reviewedAt: new Date(),
+          reviewerId,
+        },
+        include: {
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      // Send approval email (fire-and-forget)
+      await mailService.sendKycApprovedMail(
+        kyc.user.email,
+        kyc.user.profile?.fullName
+      );
+
+      logger.info(
+        { kycId, userId: kyc.userId, reviewerId },
+        'KYC application approved'
+      );
+
+      return updated as KycApplicationDetail;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, kycId }, 'Failed to approve KYC');
+      throw new AppError('Failed to approve KYC application', 500);
+    }
+  },
+
+  /**
+   * Reject KYC application
+   */
+  async rejectKyc(
+    kycId: string,
+    reviewerId: string,
+    rejectionReason: string
+  ): Promise<KycApplicationDetail> {
+    try {
+      const kyc = await prisma.kycApplication.findUnique({
+        where: { id: kycId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      if (!kyc) {
+        throw new AppError('KYC application not found', 404);
+      }
+
+      if (kyc.status === 'REJECTED') {
+        throw new AppError('KYC application is already rejected', 400);
+      }
+
+      const updated = await prisma.kycApplication.update({
+        where: { id: kycId },
+        data: {
+          status: 'REJECTED',
+          reviewedAt: new Date(),
+          reviewerId,
+          rejectionReason,
+        },
+        include: {
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      // Send rejection email (fire-and-forget)
+      await mailService.sendKycRejectedMail(
+        kyc.user.email,
+        kyc.user.profile?.fullName,
+        rejectionReason
+      );
+
+      logger.info(
+        { kycId, userId: kyc.userId, reviewerId, rejectionReason },
+        'KYC application rejected'
+      );
+
+      return updated as KycApplicationDetail;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, kycId }, 'Failed to reject KYC');
+      throw new AppError('Failed to reject KYC application', 500);
+    }
+  },
+
+  /**
+   * Request resubmission of KYC application
+   */
+  async requestResubmit(kycId: string, reviewerId: string, note: string): Promise<KycApplicationDetail> {
+    try {
+      const kyc = await prisma.kycApplication.findUnique({
+        where: { id: kycId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      if (!kyc) {
+        throw new AppError('KYC application not found', 404);
+      }
+
+      if (kyc.status === 'RESUBMIT_REQUIRED') {
+        throw new AppError('Resubmission already requested for this KYC', 400);
+      }
+
+      const updated = await prisma.kycApplication.update({
+        where: { id: kycId },
+        data: {
+          status: 'RESUBMIT_REQUIRED',
+          reviewedAt: new Date(),
+          reviewerId,
+          rejectionReason: note,
+        },
+        include: {
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              filePath: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      // Send resubmit request email (fire-and-forget)
+      await mailService.sendKycResubmitMail(
+        kyc.user.email,
+        kyc.user.profile?.fullName,
+        note
+      );
+
+      logger.info(
+        { kycId, userId: kyc.userId, reviewerId },
+        'KYC resubmission requested'
+      );
+
+      return updated as KycApplicationDetail;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, kycId }, 'Failed to request resubmission');
+      throw new AppError('Failed to request resubmission', 500);
+    }
+  },
+};

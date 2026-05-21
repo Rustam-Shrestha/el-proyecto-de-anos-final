@@ -1,16 +1,35 @@
-import { NextFunction, Request, Response } from "express";
-import { logger } from "@config/logger";
+import type { Request, Response, NextFunction } from 'express';
+import { AppError } from '@/utils/AppError';
+import { apiResponse } from '@/utils/apiResponse';
+import { logger } from '@/config/logger';
+import { env } from '@/config/env';
 
 export const errorHandler = (
-  error: Error,
+  error: Error | AppError,
   _req: Request,
   res: Response,
   _next: NextFunction
-) => {
-  logger.error({ err: error }, "Unhandled error");
+): void => {
+  let statusCode = 500;
+  let message = 'Internal server error';
+  let details: unknown;
 
-  return res.status(500).json({
-    success: false,
-    message: "Internal server error"
-  });
+  if (error instanceof AppError) {
+    statusCode = error.statusCode;
+    message = error.message;
+    details = error.details;
+  } else if (error instanceof SyntaxError && 'body' in error) {
+    statusCode = 400;
+    message = 'Invalid request body';
+  } else {
+    logger.error({ err: error }, 'Unhandled error');
+  }
+
+  const response = apiResponse.error(
+    message,
+    statusCode,
+    env.NODE_ENV === 'development' ? details : undefined
+  );
+
+  res.status(statusCode).json(response);
 };

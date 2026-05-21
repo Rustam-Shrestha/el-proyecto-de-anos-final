@@ -1,176 +1,302 @@
-import { Router, Request, Response } from "express";
-import axios from "axios";
-import multer from "multer";
-import FormData from "form-data";
-import fs from "fs";
-import path from "path";
-import { env } from "@config/env";
-import { logger } from "@config/logger";
-import type { Express } from "express";
+import { Router } from 'express';
+import { authenticate } from '@/middleware/auth';
+import { authorize } from '@/middleware/rbac';
+import { validate } from '@/middleware/requestValidation';
+import {
+  submitKycSchema,
+  getKycStatusSchema,
+  listKycApplicationsSchema,
+  getKycByIdSchema,
+  approveKycSchema,
+  rejectKycSchema,
+  requestResubmitSchema,
+} from '@/routes/kycSchemas';
+import {
+  submitKyc,
+  getKycStatus,
+  listKycApplications,
+  getKycById,
+  approveKyc,
+  rejectKyc,
+  requestKycResubmit,
+} from '@/controllers/kycController';
 
-export const kycRoutes = Router();
-
-// FastAPI KYC backend URL
-const FASTAPI_URL = env.FASTAPI_URL || "http://localhost:8000";
-
-// Ensure uploads dir exists
-const UPLOAD_DIR = path.join(process.cwd(), "uploads", "kyc");
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req: Request, _file: Express.Multer.File, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req: Request, file: Express.Multer.File, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-});
-
-const upload = multer({ storage });
-
-/**
- * POST /kyc/upload - accept multipart from frontend, forward to FastAPI as multipart
- */
-kycRoutes.post("/upload", upload.single("file"), async (req: Request, res: Response) => {
-  const file = req.file as Express.Multer.File | undefined;
-  try {
-    if (!file) {
-      return res.status(400).json({ success: false, message: "Missing file" });
-    }
-
-    const fastApiUrl = `${FASTAPI_URL}/api/v1/kyc/upload`;
-
-    const form = new FormData();
-    // forward form fields
-    if (req.body.user_id) form.append("user_id", req.body.user_id);
-    if (req.body.document_type) form.append("document_type", req.body.document_type);
-
-    // attach file stream
-    const fileStream = fs.createReadStream(file.path);
-    form.append("file", fileStream, { filename: file.originalname });
-
-    const headers = Object.assign({}, form.getHeaders());
-
-    const response = await axios.post(fastApiUrl, form as any, {
-      headers,
-      maxBodyLength: Infinity,
-      timeout: 60000,
-    });
-
-    // cleanup temp file
-    fs.unlink(file.path, () => {});
-
-    return res.status(response.status).json(response.data);
-  } catch (error: unknown) {
-    // if file exists, attempt cleanup
-    if (file && fs.existsSync(file.path)) {
-      try { fs.unlinkSync(file.path); } catch {}
-    }
-
-    if (axios.isAxiosError(error)) {
-      if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
-        logger.error({ err: error, fastApiUrl: FASTAPI_URL }, "FastAPI service unavailable");
-        return res.status(503).json({
-          success: false,
-          message: `FastAPI service unavailable at ${FASTAPI_URL}. Start the FastAPI service and retry.`,
-        });
-      }
-
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || "Document upload failed";
-      logger.error({ err: error }, "KYC upload failed");
-      return res.status(status).json({ success: false, message });
-    }
-
-    logger.error({ err: error }, "Unexpected error during KYC upload");
-    return res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
+const kycRouter = Router();
 
 /**
- * POST /kyc/verify - Forward face verification to FastAPI
+ * @swagger
+ * /api/v1/kyc/submit:
+ *   post:
+ *     tags: [KYC]
+ *     summary: Submit a new KYC application
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [documents]
+ *             properties:
+ *               documents:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required: [type, filePath, mimeType, sizeBytes]
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       enum: [CITIZENSHIP_FRONT, CITIZENSHIP_BACK, PASSPORT, SELFIE, OTHER]
+ *                     filePath:
+ *                       type: string
+ *                     mimeType:
+ *                       type: string
+ *                     sizeBytes:
+ *                       type: number
+ *     responses:
+ *       201:
+ *         description: KYC application submitted successfully
+ *       409:
+ *         description: Active KYC application already exists
+ *       401:
+ *         description: Unauthorized
  */
-kycRoutes.post("/verify", async (req: Request, res: Response) => {
-  try {
-    const fastApiUrl = `${FASTAPI_URL}/api/v1/kyc/verify`;
-    
-    const response = await axios.post(fastApiUrl, req.body, {
-      headers: {
-        "Content-Type": "application/json",
-        ...req.headers,
-      },
-      timeout: 30000,
-    });
-
-    return res.status(response.status).json(response.data);
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
-        logger.error(
-          { err: error, fastApiUrl: FASTAPI_URL },
-          "FastAPI service unavailable"
-        );
-        return res.status(503).json({
-          success: false,
-          message: `FastAPI service unavailable at ${FASTAPI_URL}. Make sure the FastAPI backend is running.`,
-        });
-      }
-
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || "Face verification failed";
-      logger.error({ err: error }, "KYC verify failed");
-      return res.status(status).json({
-        success: false,
-        message,
-      });
-    }
-    
-    logger.error({ err: error }, "Unexpected error during KYC verify");
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
+kycRouter.post('/submit', authenticate, validate(submitKycSchema), submitKyc);
 
 /**
- * GET /kyc/status/:kycApplicationId - Retrieve KYC status from FastAPI
+ * @swagger
+ * /api/v1/kyc/status:
+ *   get:
+ *     tags: [KYC]
+ *     summary: Get current user's KYC status
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: KYC status retrieved
+ *       401:
+ *         description: Unauthorized
  */
-kycRoutes.get("/status/:kycApplicationId", async (req: Request, res: Response) => {
-  try {
-    const { kycApplicationId } = req.params;
-    const fastApiUrl = `${FASTAPI_URL}/api/v1/kyc/status/${kycApplicationId}`;
-    
-    const response = await axios.get(fastApiUrl, {
-      headers: {
-        ...req.headers,
-      },
-      timeout: 30000,
-    });
+kycRouter.get('/status', authenticate, validate(getKycStatusSchema), getKycStatus);
 
-    return res.status(response.status).json(response.data);
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
-        logger.error(
-          { err: error, fastApiUrl: FASTAPI_URL },
-          "FastAPI service unavailable"
-        );
-        return res.status(503).json({
-          success: false,
-          message: `FastAPI service unavailable at ${FASTAPI_URL}. Make sure the FastAPI backend is running.`,
-        });
-      }
+/**
+ * @swagger
+ * /api/v1/kyc:
+ *   get:
+ *     tags: [KYC]
+ *     summary: List all KYC applications
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: page
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - name: status
+ *         in: query
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, UNDER_REVIEW, APPROVED, REJECTED, RESUBMIT_REQUIRED]
+ *       - name: search
+ *         in: query
+ *         schema:
+ *           type: string
+ *           description: Search by email or full name
+ *     responses:
+ *       200:
+ *         description: KYC applications listed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                 meta:
+ *                   type: object
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin/Reviewer access required
+ */
+kycRouter.get(
+  '/',
+  authenticate,
+  authorize('ADMIN', 'REVIEWER'),
+  validate(listKycApplicationsSchema),
+  listKycApplications
+);
 
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || "Failed to retrieve KYC status";
-      logger.error({ err: error }, "KYC status retrieval failed");
-      return res.status(status).json({
-        success: false,
-        message,
-      });
-    }
-    
-    logger.error({ err: error }, "Unexpected error during KYC status retrieval");
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
+/**
+ * @swagger
+ * /api/v1/kyc/{id}:
+ *   get:
+ *     tags: [KYC]
+ *     summary: Get a specific KYC application
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: KYC application retrieved
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: KYC application not found
+ */
+kycRouter.get(
+  '/:id',
+  authenticate,
+  authorize('ADMIN', 'REVIEWER'),
+  validate(getKycByIdSchema),
+  getKycById
+);
+
+/**
+ * @swagger
+ * /api/v1/kyc/{id}/approve:
+ *   patch:
+ *     tags: [KYC]
+ *     summary: Approve a KYC application
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: KYC application approved
+ *       400:
+ *         description: Application already approved
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: KYC application not found
+ */
+kycRouter.patch(
+  '/:id/approve',
+  authenticate,
+  authorize('ADMIN', 'REVIEWER'),
+  validate(approveKycSchema),
+  approveKyc
+);
+
+/**
+ * @swagger
+ * /api/v1/kyc/{id}/reject:
+ *   patch:
+ *     tags: [KYC]
+ *     summary: Reject a KYC application
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rejectionReason]
+ *             properties:
+ *               rejectionReason:
+ *                 type: string
+ *                 minLength: 10
+ *     responses:
+ *       200:
+ *         description: KYC application rejected
+ *       400:
+ *         description: Application already rejected
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: KYC application not found
+ */
+kycRouter.patch(
+  '/:id/reject',
+  authenticate,
+  authorize('ADMIN', 'REVIEWER'),
+  validate(rejectKycSchema),
+  rejectKyc
+);
+
+/**
+ * @swagger
+ * /api/v1/kyc/{id}/request-resubmit:
+ *   patch:
+ *     tags: [KYC]
+ *     summary: Request resubmission of KYC application
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [note]
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 minLength: 10
+ *     responses:
+ *       200:
+ *         description: Resubmission requested
+ *       400:
+ *         description: Resubmission already requested
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: KYC application not found
+ */
+kycRouter.patch(
+  '/:id/request-resubmit',
+  authenticate,
+  authorize('ADMIN', 'REVIEWER'),
+  validate(requestResubmitSchema),
+  requestKycResubmit
+);
+
+export default kycRouter;

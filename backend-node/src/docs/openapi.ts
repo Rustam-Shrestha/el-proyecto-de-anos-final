@@ -1,23 +1,45 @@
-import swaggerJsdoc from "swagger-jsdoc";
+import { env } from '@/config/env';
 
-export const openApiSpec = swaggerJsdoc({
-  definition: {
-    openapi: "3.0.3",
-    info: {
-      title: "PERN Baseline API",
-      version: "1.0.0",
-      description: "Starter API for modular ERP-style systems"
+const openApiSpec = {
+  openapi: '3.0.0',
+  info: {
+    title: 'FinGuard API',
+    description: 'KYC and document verification API for FinGuard',
+    version: '1.0.0',
+    contact: {
+      name: 'FinGuard Support',
+      email: 'support@finguard.local',
     },
-    servers: [{ url: "http://localhost:4000" }],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT"
-        }
-      }
-    }
   },
-  apis: ["src/routes/*.ts"]
-});
+  servers: [
+    {
+      url: `http://localhost:${env.PORT}`,
+      description: 'Development server',
+    },
+  ],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'JWT Bearer token authentication',
+      },
+    },
+  },
+  security: [
+    {
+      bearerAuth: [],
+    },
+  ],
+  tags: [
+    { name: 'Users', description: 'User management endpoints' },
+    { name: 'Auth', description: 'Authentication endpoints' },
+    { name: 'KYC', description: 'KYC application endpoints' },
+    { name: 'Documents', description: 'Document upload and management' },
+    { name: 'Audit', description: 'Audit logging endpoints' },
+    { name: 'Health', description: 'System health checks' },
+  ],
+};
+
+export { openApiSpec };
