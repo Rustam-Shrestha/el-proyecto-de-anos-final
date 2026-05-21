@@ -12,7 +12,7 @@
 
 import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { kycApiService, type KYCStatus, type UploadResponse, type VerifyResponse } from "../api/kycApi";
+import { kycApiService, type UploadResponse, type VerifyResponse } from "../api/kycApi";
 
 interface UseKYCOptions {
   kycApplicationId?: string;

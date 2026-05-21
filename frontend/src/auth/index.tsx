@@ -35,7 +35,7 @@ const Auth = memo(() => {
           if (response?.data?.id) {
             navigate("/app/dashboard");
           }
-        } catch (err) {
+        } catch (_err) {
           // Profile fetch failed — stay on login
         }
       }

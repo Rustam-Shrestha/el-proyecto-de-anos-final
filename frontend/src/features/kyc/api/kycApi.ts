@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 /* global FormData */
 // KYC API Service - Frontend integration with FastAPI backend.
 

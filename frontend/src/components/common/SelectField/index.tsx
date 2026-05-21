@@ -78,7 +78,7 @@ const CustomSelectField = memo(({
     setDisplayValue(selectedLabel);
   }, [value, options, getOptionLabel]);
 
-  const handleInputClick = (e) => {
+  const handleInputClick = (_e) => {
     if (disabled) {
       return;
     }
@@ -123,9 +123,9 @@ const CustomSelectField = memo(({
           <option value="" disabled>
             {placeholder}
           </option>
-          {options.map((option, index) => (
+          {options.map((option, _index) => (
             <option
-              key={index}
+              key={_index}
               value={option.value || option}
               id={option.label || option}
             >

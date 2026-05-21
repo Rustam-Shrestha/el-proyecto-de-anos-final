@@ -16,7 +16,7 @@ import { createSlice, createSelector } from "@reduxjs/toolkit";
 // Initialize userData from localStorage (same as old ModalProvider)
 const loadUserData = () => {
   try {
-    const data = JSON.parse(localStorage.getItem("userData"));
+    const data = JSON.parse(localStorage.getItem("userData") || "null");
     return data && typeof data === 'object' ? data : {};
   } catch {
     return {};

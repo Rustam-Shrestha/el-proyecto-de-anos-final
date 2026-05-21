@@ -1,4 +1,5 @@
-import { ChangeEvent, InputHTMLAttributes, memo, useState } from "react";
+import type { ChangeEvent, InputHTMLAttributes, ReactNode } from "react";
+import { memo, useState } from "react";
 
 type LegacyInputFieldProps = {
   id?: string;
@@ -6,8 +7,8 @@ type LegacyInputFieldProps = {
   label: string;
   error?: string;
   className?: string;
-  icon?: React.ReactNode;
-  onValueChange?: (value: string, event: ChangeEvent<HTMLInputElement>) => void;
+  icon?: ReactNode;
+  onValueChange?: (_value: string, _event: ChangeEvent<HTMLInputElement>) => void;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "onChange">;
 
 export const LegacyInputField = memo(

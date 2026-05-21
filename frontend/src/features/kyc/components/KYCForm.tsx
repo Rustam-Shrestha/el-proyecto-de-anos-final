@@ -1,4 +1,3 @@
-/* global HTMLInputElement, HTMLTextAreaElement */
 import React, { memo, useCallback, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,14 +9,14 @@ import {
   SecondaryButton,
   FileUploadButton,
 } from "../../../components/common/Button";
-import type { KYCStatus } from "../api/kycApi";
 import { useKYC } from "../hooks/useKYC";
+import type { KYCStatus } from "../api/kycApi";
 
 type KYCInputProps = React.ComponentType<any>;
 
 interface KYCFormProps {
   userId: string;
-  onKYCComplete?: (kycApplicationId: string) => void;
+  onKYCComplete?: (_kycApplicationId: string) => void;
 }
 
 const KYCInputField = InputField as KYCInputProps;

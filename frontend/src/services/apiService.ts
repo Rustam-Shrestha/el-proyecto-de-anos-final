@@ -32,7 +32,7 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (_error) => Promise.reject(_error)
 );
 
 // Response interceptor to handle unauthorized errors

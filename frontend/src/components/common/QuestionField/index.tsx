@@ -32,7 +32,7 @@ const QuestionsField = memo(({ section, questions = [], setQuestions }) => {
     <div className="flex flex-col gap-4 mt-3">
       {questions
         .filter((q) => q.section === section)
-        .map((q, idx) => {
+        .map((q, _idx) => {
           const realIndex = questions.indexOf(q);
           return (
             <div key={realIndex} className="p-3 border rounded bg-gray-50">

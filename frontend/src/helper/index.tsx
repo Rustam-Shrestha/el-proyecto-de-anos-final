@@ -67,7 +67,7 @@ const convertToBinaryString = (file) => {
       const binaryString = reader.result; // Binary data as a string
       resolve(binaryString);
     };
-    reader.onerror = (error) => {
+    reader.onerror = (_error) => {
       reader.abort();
       reject(new Error("Failed to convert file to binary"));
     };
@@ -326,7 +326,7 @@ const isSuperUser = () => {
   try {
     const userData = JSON.parse(localStorage.getItem("userData"));
     return userData?.isSuperUser;
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 };
