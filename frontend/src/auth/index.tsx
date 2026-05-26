@@ -51,8 +51,8 @@ const Auth = memo(() => {
         { payload: form },
         {
           onSuccess: (response) => {
-            const accessToken = response?.token ?? response?.tokens?.access?.token;
-            const refreshToken = response?.refreshToken ?? response?.tokens?.refresh?.token;
+            const accessToken = response?.accessToken;
+            const refreshToken = response?.refreshToken;
             const user = response?.user;
 
             localStorage.setItem("accessToken", accessToken || "");
@@ -87,7 +87,7 @@ const Auth = memo(() => {
 
   return (
     <div className="auth-shell p-4">
-      <Modal size="md" title="CMS Login" onClose={() => {}}>
+      <Modal size="md" title="CMS Login" onClose={() => { }}>
         <div className="p-6">
           <form className="flex flex-col gap-4" onSubmit={handleLogin}>
             <div>
