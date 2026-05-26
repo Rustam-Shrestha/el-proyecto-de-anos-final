@@ -7,6 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["auth"]
 }
 
 // Roles for RBAC
@@ -18,6 +19,8 @@ model Role {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("auth")
 }
 
 // Main user model
@@ -44,6 +47,7 @@ model User {
   @@index([email])
   @@index([roleId])
   @@map("users")
+  @@schema("auth")
 }
 
 // User profile / extended information
@@ -61,6 +65,7 @@ model Profile {
 
   @@index([userId])
   @@map("profiles")
+  @@schema("auth")
 }
 
 // Session management (refresh tokens)
@@ -77,6 +82,7 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+  @@schema("auth")
 }
 
 // Audit logging
@@ -95,6 +101,7 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+  @@schema("auth")
 }
 
 // KYC Application
@@ -117,6 +124,7 @@ model KycApplication {
   @@index([userId])
   @@index([status])
   @@map("kyc_applications")
+  @@schema("auth")
 }
 
 // Document storage
@@ -142,6 +150,7 @@ model Document {
   @@index([kycId])
   @@index([isDeleted])
   @@map("documents")
+  @@schema("auth")
 }
 
 // Document versioning
@@ -156,4 +165,5 @@ model DocumentVersion {
 
   @@index([documentId])
   @@map("document_versions")
+  @@schema("auth")
 }

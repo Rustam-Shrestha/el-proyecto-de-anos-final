@@ -14,7 +14,7 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: pern_baseline
+          POSTGRES_DB: finguard
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
@@ -43,7 +43,7 @@ jobs:
         env:
           NODE_ENV: test
           PORT: 4000
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pern_baseline
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/finguard?schema=auth
           JWT_ACCESS_SECRET: dev_access_secret_change_me
           JWT_REFRESH_SECRET: dev_refresh_secret_change_me
           JWT_ACCESS_TTL: 15m
@@ -59,7 +59,7 @@ jobs:
         env:
           NODE_ENV: test
           PORT: 4000
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pern_baseline
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/finguard?schema=auth
           JWT_ACCESS_SECRET: dev_access_secret_change_me
           JWT_REFRESH_SECRET: dev_refresh_secret_change_me
           JWT_ACCESS_TTL: 15m

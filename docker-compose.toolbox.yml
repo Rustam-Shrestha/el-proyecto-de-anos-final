@@ -5,7 +5,7 @@ services:
     image: postgres:16-alpine
     container_name: pern_postgres
     environment:
-      POSTGRES_DB: pern_baseline
+      POSTGRES_DB: finguard
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -25,7 +25,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 4000
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pern_baseline
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/finguard?schema=auth
       JWT_ACCESS_SECRET: dev_access_secret_change_me
       JWT_REFRESH_SECRET: dev_refresh_secret_change_me
       JWT_ACCESS_TTL: 15m
@@ -45,7 +45,7 @@ services:
     depends_on:
       - postgres
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pern_baseline
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/finguard?schema=auth
     ports:
       - "8000:8000"
     volumes:

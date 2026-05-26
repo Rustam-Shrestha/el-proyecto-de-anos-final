@@ -11,8 +11,11 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings from environment variables."""
 
+    # Runtime
+    NODE_ENV: str = "development"
+
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:admin@localhost:5432/mydb"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:admin@localhost:5432/finguard"
 
     # API
     API_HOST: str = "0.0.0.0"

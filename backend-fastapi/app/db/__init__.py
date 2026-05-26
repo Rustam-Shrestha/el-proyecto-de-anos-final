@@ -5,6 +5,7 @@ Provides async database session management and initialization.
 """
 
 import logging
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     create_async_engine,
     AsyncSession,
@@ -38,8 +39,12 @@ async def init_db():
         expire_on_commit=False,
     )
 
-    # Create tables
+    # Rebuild the schema in non-production runs so stale local tables do not
+    # keep old column types around after model changes.
     async with engine.begin() as conn:
+        if settings.NODE_ENV != "production":
+            await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+            await conn.execute(text("CREATE SCHEMA public"))
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created successfully")
 

@@ -149,7 +149,7 @@ Frontend (React)
 ```env
 NODE_ENV=development
 PORT=4000
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pern_baseline
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/finguard
 JWT_ACCESS_SECRET=your_secret_key
 JWT_REFRESH_SECRET=your_secret_key
 FASTAPI_URL=http://localhost:8000       # Local development
@@ -160,7 +160,7 @@ Docker Compose sets `FASTAPI_URL=http://backend-fastapi:8000` (service name).
 
 ### backend-fastapi (.env)
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pern_baseline
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/finguard
 ```
 
 ## File Structure
@@ -245,7 +245,7 @@ cd backend-node
 
 **Database**:
 ```bash
-psql -U postgres -d pern_baseline
+psql -U postgres -d finguard
 ```
 
 ## TypeScript Types
