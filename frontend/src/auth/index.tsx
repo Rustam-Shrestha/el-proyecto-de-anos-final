@@ -1,131 +1,146 @@
-// @ts-nocheck
-/**
- * Auth (Login) Page
- *
- * Handles user authentication with email/password.
- * Uses Redux (useAuth) for user state instead of the old ModalContext.
- * Uses useApiMutation (TanStack Query) instead of the withApiCall HOC.
- */
-import { memo, useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { PrimaryButton } from "@components/common/Button";
-import Modal from "@components/common/Modal";
-import useAuth from "@hooks/useAuth";
-import { useApiMutation } from "@hooks/useApiQuery";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@components/common/Button";
+import InputField from "@components/common/Input";
+import PopMessage from "@components/PopMessage";
+import { useAppDispatch, useAppSelector } from "@hooks/reduxHooks";
 import { apiService } from "@services/apiService";
 import { endpoints } from "@services/endpoints";
+import { loginSchema, type LoginInput } from "@shared/validation/authSchemas";
+import {
+  selectIsAuthenticated,
+  selectUser,
+  setError,
+  setLoading,
+  setTokens,
+  setUser,
+} from "@store/slices/authSlice";
 
-const Auth = memo(() => {
+const Auth = () => {
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const [errorMessage, setErrorMessage] = useState(null);
-  const [form, setForm] = useState({ email: "", password: "" });
-  const { setUserData, userData } = useAuth();
+  const user = useAppSelector(selectUser);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
-  const { mutate: loginMutate, isPending } = useApiMutation(
-    endpoints.login,
-    "post"
-  );
+  const {
+    register,
+    handleSubmit,
+    setError: setFieldError,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
-  // Redirect if already authenticated
   useEffect(() => {
-    (async () => {
-      if (userData?.id) {
-        try {
-          const response = await apiService.get(endpoints.myProfile);
-          if (response?.data?.id) {
-            navigate("/app/dashboard");
-          }
-        } catch (_err) {
-          // Profile fetch failed — stay on login
-        }
+    const savedDarkMode = localStorage.getItem("darkMode") === "true";
+    document.documentElement.classList.toggle("dark", savedDarkMode);
+    const savedTheme = localStorage.getItem("selectedTheme");
+    if (savedTheme) {
+      document.documentElement.style.setProperty("--theme-primary", savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      navigate("/app/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate, user?.id]);
+
+  const handleLogin = async (values: LoginInput) => {
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+
+    try {
+      const response = await apiService.post(endpoints.login, values);
+      const payload = response?.data?.data ?? response?.data ?? response;
+      const accessToken = payload?.accessToken ?? null;
+      const refreshToken = payload?.refreshToken ?? null;
+      const nextUser = payload?.user ?? null;
+
+      if (!accessToken || !nextUser) {
+        throw new Error("Login failed. Please verify your credentials.");
       }
-    })();
-  }, [userData, navigate]);
 
-  const handleLogin = useCallback(
-    (event) => {
-      event.preventDefault();
-      setErrorMessage(null);
-
-      loginMutate(
-        { payload: form },
-        {
-          onSuccess: (response) => {
-            const accessToken = response?.accessToken;
-            const refreshToken = response?.refreshToken;
-            const user = response?.user;
-
-            localStorage.setItem("accessToken", accessToken || "");
-            localStorage.setItem(
-              "userAuth",
-              JSON.stringify({
-                accessToken,
-                refreshToken,
-                user
-              })
-            );
-            localStorage.setItem("userData", JSON.stringify(user));
-
-            setUserData(user);
-
-            if (accessToken) {
-              navigate("/app/dashboard");
-            } else {
-              setErrorMessage("Invalid credentials. Please try again.");
-            }
-          },
-          onError: (err) => {
-            setErrorMessage(
-              err?.message || "An error occurred during login."
-            );
-          },
-        }
+      localStorage.setItem("accessToken", accessToken);
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
+      } else {
+        localStorage.removeItem("refreshToken");
+      }
+      localStorage.setItem("user", JSON.stringify(nextUser));
+      localStorage.setItem("userData", JSON.stringify(nextUser));
+      localStorage.setItem(
+        "userAuth",
+        JSON.stringify({ accessToken, refreshToken, user: nextUser })
       );
-    },
-    [loginMutate, setUserData, navigate, form]
-  );
+
+      dispatch(setTokens({ accessToken, refreshToken: refreshToken ?? "" }));
+      dispatch(setUser(nextUser));
+
+      PopMessage.success("Login successful");
+      navigate("/app/dashboard", { replace: true });
+    } catch (error: unknown) {
+      const apiError = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const message =
+        apiError?.response?.data?.message || apiError?.message || "Login failed";
+      dispatch(setError(message));
+      setFieldError("email", { type: "manual", message });
+      PopMessage.error(message);
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
 
   return (
-    <div className="auth-shell p-4">
-      <Modal size="md" title="CMS Login" onClose={() => { }}>
-        <div className="p-6">
-          <form className="flex flex-col gap-4" onSubmit={handleLogin}>
-            <div>
-              <label className="block text-sm mb-1 text-primary">Email</label>
-              <input
-                type="email"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-slate-800"
-                placeholder="admin@example.com"
-                value={form.email}
-                onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-                required
-              />
-            </div>
+    <div className="min-h-screen bg-[var(--bg-color)] px-4 py-10 text-[var(--text-color)] transition-colors dark:bg-[#10211a]">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl items-center justify-center">
+        <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-xl transition-colors dark:bg-[#18251f] sm:p-8">
+          <div className="mb-6 space-y-2 text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">
+              CMS Access
+            </p>
+            <h1 className="text-3xl font-semibold text-[var(--text-color)]">Login to FinGuard</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-300">Enter your credentials</p>
+          </div>
 
-            <div>
-              <label className="block text-sm mb-1 text-primary">Password</label>
-              <input
-                type="password"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-slate-800"
-                placeholder="********"
-                value={form.password}
-                onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                required
-              />
-            </div>
+          <form
+            className="mx-auto flex w-full max-w-md flex-col gap-4 space-y-4"
+            onSubmit={handleSubmit(handleLogin)}
+          >
+            <InputField
+              label="Email"
+              type="email"
+              placeholder="admin@example.com"
+              autoComplete="email"
+              error={errors.email?.message}
+              {...register("email")}
+            />
 
-            {errorMessage ? <p className="text-red text-sm">{errorMessage}</p> : null}
+            <InputField
+              label="Password"
+              type="password"
+              placeholder="********"
+              autoComplete="current-password"
+              error={errors.password?.message}
+              {...register("password")}
+            />
 
             <div className="flex justify-end">
-              <PrimaryButton type="submit" label="Login" loading={isPending} />
+              <Button type="submit" isLoading={isSubmitting} className="min-w-32">
+                Login
+              </Button>
             </div>
           </form>
         </div>
-      </Modal>
+      </div>
     </div>
   );
-});
-
-Auth.displayName = "Auth";
+};
 
 export default Auth;
