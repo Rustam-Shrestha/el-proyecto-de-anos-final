@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import path from "path";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
 import pinoHttp from "pino-http";
@@ -40,6 +41,7 @@ app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger }));
 app.use(passport.initialize());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 app.use("/api/v1", apiRouter);

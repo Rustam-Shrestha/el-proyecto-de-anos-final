@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '@/middleware/auth';
 import { authorize } from '@/middleware/rbac';
 import { validate } from '@/middleware/requestValidation';
+import { avatarUpload } from '@/middleware/avatarUpload';
 import {
   listUsersSchema,
   getUserByIdSchema,
@@ -12,6 +13,8 @@ import {
 import {
   getMe,
   updateMe,
+  uploadAvatar,
+  deleteAvatar,
   listUsers,
   getUser,
   changeUserRole,
@@ -93,6 +96,10 @@ userRouter.get('/me', authenticate, getMe);
  *         description: Unauthorized
  */
 userRouter.patch('/me', authenticate, validate(updateUserSchema), updateMe);
+
+userRouter.patch('/me/avatar', authenticate, avatarUpload.single('avatar'), uploadAvatar);
+
+userRouter.delete('/me/avatar', authenticate, deleteAvatar);
 
 /**
  * @swagger

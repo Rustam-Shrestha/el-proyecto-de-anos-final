@@ -1,8 +1,26 @@
 import type { Request, Response, NextFunction } from 'express';
+import fs from 'fs/promises';
+import path from 'path';
 import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
+
+const isUploadPath = (value?: string | null) => Boolean(value && value.startsWith('/uploads/'));
+
+const resolveUploadFilePath = (value: string) => path.join(process.cwd(), value.replace(/^\//, ''));
+
+const deleteUploadIfPresent = async (value?: string | null): Promise<void> => {
+  if (!isUploadPath(value)) {
+    return;
+  }
+
+  try {
+    await fs.unlink(resolveUploadFilePath(value as string));
+  } catch {
+    // Missing files are fine; the database record is authoritative.
+  }
+};
 
 /**
  * GET /api/v1/users/me
@@ -45,6 +63,82 @@ export const updateMe = async (req: Request, res: Response, next: NextFunction):
     });
 
     res.json(apiResponse.success('Profile updated', updated));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/v1/users/me/avatar
+ * Upload or replace current user's avatar
+ */
+export const uploadAvatar = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const file = req.file as { filename: string } | undefined;
+
+    if (!file) {
+      res.status(400).json(apiResponse.error('Avatar file is required', 400));
+      return;
+    }
+
+    const currentProfile = await userService.getUserProfile(req.user.id);
+    const previousAvatarUrl = currentProfile.avatarUrl;
+    const avatarUrl = `/uploads/avatars/${file.filename}`;
+    const updated = await userService.updateProfileAvatar(req.user.id, avatarUrl);
+
+    if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
+      await deleteUploadIfPresent(previousAvatarUrl);
+    }
+
+    await auditService.log({
+      userId: req.user.id,
+      action: 'UPDATE_AVATAR',
+      metadata: { avatarUrl },
+      ip: req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(apiResponse.success('Avatar updated', updated));
+  } catch (error) {
+    const file = req.file as { filename: string } | undefined;
+    if (file) {
+      await deleteUploadIfPresent(`/uploads/avatars/${file.filename}`);
+    }
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/v1/users/me/avatar
+ * Remove current user's avatar
+ */
+export const deleteAvatar = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const currentProfile = await userService.getUserProfile(req.user.id);
+    const previousAvatarUrl = currentProfile.avatarUrl;
+    const updated = await userService.removeProfileAvatar(req.user.id);
+
+    await deleteUploadIfPresent(previousAvatarUrl);
+
+    await auditService.log({
+      userId: req.user.id,
+      action: 'DELETE_AVATAR',
+      metadata: { previousAvatarUrl },
+      ip: req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(apiResponse.success('Avatar removed', updated));
   } catch (error) {
     next(error);
   }

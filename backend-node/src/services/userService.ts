@@ -3,12 +3,43 @@ import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import type { User } from '@prisma/client';
 
+type UserProfileFields = {
+  fullName?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  avatarUrl?: string | null;
+};
+
+type UserWithProfile = Pick<User, 'id' | 'email' | 'role' | 'isVerified' | 'isDeleted' | 'createdAt' | 'updatedAt'> & {
+  profile?: UserProfileFields | null;
+};
+
 export type UserListItem = Pick<User, 'id' | 'email' | 'role' | 'isVerified' | 'createdAt'>;
 
 export type UserDetail = Pick<
   User,
   'id' | 'email' | 'role' | 'isVerified' | 'isDeleted' | 'createdAt' | 'updatedAt'
->;
+> & UserProfileFields;
+
+const profileSelect = {
+  fullName: true,
+  phone: true,
+  address: true,
+  avatarUrl: true,
+} as const;
+
+const mapUserProfile = (user: UserWithProfile): Omit<UserDetail, 'isDeleted'> => ({
+  id: user.id,
+  email: user.email,
+  role: user.role,
+  isVerified: user.isVerified,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+  fullName: user.profile?.fullName ?? null,
+  phone: user.profile?.phone ?? null,
+  address: user.profile?.address ?? null,
+  avatarUrl: user.profile?.avatarUrl ?? null,
+});
 
 export const userService = {
   /**
@@ -105,6 +136,9 @@ export const userService = {
           isVerified: true,
           createdAt: true,
           updatedAt: true,
+          profile: {
+            select: profileSelect,
+          },
         },
       });
 
@@ -112,7 +146,7 @@ export const userService = {
         throw new AppError('User not found', 404);
       }
 
-      return user;
+      return mapUserProfile(user);
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to get user profile');
@@ -150,9 +184,40 @@ export const userService = {
         }
       }
 
-      const updated = await prisma.user.update({
+      if (data.email) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { email: data.email },
+        });
+      }
+
+      const profileData = {
+        fullName: data.fullName,
+        phone: data.phone,
+        address: data.address,
+      };
+
+      const hasProfileUpdates = Object.values(profileData).some((value) => value !== undefined);
+
+      if (hasProfileUpdates) {
+        await prisma.profile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            fullName: data.fullName,
+            phone: data.phone,
+            address: data.address,
+          },
+          update: {
+            ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
+            ...(data.phone !== undefined ? { phone: data.phone } : {}),
+            ...(data.address !== undefined ? { address: data.address } : {}),
+          },
+        });
+      }
+
+      const updated = await prisma.user.findUnique({
         where: { id: userId },
-        data,
         select: {
           id: true,
           email: true,
@@ -161,14 +226,93 @@ export const userService = {
           isDeleted: true,
           createdAt: true,
           updatedAt: true,
+          profile: {
+            select: profileSelect,
+          },
         },
       });
 
-      return updated;
+      if (!updated) {
+        throw new AppError('User not found', 404);
+      }
+
+      return mapUserProfile(updated);
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to update user');
       throw new AppError('Failed to update user', 500);
+    }
+  },
+
+  async updateProfileAvatar(userId: string, avatarUrl: string): Promise<UserDetail> {
+    try {
+      await prisma.profile.upsert({
+        where: { userId },
+        create: { userId, avatarUrl },
+        update: { avatarUrl },
+      });
+
+      const updated = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isVerified: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
+          profile: {
+            select: profileSelect,
+          },
+        },
+      });
+
+      if (!updated) {
+        throw new AppError('User not found', 404);
+      }
+
+      return mapUserProfile(updated);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, userId }, 'Failed to update profile avatar');
+      throw new AppError('Failed to update profile avatar', 500);
+    }
+  },
+
+  async removeProfileAvatar(userId: string): Promise<UserDetail> {
+    try {
+      await prisma.profile.upsert({
+        where: { userId },
+        create: { userId, avatarUrl: null },
+        update: { avatarUrl: null },
+      });
+
+      const updated = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isVerified: true,
+          isDeleted: true,
+          createdAt: true,
+          updatedAt: true,
+          profile: {
+            select: profileSelect,
+          },
+        },
+      });
+
+      if (!updated) {
+        throw new AppError('User not found', 404);
+      }
+
+      return mapUserProfile(updated);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, userId }, 'Failed to remove profile avatar');
+      throw new AppError('Failed to remove profile avatar', 500);
     }
   },
 

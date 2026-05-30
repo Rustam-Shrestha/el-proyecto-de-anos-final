@@ -93,6 +93,10 @@ declare module '@/middleware/upload' {
   export const uploadMiddleware: any;
 }
 
+declare module '@/middleware/avatarUpload' {
+  export const avatarUpload: any;
+}
+
 declare module '@/routes/documentSchemas' {
   export const uploadDocumentSchema: any;
   export const getDocumentSchema: any;
@@ -107,4 +111,15 @@ declare module '@/controllers/documentController' {
   export const getDocumentVersions: any;
   export const deleteDocument: any;
   export const replaceDocument: any;
+}
+
+declare module '@/controllers/userController' {
+  export const getMe: any;
+  export const updateMe: any;
+  export const uploadAvatar: any;
+  export const deleteAvatar: any;
+  export const listUsers: any;
+  export const getUser: any;
+  export const changeUserRole: any;
+  export const deleteUser: any;
 }
