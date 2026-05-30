@@ -1,49 +1,28 @@
-import { memo, useState } from "react";
-import { useCreateUser, useUsers } from "@features/users/hooks/useUsers";
-import { Modal } from "@shared/components/Modal/Modal";
-import { useModal } from "@shared/hooks/useModal";
+import { memo } from "react";
+import { Plus } from "lucide-react";
+import UsersList from "@features/users/components/UsersList";
 
 const UsersPage = () => {
-  const [page] = useState(1);
-  const usersQuery = useUsers(page, 10);
-  const createUserMutation = useCreateUser();
-  const { isOpen, openModal, closeModal } = useModal();
-
-  const handleCreate = async () => {
-    await createUserMutation.mutateAsync({
-      email: `user${Date.now()}@example.com`,
-      role: "staff"
-    });
-    closeModal();
-  };
-
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2>User Management</h2>
-        <button data-testid="open-user-modal" onClick={openModal} type="button">
-          New User
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">Users Management</p>
+          <h2 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">Users Management</h2>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Browse the current user directory.</p>
+        </div>
+
+        <button
+          type="button"
+          disabled
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-200 px-4 py-2 text-sm font-medium text-gray-500 opacity-70 dark:bg-gray-800 dark:text-gray-400"
+        >
+          <Plus className="h-4 w-4" />
+          Add User
         </button>
       </div>
 
-      {usersQuery.isLoading && <p>Loading users...</p>}
-      {usersQuery.error && <p>Failed to load users.</p>}
-
-      <ul data-testid="users-list" className="list">
-        {usersQuery.data?.data.map((user) => (
-          <li key={user.id} className="list-item">
-            <span>{user.email}</span>
-            <span>{user.role}</span>
-          </li>
-        ))}
-      </ul>
-
-      <Modal open={isOpen} onClose={closeModal} title="Create User">
-        <p>Create a sample user record to verify CRUD baseline.</p>
-        <button data-testid="submit-user-create" onClick={handleCreate} type="button">
-          Save
-        </button>
-      </Modal>
+      <UsersList />
     </section>
   );
 };
