@@ -6,6 +6,7 @@ import path from "node:path";
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    dedupe: ["react", "react-dom"],
     alias: {
       "@app": path.resolve(__dirname, "src/app"),
       "@features": path.resolve(__dirname, "src/features"),

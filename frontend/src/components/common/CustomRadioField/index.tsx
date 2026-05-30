@@ -20,7 +20,7 @@ const CustomRadioField = memo(({
         <label className="text-sm font-normal text-primary mb-2">{label}</label>
       )}
       <div className={`flex ${className ? className : "items-center"} gap-6`}>
-        {options.map((option, index) => (
+        {options.map((option, _index) => (
           <div
             key={`${name}-${option.value}`}
             className="flex items-center space-x-2"

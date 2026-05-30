@@ -8,7 +8,7 @@ import React, { memo } from "react";
 
 const Footer = memo(() => {
   return (
-    <footer className="w-full text-center text-[9px] font-secondary bg-white text-gray-500 py-2">
+    <footer className="w-full text-center text-[9px] font-secondary bg-white text-gray-500 py-2 dark:bg-gray-900 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
       <div>2024(c) Webapp, Rustam</div>
       <div>Terms. Privacy. Program Policy</div>
     </footer>

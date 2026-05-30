@@ -20,6 +20,7 @@ import useUI from "../hooks/useUI";
 import { CustomDatePicker } from "./common";
 import SelectFilter from "./common/SelectFilter/SelectFilter";
 import { Menu, X } from "lucide-react";
+import RightSidebar from "./common/RightSidebar";
 
 const PageMaker = ({ basePath, menu }) => {
   const location = useLocation();
@@ -132,6 +133,11 @@ const PageMaker = ({ basePath, menu }) => {
   };
 
   const activeFilters = getActiveFilters();
+
+  const handleFileUpload = (file) => {
+    // default handler — can be enhanced by pages via context or props
+    console.log("RightSidebar file uploaded:", file);
+  };
 
   return (
     <div className="w-full h-full relative">
@@ -477,7 +483,13 @@ const PageMaker = ({ basePath, menu }) => {
       </div>
 
       <div className="w-full flex flex-col items-center justify-center pt-4">
-        <Outlet context={{ filters }} />
+        <div className="w-full max-w-[1300px] px-3 lg:px-6 flex gap-6">
+          <main className="flex-1 min-w-0">
+            <Outlet context={{ filters }} />
+          </main>
+
+          <RightSidebar onFileUpload={handleFileUpload} quickLinks={[]} />
+        </div>
         {modalContent}
       </div>
     </div>

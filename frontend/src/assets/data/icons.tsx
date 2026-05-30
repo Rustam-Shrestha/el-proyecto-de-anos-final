@@ -155,7 +155,7 @@ const PlusIcon = () => (
   </svg>
 );
 
-const CommentIcon = ({ size = "7" }) => (
+const CommentIcon = ({ size: _size = "7" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"

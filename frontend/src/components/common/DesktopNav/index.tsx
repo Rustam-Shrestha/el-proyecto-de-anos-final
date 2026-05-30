@@ -20,7 +20,7 @@ const DesktopNav = ({
   onNavClick,
 }) => {
   return (
-    <div className="hidden lg:flex text-gray-600 text-sm items-center px-4 py-2 relative">
+    <div className="hidden lg:flex text-gray-600 dark:text-gray-200 text-sm items-center px-4 py-2 relative">
       {navItems.map((item, index) => (
         <div
           onMouseEnter={() =>
@@ -40,7 +40,7 @@ const DesktopNav = ({
                 : "hover:text-primary"
             } ${
               index !== navItems.length - 1
-                ? "border-r border-gray-300 pr-4 mr-4"
+                ? "border-r border-gray-300 dark:border-gray-700 pr-4 mr-4"
                 : ""
             }`}
             onClick={(e) => {
@@ -61,12 +61,12 @@ const DesktopNav = ({
           {item.hasDesktopDropdown &&
             openDropdown === item.label &&
             !item.isDisable && (
-              <ul className="absolute left-0 top-8 z-50 bg-white border border-gray-200 rounded shadow-lg w-40">
+              <ul className="absolute left-0 top-8 z-50 bg-white border border-gray-200 rounded shadow-lg w-40 dark:bg-gray-800 dark:border-gray-700">
                 {item.dropdownItems?.map((dropdownItem, dropdownIndex) => (
-                  <li key={dropdownIndex} className="hover:bg-gray-100">
+                  <li key={dropdownIndex} className="hover:bg-gray-100 dark:hover:bg-gray-700">
                     <Link
                       to={dropdownItem.path}
-                      className="block px-4 py-2 text-sm text-gray-700"
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-100"
                     >
                       {dropdownItem.label}
                     </Link>

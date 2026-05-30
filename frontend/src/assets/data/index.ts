@@ -102,6 +102,12 @@ const getNavItems = (permissions, isSuperUser) => {
       // Hide dropdown if all items are disabled
     },
     {
+      label: "KYC",
+      path: "/app/kyc",
+      hasDropdown: false,
+      isDisable: false,
+    },
+    {
       label: "To-Do",
       path: "/todo",
       hasDropdown: true,

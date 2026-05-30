@@ -1,67 +1,91 @@
-// @ts-nocheck
-/**
- * InputField Component — Memoized
- *
- * Wrapped in React.memo to prevent unnecessary re-renders.
- */
-import React, { memo, useState } from "react";
+import {
+  forwardRef,
+  useId,
+  useState,
+  type InputHTMLAttributes,
+  type ReactNode,
+} from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-const InputField = memo(({
-  id,
-  label,
-  value,
-  type,
-  placeholder,
-  icon,
-  onChange,
-  error,
-  name,
-  className = "",
-  ...props
-}) => {
-  const [showPassword, setShowPassword] = useState(false);
+export type InputFieldProps = InputHTMLAttributes<HTMLInputElement> & {
+  label?: string;
+  error?: string;
+  icon?: ReactNode;
+  className?: string;
+};
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
+  (
+    {
+      id,
+      label,
+      type = "text",
+      placeholder,
+      icon,
+      error,
+      className = "",
+      disabled,
+      ...props
+    },
+    ref
+  ) => {
+    const generatedId = useId();
+    const inputId = id || generatedId;
+    const [showPassword, setShowPassword] = useState(false);
+    const resolvedType = type === "password" && showPassword ? "text" : type;
+    const showPasswordToggle = type === "password";
+    const inputClasses = [
+      "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+      error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "",
+      disabled ? "cursor-not-allowed bg-gray-100 text-gray-500" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
-  return (
-    <div className={`flex flex-col w-full ${className}`.trim()}>
-      <label className="text-sm font-normal mb-1 text-primary">{label}</label>
-      <div className="relative">
-        <input
-          {...props}
-          id={id}
-          name={name}
-          type={
-            type === "password" ? (showPassword ? "text" : "password") : type
-          }
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className={`${
-            type === "date" ? "uppercase" : ""
-          } w-full text-sm bg-[#F6F6F6] text-gray-500 px-3 py-2.5 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-primary`}
-        />
-        {type === "password" ? (
-          <div
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer"
-            onClick={togglePasswordVisibility}
-          >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-          </div>
-        ) : (
-          icon && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+    return (
+      <div className={`flex w-full flex-col ${className}`.trim()}>
+        {label ? (
+          <label htmlFor={inputId} className="mb-1 text-sm font-medium text-gray-700">
+            {label}
+          </label>
+        ) : null}
+        <div className="relative">
+          <input
+            {...props}
+            ref={ref}
+            id={inputId}
+            type={resolvedType}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? `${inputId}-error` : undefined}
+            className={inputClasses}
+          />
+          {showPasswordToggle ? (
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          ) : icon ? (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
               {icon}
-            </div>
-          )
-        )}
-        {error && <span className="text-red text-sm block">{error}</span>}
+            </span>
+          ) : null}
+        </div>
+        {error ? (
+          <p id={`${inputId}-error`} className="mt-1 text-sm text-red-600" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
+
+InputField.displayName = "InputField";
 
 export default InputField;

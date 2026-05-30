@@ -32,7 +32,7 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (_error) => Promise.reject(_error)
 );
 
 // Response interceptor to handle unauthorized errors
@@ -42,7 +42,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       console.error("Unauthorized! Redirecting to login...");
       localStorage.clear();
-      window.location.href = "/auth";
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }

@@ -3,7 +3,7 @@ import { memo, ReactNode } from "react";
 export type LegacyTableColumn<TData> = {
   key: keyof TData;
   label: string;
-  render?: (value: TData[keyof TData], row: TData) => ReactNode;
+  render?: (_value: TData[keyof TData], _row: TData) => ReactNode;
 };
 
 type LegacyTableViewProps<TData extends Record<string, unknown>> = {

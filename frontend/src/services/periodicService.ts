@@ -277,7 +277,7 @@ class PeriodicService {
    * @param {Object} data - Raw data
    * @param {boolean} isPartialUpdate - Is this a partial update
    */
-  static constructPayload(data, isPartialUpdate = false) {
+  static constructPayload(data, _isPartialUpdate = false) {
     const payload = {};
 
     // String fields with custom validation

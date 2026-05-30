@@ -6,10 +6,128 @@ node_modules/
 .env.*
 !.env.example
 .DS_Store
-.vscode/settings.json
-playwright-report/
-test-results/
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vim/
+.project
+.classpath
+.c9/
+*.sublime-workspace
+*.sublime-project
+.VS/
+.vscode-test
+.vscode-test-*.zip
+.devcontainer
+
+# IDE settings (allow sharing)
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Runtime
+logs/
+*.log
+lerna-debug.log*
+pnpm-debug.log*
+
+# Temporary files
+*.tmp
+tmp/
+temp/
+.cache/
+.parcel-cache/
+
+# System
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Docker
+docker-compose.override.yml
+.docker-compose.override.yml
+
+# Optional npm cache
+.npm/
+
+# Optional REPL history
+.node_repl_history
+
+# macOS Finder
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+
+# Yarn
+yarn.lock
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Vite
+.vite/
+
+# Lock files (uncomment if you want to lock versions across workspaces)
+# package-lock.json
+# pnpm-lock.yaml
+
+# Local environment overrides
+.env.local.md
+
+# Misc
+.eslintcache
+.stylelintcache
+.prettierignore
+
+
+
+
+# Python dependencies
 venv/
 .venv/
-env/
+__pycache__/
+*.pyc
+*.pyo
 *.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+pip-wheel-metadata/
+*.egg-info/
+.ipynb_checkpoints/
+
+# dataset and other files in restriction
+.csv
+application_train.csv
+X_train_full.csv
+
+
+# python residues
+__pycache__/

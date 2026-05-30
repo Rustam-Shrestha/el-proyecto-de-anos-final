@@ -35,7 +35,7 @@ export const AdminOnlyRoute = () => {
   const token = localStorage.getItem("accessToken");
 
   if (!token) {
-    return <Navigate to="/auth" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   if (role !== "admin") {

@@ -17,22 +17,6 @@ const Modal = memo(({
   zIndex = "z-[2147483647]",
   children,
 }) => {
-  // Mobile-first size map - on mobile (< 640px), all sizes use nearly full width
-  // Sizes scale up on larger screens
-  const sizeMap = {
-    sm: { width: "min(95vw, 500px)", maxHeight: "90vh" },
-    md: { width: "min(95vw, 650px)", maxHeight: "90vh" },
-    lg: { width: "min(95vw, 800px)", maxHeight: "92vh" },
-    xl: { width: "min(95vw, 1000px)", maxHeight: "92vh" },
-    "2xl": { width: "min(95vw, 1200px)", maxHeight: "94vh" },
-    xxl: { width: "min(95vw, 1200px)", maxHeight: "94vh" },
-    xxxl: { width: "min(96vw, 1400px)", maxHeight: "95vh" },
-    "4xl": { width: "min(97vw, 1600px)", maxHeight: "96vh" },
-    xxxxl: { width: "min(97vw, 1600px)", maxHeight: "96vh" },
-    full: { width: "calc(100vw - 2%)", maxHeight: "calc(100vh - 2%)" },
-  };
-
-  const selectedSize = (size && sizeMap[size]) ? sizeMap[size] : (sizeMap["xl"] || { width: "min(95vw, 1000px)", maxHeight: "90vh" });
   const sizeClasses = {
     sm: "max-w-[500px] max-h-[90vh]",
     md: "max-w-[650px] max-h-[90vh]",
