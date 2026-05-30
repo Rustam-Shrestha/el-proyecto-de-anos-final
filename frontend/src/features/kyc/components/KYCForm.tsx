@@ -12,7 +12,14 @@ import {
 import { useKYC } from "../hooks/useKYC";
 import type { KYCStatus } from "../api/kycApi";
 
-type KYCInputProps = React.ComponentType<any>;
+type KYCInputProps = React.ComponentType<{
+  label?: string;
+  error?: string;
+  value?: string;
+  onChange?: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  onBlur?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  name?: string;
+}>;
 
 interface KYCFormProps {
   userId: string;
