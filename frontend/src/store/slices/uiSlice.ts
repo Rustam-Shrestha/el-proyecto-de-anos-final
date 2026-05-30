@@ -1,95 +1,135 @@
-// @ts-nocheck
-/**
- * UI Slice — Redux Toolkit
- * 
- * Replaces the modal/UI portion of the old ModalContext and local component state
- * that was being prop-drilled through Header → UserProfile, etc.
- * 
- * Manages:
- * - Modal state (open/close, content reference)
- * - Theme selection
- * - Refetch trigger (used to signal data refresh across components)
- * - Menu action state
- * 
- * Migration notes:
- * - `useModal().openModal()` → `dispatch(openModal(component))`
- * - `useModal().closeModal()` → `dispatch(closeModal())`
- * - `useModal().triggerRefetch()` → `dispatch(triggerRefetch())`
- */
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-const initialState = {
-  // Modal state — content is a React element reference (non-serializable, allowed via middleware config)
+export type Notification = {
+  id: string;
+  type: "success" | "error" | "warning" | "info";
+  message: string;
+  duration?: number;
+};
+
+export type UIState = {
+  isSidebarOpen: boolean;
+  theme: "light" | "dark";
+  notifications: Notification[];
+  modalContent: unknown;
+  modalProps: Record<string, unknown>;
+  themeColor: string;
+  darkMode: boolean;
+  refetch: boolean;
+  menuAction: unknown;
+  showProfileDropdown: boolean;
+  showThemeModal: boolean;
+};
+
+const readBoolean = (key: string, fallback: boolean) => {
+  const value = localStorage.getItem(key);
+  if (value === null) {
+    return fallback;
+  }
+  return value === "true";
+};
+
+const readJson = <T,>(key: string, fallback: T): T => {
+  try {
+    const rawValue = localStorage.getItem(key);
+    if (!rawValue) {
+      return fallback;
+    }
+    return JSON.parse(rawValue) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const readTheme = (): "light" | "dark" => {
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme === "light" || savedTheme === "dark") {
+    return savedTheme;
+  }
+
+  return readBoolean("darkMode", false) ? "dark" : "light";
+};
+
+const initialState: UIState = {
+  isSidebarOpen: readBoolean("isSidebarOpen", false),
+  theme: readTheme(),
+  notifications: readJson<Notification[]>("notifications", []),
   modalContent: null,
   modalProps: {},
-
-  // Theme — persisted to localStorage, loaded on mount
   themeColor: localStorage.getItem("selectedTheme") || "142.1 76.2% 36.3%",
-
-  // Dark mode — persisted to localStorage
-  darkMode: localStorage.getItem("darkMode") === "true",
-
-  // Refetch toggle — flipping this value signals consumers to re-fetch data
+  darkMode: readBoolean("darkMode", false),
   refetch: false,
-
-  // Menu action — stores arbitrary menu action data
   menuAction: null,
-
-  // Profile dropdown visibility (moved from Header local state to avoid prop drilling)
   showProfileDropdown: false,
-
-  // Theme modal visibility
   showThemeModal: false,
+};
+
+const persistTheme = (theme: "light" | "dark") => {
+  localStorage.setItem("theme", theme);
+  localStorage.setItem("darkMode", theme === "dark" ? "true" : "false");
+};
+
+const persistNotifications = (notifications: Notification[]) => {
+  localStorage.setItem("notifications", JSON.stringify(notifications));
 };
 
 const uiSlice = createSlice({
   name: "ui",
   initialState,
   reducers: {
-    /** Open a modal with a React component and optional props */
+    toggleSidebar: (state) => {
+      state.isSidebarOpen = !state.isSidebarOpen;
+      localStorage.setItem("isSidebarOpen", state.isSidebarOpen ? "true" : "false");
+    },
+    setTheme: (state, action: PayloadAction<"light" | "dark">) => {
+      state.theme = action.payload;
+      state.darkMode = action.payload === "dark";
+      persistTheme(action.payload);
+    },
+    addNotification: (state, action: PayloadAction<Notification>) => {
+      state.notifications = [...state.notifications, action.payload];
+      persistNotifications(state.notifications);
+    },
+    removeNotification: (state, action: PayloadAction<string>) => {
+      state.notifications = state.notifications.filter(
+        (notification) => notification.id !== action.payload
+      );
+      persistNotifications(state.notifications);
+    },
     openModal: (state, action) => {
       state.modalContent = action.payload.component || action.payload;
       state.modalProps = action.payload.props || {};
     },
-    /** Close the currently open modal */
     closeModal: (state) => {
       state.modalContent = null;
       state.modalProps = {};
     },
-    /** Toggle the refetch flag to signal data refresh */
     triggerRefetch: (state) => {
       state.refetch = !state.refetch;
     },
-    /** Set a menu action */
     triggerMenuAction: (state, action) => {
       state.menuAction = action.payload;
     },
-    /** Update the theme color */
     setThemeColor: (state, action) => {
       state.themeColor = action.payload;
     },
-    /** Toggle dark mode */
     toggleDarkMode: (state) => {
       state.darkMode = !state.darkMode;
-      localStorage.setItem("darkMode", state.darkMode);
+      state.theme = state.darkMode ? "dark" : "light";
+      persistTheme(state.theme);
     },
-    /** Toggle profile dropdown */
     toggleProfileDropdown: (state) => {
       state.showProfileDropdown = !state.showProfileDropdown;
     },
-    /** Close profile dropdown */
     closeProfileDropdown: (state) => {
       state.showProfileDropdown = false;
     },
-    /** Toggle theme modal */
     toggleThemeModal: (state) => {
       state.showThemeModal = !state.showThemeModal;
     },
-    /** Close theme modal */
     closeThemeModal: (state) => {
       state.showThemeModal = false;
     },
-    /** Open theme modal */
     openThemeModal: (state) => {
       state.showThemeModal = true;
     },
@@ -97,6 +137,10 @@ const uiSlice = createSlice({
 });
 
 export const {
+  toggleSidebar,
+  setTheme,
+  addNotification,
+  removeNotification,
   openModal,
   closeModal,
   triggerRefetch,
@@ -110,14 +154,16 @@ export const {
   openThemeModal,
 } = uiSlice.actions;
 
-// Selectors
-export const selectModalContent = (state) => state.ui.modalContent;
-export const selectModalProps = (state) => state.ui.modalProps;
-export const selectThemeColor = (state) => state.ui.themeColor;
-export const selectDarkMode = (state) => state.ui.darkMode;
-export const selectRefetch = (state) => state.ui.refetch;
-export const selectMenuAction = (state) => state.ui.menuAction;
-export const selectShowProfileDropdown = (state) => state.ui.showProfileDropdown;
-export const selectShowThemeModal = (state) => state.ui.showThemeModal;
+export const selectIsSidebarOpen = (state: { ui: UIState }) => state.ui.isSidebarOpen;
+export const selectTheme = (state: { ui: UIState }) => state.ui.theme;
+export const selectNotifications = (state: { ui: UIState }) => state.ui.notifications;
+export const selectModalContent = (state: { ui: UIState }) => state.ui.modalContent;
+export const selectModalProps = (state: { ui: UIState }) => state.ui.modalProps;
+export const selectThemeColor = (state: { ui: UIState }) => state.ui.themeColor;
+export const selectDarkMode = (state: { ui: UIState }) => state.ui.darkMode;
+export const selectRefetch = (state: { ui: UIState }) => state.ui.refetch;
+export const selectMenuAction = (state: { ui: UIState }) => state.ui.menuAction;
+export const selectShowProfileDropdown = (state: { ui: UIState }) => state.ui.showProfileDropdown;
+export const selectShowThemeModal = (state: { ui: UIState }) => state.ui.showThemeModal;
 
 export default uiSlice.reducer;

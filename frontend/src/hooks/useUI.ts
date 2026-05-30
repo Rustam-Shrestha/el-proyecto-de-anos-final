@@ -30,6 +30,7 @@ import {
   selectShowProfileDropdown,
   selectShowThemeModal,
 } from "../store/slices/uiSlice";
+import { applyThemeToDocument } from "@shared/lib/theme";
 
 const useUI = () => {
   const dispatch = useDispatch();
@@ -75,29 +76,7 @@ const useUI = () => {
    */
   const applyTheme = useCallback(
     (color, isDark) => {
-      const root = document.documentElement;
-      if (isDark) {
-        root.classList.add("dark");
-        // Make theme color darker in dark mode
-      const parts = color.split(' ');
-      if (parts.length === 3) {
-        const h = parts[0];
-        const s = parts[1].replace('%', '');
-        const l = parts[2].replace('%', '');
-        const newL = Math.max(0, parseFloat(l) - 20);
-        const darkerColor = `${h} ${s}% ${newL}%`;
-        root.style.setProperty("--theme-primary", darkerColor);
-      } else {
-        root.style.setProperty("--theme-primary", color);
-      }
-        root.style.setProperty("--text-color", "#e5efe8");
-        root.style.setProperty("--bg-color", "#10211a");
-      } else {
-        root.classList.remove("dark");
-        root.style.setProperty("--theme-primary", color);
-        root.style.setProperty("--text-color", "#1f2937");
-        root.style.setProperty("--bg-color", "#eef5ef");
-      }
+      applyThemeToDocument(color, isDark);
       localStorage.setItem("selectedTheme", color);
       dispatch(setThemeColor(color));
     },

@@ -1,68 +1,176 @@
-// @ts-nocheck
-/**
- * Auth Slice — Redux Toolkit
- * 
- * Replaces the userData/permissions portion of the old ModalContext.
- * Stores user data, permissions, and client details in Redux
- * instead of Context + prop drilling.
- * 
- * Migration notes:
- * - `useModal().userData` → `useSelector(selectUserData)`
- * - `useModal().setUserData` → `dispatch(setUserData(data))`
- * - `useModal().clientDetails` → `useSelector(selectClientDetails)`
- */
-import { createSlice, createSelector } from "@reduxjs/toolkit";
+import { createSelector, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-// Initialize userData from localStorage (same as old ModalProvider)
-const loadUserData = () => {
+export type UserRecord = {
+  id?: string;
+  email?: string;
+  name?: string;
+  role?: string;
+  permissions?: string[];
+  isSuperUser?: boolean;
+  image?: string;
+  [key: string]: unknown;
+} | null;
+
+export type ClientDetails = {
+  name: string;
+  id: string;
+};
+
+export type AuthState = {
+  user: UserRecord;
+  userData: UserRecord;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  clientDetails: ClientDetails;
+};
+
+const readJson = <T,>(key: string, fallback: T): T => {
   try {
-    const data = JSON.parse(localStorage.getItem("userData") || "null");
-    return data && typeof data === 'object' ? data : {};
+    const rawValue = localStorage.getItem(key);
+    if (!rawValue) {
+      return fallback;
+    }
+    return JSON.parse(rawValue) as T;
   } catch {
-    return {};
+    return fallback;
   }
 };
 
-const initialState = {
-  userData: loadUserData(),
-  clientDetails: { name: "", id: "" },
+const readString = (key: string): string | null => {
+  const value = localStorage.getItem(key);
+  return value && value.trim() ? value : null;
+};
+
+const initialUser = readJson<UserRecord>("user", readJson<UserRecord>("userData", null));
+const initialAccessToken = readString("accessToken");
+const initialRefreshToken = readString("refreshToken");
+
+const initialState: AuthState = {
+  user: initialUser,
+  userData: initialUser,
+  accessToken: initialAccessToken,
+  refreshToken: initialRefreshToken,
+  isAuthenticated: Boolean(initialAccessToken),
+  isLoading: false,
+  error: null,
+  clientDetails: readJson<ClientDetails>("clientDetails", { name: "", id: "" }),
+};
+
+const persistUser = (user: UserRecord) => {
+  if (user) {
+    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem("userData", JSON.stringify(user));
+  } else {
+    localStorage.removeItem("user");
+    localStorage.removeItem("userData");
+  }
+};
+
+const persistTokens = (accessToken: string | null, refreshToken: string | null) => {
+  if (accessToken) {
+    localStorage.setItem("accessToken", accessToken);
+  } else {
+    localStorage.removeItem("accessToken");
+  }
+
+  if (refreshToken) {
+    localStorage.setItem("refreshToken", refreshToken);
+  } else {
+    localStorage.removeItem("refreshToken");
+  }
 };
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    /** Set the full user data object (login, refresh, etc.) */
-    setUserData: (state, action) => {
-      state.userData = action.payload || {};
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload;
     },
-    /** Clear user data on logout */
-    clearUserData: (state) => {
-      state.userData = {};
+    setUser: (state, action: PayloadAction<UserRecord>) => {
+      state.user = action.payload;
+      state.userData = action.payload;
+      persistUser(action.payload);
+    },
+    setTokens: (
+      state,
+      action: PayloadAction<{ accessToken: string; refreshToken: string }>
+    ) => {
+      state.accessToken = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
+      state.isAuthenticated = true;
+      persistTokens(action.payload.accessToken, action.payload.refreshToken);
+    },
+    logout: (state) => {
+      state.user = null;
+      state.userData = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.isLoading = false;
+      state.error = null;
       state.clientDetails = { name: "", id: "" };
+      persistUser(null);
+      persistTokens(null, null);
+      localStorage.removeItem("clientDetails");
     },
-    /** Set client details for breadcrumb/navigation context */
-    setClientDetails: (state, action) => {
-      state.clientDetails = action.payload || { name: "", id: "" };
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
+    },
+    setUserData: (state, action: PayloadAction<UserRecord>) => {
+      state.user = action.payload;
+      state.userData = action.payload;
+      persistUser(action.payload);
+    },
+    clearUserData: (state) => {
+      state.user = null;
+      state.userData = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.isLoading = false;
+      state.error = null;
+      state.clientDetails = { name: "", id: "" };
+      persistUser(null);
+      persistTokens(null, null);
+      localStorage.removeItem("clientDetails");
+    },
+    setClientDetails: (state, action: PayloadAction<ClientDetails>) => {
+      state.clientDetails = action.payload;
+      localStorage.setItem("clientDetails", JSON.stringify(action.payload));
     },
   },
 });
 
-export const { setUserData, clearUserData, setClientDetails } = authSlice.actions;
+export const {
+  setLoading,
+  setUser,
+  setTokens,
+  logout,
+  setError,
+  setUserData,
+  clearUserData,
+  setClientDetails,
+} = authSlice.actions;
 
-// Selectors — use these instead of directly accessing state shape
-export const selectUserData = (state) => state.auth.userData;
+export const selectUser = (state: { auth: AuthState }) => state.auth.user;
+export const selectUserData = (state: { auth: AuthState }) => state.auth.userData;
+export const selectAccessToken = (state: { auth: AuthState }) => state.auth.accessToken;
+export const selectRefreshToken = (state: { auth: AuthState }) => state.auth.refreshToken;
+export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.isAuthenticated;
+export const selectIsLoading = (state: { auth: AuthState }) => state.auth.isLoading;
+export const selectError = (state: { auth: AuthState }) => state.auth.error;
+export const selectClientDetails = (state: { auth: AuthState }) => state.auth.clientDetails;
 
-/**
- * Memoized permissions selector to prevent reference-equality issues.
- * Returns an empty array if no permissions exist.
- */
 export const selectPermissions = createSelector(
   [selectUserData],
   (userData) => userData?.permissions || []
 );
 
-export const selectIsSuperUser = (state) => state.auth.userData?.isSuperUser || false;
-export const selectClientDetails = (state) => state.auth.clientDetails;
+export const selectIsSuperUser = (state: { auth: AuthState }) =>
+  state.auth.userData?.isSuperUser || false;
 
 export default authSlice.reducer;

@@ -12,6 +12,9 @@ import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   selectUserData,
+  selectIsAuthenticated,
+  selectAccessToken,
+  selectRefreshToken,
   selectPermissions,
   selectIsSuperUser,
   selectClientDetails,
@@ -23,6 +26,9 @@ import {
 const useAuth = () => {
   const dispatch = useDispatch();
   const userData = useSelector(selectUserData);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const accessToken = useSelector(selectAccessToken);
+  const refreshToken = useSelector(selectRefreshToken);
   const permissions = useSelector(selectPermissions);
   const isSuperUser = useSelector(selectIsSuperUser);
   const clientDetails = useSelector(selectClientDetails);
@@ -45,6 +51,9 @@ const useAuth = () => {
 
   return {
     userData,
+    isAuthenticated,
+    accessToken,
+    refreshToken,
     permissions,
     isSuperUser,
     clientDetails,
