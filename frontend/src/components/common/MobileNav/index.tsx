@@ -34,13 +34,13 @@ const MobileNav = ({
 
   const handleLogout = () => {
     logout();
-    navigate("/auth");
+    navigate("/login");
     onCloseMobileMenu();
   };
 
   return (
     <div
-      className={`lg:hidden bg-white border-b border-gray-200 overflow-hidden transition-all duration-300 ${
+      className={`lg:hidden bg-white border-b border-gray-200 overflow-hidden transition-all duration-300 dark:bg-gray-900 dark:border-gray-800 ${
         mobileMenuOpen ? "max-h-screen" : "max-h-0"
       }`}
     >
@@ -50,10 +50,10 @@ const MobileNav = ({
             <div
               className={`flex items-center justify-between py-2 px-3 rounded text-sm cursor-pointer ${
                 activeNavItem === item.label
-                  ? "bg-primary text-white font-medium"
+                    ? "bg-primary text-white font-medium"
                   : item.isDisable
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-gray-700 hover:bg-gray-100"
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
               onClick={() => {
                 if (!item.isDisable) {
@@ -84,7 +84,7 @@ const MobileNav = ({
                   {item.dropdownItems?.map((dropdownItem, dropdownIndex) => (
                     <div
                       key={dropdownIndex}
-                      className="flex items-center py-2 px-3 text-sm text-gray-600 hover:bg-gray-50 rounded cursor-pointer"
+                      className="flex items-center py-2 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer"
                       onClick={() => {
                         navigate(dropdownItem.path);
                         onCloseMobileMenu();
@@ -100,10 +100,10 @@ const MobileNav = ({
         ))}
 
         {/* Mobile User Profile Section */}
-        <div className="border-t border-gray-200 pt-3 mt-3">
-          <div className="py-2 px-3 text-sm text-gray-700">
+        <div className="border-t border-gray-200 pt-3 mt-3 dark:border-gray-800">
+          <div className="py-2 px-3 text-sm text-gray-700 dark:text-gray-200">
             <div className="font-medium">{userData?.name || "User"}</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
               {formattedHours}:{formattedMinutes} {hours >= 12 ? "PM" : "AM"}
             </div>
           </div>
@@ -112,13 +112,13 @@ const MobileNav = ({
               openThemeModal();
               onCloseMobileMenu();
             }}
-            className="w-full text-left py-2 px-3 text-sm text-gray-700 hover:bg-gray-100 rounded"
+            className="w-full text-left py-2 px-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
           >
             Theme Settings
           </button>
           <button
             onClick={handleLogout}
-            className="w-full text-left py-2 px-3 text-sm text-red-600 hover:bg-red-50 rounded"
+            className="w-full text-left py-2 px-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"
           >
             Logout
           </button>

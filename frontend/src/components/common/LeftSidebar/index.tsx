@@ -14,8 +14,8 @@ const LeftSidebar = () => {
   const loc = useLocation();
 
   return (
-    <nav className="hidden lg:flex flex-col w-64 shrink-0 border-r border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-      <div className="mb-4 text-lg font-semibold">Finguard</div>
+    <nav className="hidden lg:flex flex-col w-64 shrink-0 border-r border-gray-200 bg-white p-4 text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+      <div className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Finguard</div>
       <ul className="space-y-1">
         {items.map((it) => (
           <li key={it.path}>
@@ -30,7 +30,7 @@ const LeftSidebar = () => {
         ))}
       </ul>
 
-      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 text-sm text-gray-500">
+      <div className="mt-6 pt-4 border-t border-gray-100 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
         <div className="mb-2">Explore</div>
         <ul className="space-y-1">
           <li className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md cursor-pointer">Music</li>

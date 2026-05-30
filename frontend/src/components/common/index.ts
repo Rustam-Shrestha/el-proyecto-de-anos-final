@@ -19,6 +19,7 @@ import MultiSelectDatePicker from "./MultiSelectDatePicker";
 import MultiSelectField from "./MultiSelectField";
 import SelectField from "./SelectField";
 import InputField from "./InputField";
+import Input from "./Input";
 import { CircularLoader, SkeletonTableLoader } from "./SkletonLoader";
 import TableView from "./TableView";
 import Modal from "./Modal";
@@ -37,6 +38,7 @@ export {
   DangerButton,
   DynamicForm,
   FileUploadButton,
+  Input,
   InputField,
   MultiSelectDatePicker,
   MultiSelectField,

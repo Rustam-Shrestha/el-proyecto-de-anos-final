@@ -28,7 +28,7 @@ const getRoleFromLocalStorage = () => {
   }
 };
 
-export const AdminOnlyRoute = () => {
+export const NonAdminOnlyRoute = () => {
   const location = useLocation();
   const authUserRole = useAppSelector((state) => state.auth.user?.role);
   const role = normalizeRole(authUserRole ?? getRoleFromLocalStorage());
@@ -38,8 +38,8 @@ export const AdminOnlyRoute = () => {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  if (role !== "admin") {
-    return <Navigate to="/app/access-denied" replace state={{ from: location.pathname }} />;
+  if (role === "admin") {
+    return <Navigate to="/dashboard/kyc" replace state={{ from: location.pathname }} />;
   }
 
   return <Outlet />;

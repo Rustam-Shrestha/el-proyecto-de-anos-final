@@ -9,7 +9,7 @@ const AccessDeniedPage = () => {
       <div className="panel max-w-lg text-center">
         <h2 className="text-2xl font-semibold text-red-700">Access Denied</h2>
         <p className="mt-2 text-sm text-slate-700">
-          This page is restricted to administrators.
+          You do not have permission to view this page.
           {fromPath ? ` You tried to access: ${fromPath}` : ""}
         </p>
         <div className="mt-4">
