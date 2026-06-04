@@ -97,7 +97,17 @@ userRouter.get('/me', authenticate, getMe);
  */
 userRouter.patch('/me', authenticate, validate(updateUserSchema), updateMe);
 
-userRouter.patch('/me/avatar', authenticate, avatarUpload.single('avatar'), uploadAvatar);
+userRouter.patch(
+  '/me/avatar',
+  authenticate,
+  (req, res, next) => {
+    avatarUpload.single('avatar')(req, res, (err: unknown) => {
+      if (err) return next(err);
+      next();
+    });
+  },
+  uploadAvatar
+);
 
 userRouter.delete('/me/avatar', authenticate, deleteAvatar);
 

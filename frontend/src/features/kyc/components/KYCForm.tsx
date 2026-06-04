@@ -19,6 +19,7 @@ type KYCInputProps = React.ComponentType<{
   onChange?: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
   onBlur?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
   name?: string;
+  type?: React.HTMLInputTypeAttribute;
 }>;
 
 interface KYCFormProps {

@@ -40,7 +40,12 @@ const Modal = memo(({
       <div
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 text-black dark:text-gray-100 flex flex-col overflow-hidden w-full min-w-0 ${selectedSizeClass}`}
+        className={`rounded-lg border flex flex-col overflow-hidden w-full min-w-0 ${selectedSizeClass}`}
+        style={{
+          backgroundColor: 'var(--surface-color)',
+          borderColor: 'var(--border-color)',
+          color: 'var(--text-color)'
+        }}
       >
         {/* Header - Fixed */}
         <div

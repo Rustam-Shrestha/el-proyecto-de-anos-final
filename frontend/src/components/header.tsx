@@ -67,10 +67,11 @@ const Header = () => {
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   return (
-    <header className="sticky top-0 left-0 right-0 z-[110] bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+    <header className="sticky top-0 left-0 right-0 z-[110]" style={{ backgroundColor: 'var(--surface-color)', color: 'var(--text-color)' }}>
       <div
         onMouseLeave={handleMouseLeave}
-        className="bg-white flex justify-between items-center px-4 py-3 border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800"
+        className="flex justify-between items-center px-4 py-3 border-b"
+        style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}
       >
         <div className="text-lg font-light">
           <Link to="/">
@@ -83,11 +84,14 @@ const Header = () => {
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           title="Toggle navigation menu"
           aria-label="Toggle navigation menu"
-          className="lg:hidden flex flex-col gap-1.5 p-2 hover:bg-gray-100 rounded text-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+          className="lg:hidden flex flex-col gap-1.5 p-2 rounded transition-all"
+          style={{ color: 'var(--text-color)' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-muted)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
         >
-          <span className="w-6 h-0.5 bg-gray-700 dark:bg-gray-200 transition-all"></span>
-          <span className="w-6 h-0.5 bg-gray-700 dark:bg-gray-200 transition-all"></span>
-          <span className="w-6 h-0.5 bg-gray-700 dark:bg-gray-200 transition-all"></span>
+          <span className="w-6 h-0.5 transition-all" style={{ backgroundColor: 'var(--text-color)' }}></span>
+          <span className="w-6 h-0.5 transition-all" style={{ backgroundColor: 'var(--text-color)' }}></span>
+          <span className="w-6 h-0.5 transition-all" style={{ backgroundColor: 'var(--text-color)' }}></span>
         </button>
 
         {/* Theme Modal — reads state from Redux, no prop drilling */}

@@ -14,10 +14,10 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
   const { userData, logout } = useAuth();
   const { toggleDarkMode } = useUI();
 
-  const displayName = useMemo(
-    () => userData?.fullName || userData?.name || userData?.email || "User",
-    [userData]
-  );
+const displayName: string = useMemo(() => {
+  // Use 'userData' instead of 'user', and ensure the fallback is a string ('User')
+  return userData?.name || 'User'; 
+}, [userData]); // Make sure the dependency array also uses 'userData'
 
   const handleLogout = () => {
     logout();
@@ -60,7 +60,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--green-footer)] text-[var(--green-background)] dark:bg-gray-800 dark:text-gray-100">
               {userData?.avatarUrl ? (
                 <img
-                  src={resolveAvatarUrl(userData.avatarUrl) || undefined}
+                  src={typeof userData.avatarUrl === "string" ? resolveAvatarUrl(userData.avatarUrl) || undefined : undefined}
                   alt="User avatar"
                   className="h-full w-full rounded-full object-cover"
                 />

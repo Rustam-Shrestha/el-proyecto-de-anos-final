@@ -1,44 +1,50 @@
 import { env } from '@/config/env';
 import { logger } from '@/config/logger';
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 
-// Configure transporter (stub for now — wire to real SMTP in production)
-const transporter = nodemailer.createTransport({
-  host: env.SMTP_HOST || 'localhost',
-  port: env.SMTP_PORT || 1025,
-  secure: false,
-  auth: env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
-});
+const isSmtpConfigured = Boolean(env.SMTP_HOST && env.SMTP_PORT);
+
+const transporter: Transporter = isSmtpConfigured
+  ? nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: false,
+      connectionTimeout: 5000,
+      socketTimeout: 5000,
+      auth: env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
+    })
+  : nodemailer.createTransport({ jsonTransport: true });
 
 const defaultFrom = 'noreply@finguard.local';
 
-async function safeSendMail(
+function sendInBackground(
   to: string,
   subject: string,
   html: string,
   text: string,
   failureMessage: string
-): Promise<void> {
-  try {
-    await transporter.sendMail({
-      from: defaultFrom,
-      to,
-      subject,
-      html,
-      text,
+): void {
+  const sendPromise = transporter
+    .sendMail({ from: defaultFrom, to, subject, html, text })
+    .then((info) => {
+      if (isSmtpConfigured) {
+        logger.info({ email: to, subject, messageId: info.messageId }, 'Email sent');
+      } else {
+        logger.info(
+          { email: to, subject, payload: JSON.parse(info.message as string) },
+          'Email captured (dev mode, no SMTP configured)'
+        );
+      }
+    })
+    .catch((error) => {
+      logger.warn({ err: error, email: to, subject }, failureMessage);
     });
 
-    logger.info({ email: to, subject }, 'Email sent');
-  } catch (error) {
-    logger.warn({ err: error, email: to, subject }, failureMessage);
-  }
+  void sendPromise;
 }
 
 export const mailService = {
-  /**
-   * Send email verification link
-   */
-  async sendVerificationMail(email: string, token: string): Promise<void> {
+  sendVerificationMail(email: string, token: string): void {
     const verificationUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
     const subject = 'Verify Your FinGuard Email';
     const htmlContent = `
@@ -59,13 +65,10 @@ export const mailService = {
       'This link expires in 24 hours.',
     ].join('\n');
 
-    await safeSendMail(email, subject, htmlContent, textContent, 'Failed to send verification email');
+    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send verification email');
   },
 
-  /**
-   * Send password reset link
-   */
-  async sendPasswordResetMail(email: string, token: string): Promise<void> {
+  sendPasswordResetMail(email: string, token: string): void {
     const resetUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
     const subject = 'Reset Your FinGuard Password';
     const htmlContent = `
@@ -87,13 +90,10 @@ export const mailService = {
       'If you did not request this, ignore this email.',
     ].join('\n');
 
-    await safeSendMail(email, subject, htmlContent, textContent, 'Failed to send password reset email');
+    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send password reset email');
   },
 
-  /**
-   * Send KYC approval notification
-   */
-  async sendKycApprovedMail(email: string, fullName?: string): Promise<void> {
+  sendKycApprovedMail(email: string, fullName?: string): void {
     const dashboardUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`;
     const subject = 'KYC Verification Approved';
     const htmlContent = `
@@ -113,13 +113,10 @@ export const mailService = {
       `Open the dashboard: ${dashboardUrl}`,
     ].join('\n');
 
-    await safeSendMail(email, subject, htmlContent, textContent, 'Failed to send KYC approval email');
+    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC approval email');
   },
 
-  /**
-   * Send KYC rejection notification
-   */
-  async sendKycRejectedMail(email: string, fullName?: string, reason?: string): Promise<void> {
+  sendKycRejectedMail(email: string, fullName?: string, reason?: string): void {
     const resubmitUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/kyc/resubmit`;
     const subject = 'KYC Verification Rejected';
     const htmlContent = `
@@ -141,13 +138,10 @@ export const mailService = {
       `Resubmit here: ${resubmitUrl}`,
     ].filter(Boolean).join('\n');
 
-    await safeSendMail(email, subject, htmlContent, textContent, 'Failed to send KYC rejection email');
+    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC rejection email');
   },
 
-  /**
-   * Send KYC resubmit request
-   */
-  async sendKycResubmitMail(email: string, fullName?: string, note?: string): Promise<void> {
+  sendKycResubmitMail(email: string, fullName?: string, note?: string): void {
     const resubmitUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/kyc/resubmit`;
     const subject = 'Action Required: Resubmit KYC Application';
     const htmlContent = `
@@ -169,6 +163,7 @@ export const mailService = {
       `Resubmit here: ${resubmitUrl}`,
     ].filter(Boolean).join('\n');
 
-    await safeSendMail(email, subject, htmlContent, textContent, 'Failed to send KYC resubmit email');
+    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC resubmit email');
   },
 };
+

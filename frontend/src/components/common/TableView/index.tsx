@@ -24,7 +24,7 @@ const TableHeader = memo(({ columns, onFilterChange, hasExpandableRows }) => {
   };
 
   return (
-    <thead className="text-primary border-b-4 border-primary bg-white sticky top-0 z-50 font-serif shadow-md">
+    <thead className="text-primary border-b-4 border-primary sticky top-0 z-50 font-serif shadow-md" style={{ backgroundColor: 'var(--surface-color)' }}>
       <tr>
         {hasExpandableRows && (
           <th className="p-3 sm:p-4 text-xs text-left font-medium w-10"></th>
@@ -80,13 +80,13 @@ const TableRow = memo(({ row, columns, hasExpandableRows, isExpanded, onToggleEx
 
   return (
     <>
-      <tr className="transition-colors hover:bg-gray-50">
+      <tr className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
         {hasExpandableRows && (
-          <td className="py-2 px-2 border-b border-gray-100">
+          <td className="py-2 px-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
             {hasChildren ? (
               <button
                 onClick={() => onToggleExpand(row.id)}
-                className={`p-1 rounded hover:bg-gray-200 transition-all duration-200 ${isExpanded ? 'bg-primary/10' : ''}`}
+                className={`p-1 rounded transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-700 ${isExpanded ? 'bg-primary/10' : ''}`}
               >
                 <ChevronDown 
                   className={`w-4 h-4 text-primary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
@@ -100,8 +100,10 @@ const TableRow = memo(({ row, columns, hasExpandableRows, isExpanded, onToggleEx
         {columns.map((column, index) => (
           <td
             key={index}
-            className={`py-2 px-2 sm:px-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap border-b border-gray-100`}
+            className={`py-2 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap border-b`}
             style={{ 
+              color: 'var(--text-color)',
+              borderColor: 'var(--border-color)',
               width: `${(column.width / 24) * 100}%`,
               minWidth: column.accessor === "sn" ? "60px" : column.accessor === "name" || column.accessor === "client" ? "200px" : "120px"
             }}
@@ -114,7 +116,7 @@ const TableRow = memo(({ row, columns, hasExpandableRows, isExpanded, onToggleEx
       </tr>
       {/* Expandable content row */}
       {hasExpandableRows && hasChildren && isExpanded && (
-        <tr className="bg-gray-50/80">
+        <tr style={{ backgroundColor: 'var(--surface-muted)' }}>
           <td colSpan={columns.length + 1} className="p-0">
             {row.children}
           </td>
@@ -164,11 +166,11 @@ const TableFooter = memo(({
   };
 
   return (
-    <tfoot className="bg-[#E2EDE3] border-t border-primary sticky bottom-0 z-20 shadow-sm">
+    <tfoot className="border-t border-primary sticky bottom-0 z-20 shadow-sm" style={{ backgroundColor: 'var(--green-footer)', borderColor: 'var(--border-color)' }}>
       <tr>
         <td colSpan="100%" className="p-2 font-bold text-primary text-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <span className="text-gray-700 whitespace-nowrap text-xs sm:text-sm">
+            <span className="whitespace-nowrap text-xs sm:text-sm" style={{ color: 'var(--text-color)' }}>
               Total: {totalCount}
             </span>
 
@@ -184,7 +186,7 @@ const TableFooter = memo(({
               <div className="flex gap-1">
                 {getVisiblePages().map((page, index) =>
                   page === "..." ? (
-                    <span key={index} className="px-1 sm:px-2 py-1 text-gray-500 text-xs sm:text-sm">
+                    <span key={index} className="px-1 sm:px-2 py-1 text-xs sm:text-sm" style={{ color: 'var(--gray-column-text)' }}>
                       ...
                     </span>
                   ) : (
@@ -194,7 +196,7 @@ const TableFooter = memo(({
                       className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm transition-colors duration-200 flex-shrink-0 ${
                         currentPage === page
                           ? "bg-primary text-white hover:bg-primary-dark"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                       }`}
                     >
                       {page}
@@ -243,9 +245,9 @@ const TableView = memo(({
   };
 
   return (
-    <div className="w-full bg-white rounded-lg shadow-sm">
+    <div className="w-full rounded-lg shadow-sm" style={{ backgroundColor: 'var(--surface-color)' }}>
       {customHeader && customHeader}
-      <div className="overflow-x-auto overflow-y-auto max-h-[650px] scrollbar-thin border border-gray-200 rounded-b-lg">
+      <div className="overflow-x-auto overflow-y-auto max-h-[650px] scrollbar-thin border rounded-b-lg" style={{ borderColor: 'var(--border-color)' }}>
         <table className="min-w-full border-collapse table-auto text-sm">
           <TableHeader
             columns={columns}
@@ -283,7 +285,7 @@ const TableView = memo(({
                   <div className="flex flex-col items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-8 w-8 text-gray-400 mb-2"
+                      className="h-8 w-8 mb-2" style={{ color: 'var(--gray-column-text)' }}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -295,10 +297,10 @@ const TableView = memo(({
                         d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    <p className="text-gray-600 text-base font-semibold">
+                    <p className="text-base font-semibold" style={{ color: 'var(--text-color)' }}>
                       No results found
                     </p>
-                    <p className="text-gray-500 text-xs">
+                    <p className="text-xs" style={{ color: 'var(--gray-column-text)' }}>
                       Try adjusting your search or filters.
                     </p>
                   </div>

@@ -5,7 +5,7 @@ import { z } from "zod";
 import InputField from "@components/common/InputField";
 import { Button } from "@components/common/Button";
 import { useToast } from "@shared/hooks/useToast";
-import { useAuth } from "@hooks/useAuth";
+import useAuth from "@hooks/useAuth";
 import {
   resolveAvatarUrl,
   useDeleteAvatarMutation,
@@ -93,7 +93,7 @@ export const ProfileForm = () => {
     syncStoredAuth(nextUser);
   };
 
-  const currentAvatarSrc = selectedAvatarPreview || resolveAvatarUrl(userData?.avatarUrl) || null;
+const currentAvatarSrc = selectedAvatarPreview || resolveAvatarUrl(userData?.avatarUrl as string | undefined) || null;
 
   const handleAvatarPick = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -140,7 +140,7 @@ export const ProfileForm = () => {
   const handleAvatarDelete = async () => {
     try {
       const updated = await deleteAvatarMutation.mutateAsync();
-      applyProfileUpdate({ ...(userData as ProfileUser), ...(updated || {}), avatarUrl: null });
+      applyProfileUpdate({ ...(userData as ProfileUser), ...(updated || {}) });
       clearAvatarSelection();
       toast.success("Avatar removed");
     } catch (error: unknown) {

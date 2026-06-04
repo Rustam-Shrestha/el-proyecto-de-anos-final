@@ -1,10 +1,15 @@
+import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 import { env } from '@/config/env';
 import { logger } from '@/config/logger';
 
-// Create upload directory if it doesn't exist
+// Create upload directories if they don't exist
 const uploadDir = path.join(process.cwd(), env.UPLOAD_DIR);
+const selfiesDir = path.join(uploadDir, 'selfies');
+const documentsDir = path.join(uploadDir, 'documents');
+fs.mkdirSync(selfiesDir, { recursive: true });
+fs.mkdirSync(documentsDir, { recursive: true });
 
 /**
  * Multer storage configuration for KYC documents

@@ -15,6 +15,8 @@ declare module '@/utils/apiResponse' {
 
 declare module '@/utils/AppError' {
   export class AppError extends Error {
+    public statusCode: number;
+    public details?: any;
     constructor(message?: string, statusCode?: number, details?: any);
   }
 }

@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@app/ProtectedRoute";
 import { RoleProtectedRoute } from "@app/RoleProtectedRoute";
 import { DashboardLayout } from "@shared/layouts/DashboardLayout";
+import AccessDeniedPage from "../pages/AccessDeniedPage";
 
 // Route-level lazy loading keeps the initial bundle light.
 const LoginPage = lazy(() => import("@features/auth/pages/LoginPage"));

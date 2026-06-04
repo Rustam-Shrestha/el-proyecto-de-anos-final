@@ -40,9 +40,10 @@ const MobileNav = ({
 
   return (
     <div
-      className={`lg:hidden bg-white border-b border-gray-200 overflow-hidden transition-all duration-300 dark:bg-gray-900 dark:border-gray-800 ${
+      className={`lg:hidden border-b overflow-hidden transition-all duration-300 ${
         mobileMenuOpen ? "max-h-screen" : "max-h-0"
       }`}
+      style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}
     >
       <div className="px-4 py-3 space-y-2">
         {navItems.map((item, index) => (
@@ -53,7 +54,7 @@ const MobileNav = ({
                     ? "bg-primary text-white font-medium"
                   : item.isDisable
                     ? "text-gray-400 cursor-not-allowed"
-                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    : "text-gray-700 hover:bg-gray-100"
               }`}
               onClick={() => {
                 if (!item.isDisable) {
@@ -84,13 +85,14 @@ const MobileNav = ({
                   {item.dropdownItems?.map((dropdownItem, dropdownIndex) => (
                     <div
                       key={dropdownIndex}
-                      className="flex items-center py-2 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer"
+                      className="flex items-center py-2 px-3 text-sm hover:bg-gray-50 rounded cursor-pointer"
+                      style={{ color: 'var(--text-color)' }}
                       onClick={() => {
                         navigate(dropdownItem.path);
                         onCloseMobileMenu();
                       }}
                     >
-                      <span className="mr-2 text-gray-400">›</span>
+                      <span className="mr-2" style={{ color: 'var(--gray-column-text)' }}>›</span>
                       <span>{dropdownItem.label}</span>
                     </div>
                   ))}
@@ -100,10 +102,10 @@ const MobileNav = ({
         ))}
 
         {/* Mobile User Profile Section */}
-        <div className="border-t border-gray-200 pt-3 mt-3 dark:border-gray-800">
-          <div className="py-2 px-3 text-sm text-gray-700 dark:text-gray-200">
+        <div className="border-t pt-3 mt-3" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="py-2 px-3 text-sm" style={{ color: 'var(--text-color)' }}>
             <div className="font-medium">{userData?.name || "User"}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="text-xs" style={{ color: 'var(--gray-column-text)' }}>
               {formattedHours}:{formattedMinutes} {hours >= 12 ? "PM" : "AM"}
             </div>
           </div>
@@ -112,13 +114,15 @@ const MobileNav = ({
               openThemeModal();
               onCloseMobileMenu();
             }}
-            className="w-full text-left py-2 px-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+            className="w-full text-left py-2 px-3 text-sm hover:bg-gray-100 rounded"
+            style={{ color: 'var(--text-color)' }}
           >
             Theme Settings
           </button>
           <button
             onClick={handleLogout}
-            className="w-full text-left py-2 px-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"
+            className="w-full text-left py-2 px-3 text-sm hover:bg-red-50 dark:hover:bg-red-950/40 rounded"
+            style={{ color: 'var(--red)' }}
           >
             Logout
           </button>

@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import { AppError } from '@/utils/AppError';
 import { apiResponse } from '@/utils/apiResponse';
 import { logger } from '@/config/logger';
 import { env } from '@/config/env';
+import { AppError } from '@/utils/AppError';
 
 export const errorHandler = (
   error: Error | AppError,
