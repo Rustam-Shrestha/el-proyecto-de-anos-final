@@ -33,7 +33,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: async () => {
-      const { data } = await apiClient.get<MeResponse>("/auth/me");
+      const { data } = await apiClient.get<MeResponse>("/users/me");
       return data.data;
     },
     enabled: isAuthenticated && !userData?.id,

@@ -1,12 +1,19 @@
 import type { Request, Response, NextFunction } from 'express';
 import { kycService } from '@/services/kycService';
+import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
 
+const documentTypeMap: Record<string, string> = {
+  selfie: 'SELFIE',
+  idProof: 'PASSPORT',
+  addressProof: 'OTHER',
+};
+
 /**
  * POST /api/v1/kyc/submit
- * Submit a new KYC application
+ * Submit a new KYC application with file uploads
  */
 export const submitKyc = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -15,12 +22,36 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const { documents } = req.body;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+    if (!files || Object.keys(files).length === 0) {
+      res.status(400).json(apiResponse.error('At least one document file is required', 400));
+      return;
+    }
+
+    const documents = Object.entries(files).flatMap(([fieldname, fileArray]) =>
+      fileArray.map((file) => ({
+        type: documentTypeMap[fieldname] || 'OTHER',
+        filePath: file.path,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+      }))
+    );
 
     const result = await kycService.submitKyc({
       userId: req.user.id,
       documents,
     });
+
+    // Update user profile if personal info was provided
+    const { fullName, phone, address } = req.body;
+    if (fullName || phone || address) {
+      await userService.updateUser(req.user.id, {
+        ...(fullName && { fullName }),
+        ...(phone && { phone }),
+        ...(address && { address }),
+      });
+    }
 
     // Log KYC submission
     await auditService.log({

@@ -11,7 +11,7 @@ import { useSubmitKYCMutation } from "@features/kyc/api/kycApi";
 type CurrentUser = {
   id?: string;
   email?: string;
-  name?: string;
+  fullName?: string;
   phone?: string;
   address?: string;
 };
@@ -37,6 +37,9 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   const submitMutation = useSubmitKYCMutation();
   const [step, setStep] = useState(1);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [files, setFiles] = useState<Record<FileField, File | null>>({
     selfie: null,
     idProof: null,
@@ -56,7 +59,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   const authQuery = useQuery({
     queryKey: ["auth", "me", "kyc-submit"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data?: CurrentUser }>("/auth/me");
+      const { data } = await apiClient.get<{ data?: CurrentUser }>("/users/me");
       return data.data ?? null;
     },
     staleTime: 5 * 60 * 1000,
@@ -65,6 +68,9 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   useEffect(() => {
     if (authQuery.data) {
       setCurrentUser(authQuery.data);
+      setFullName(authQuery.data.fullName ?? "");
+      setPhone(authQuery.data.phone ?? "");
+      setAddress(authQuery.data.address ?? "");
     }
   }, [authQuery.data]);
 
@@ -129,6 +135,9 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
     formData.append("selfie", files.selfie as File);
     formData.append("idProof", files.idProof as File);
     formData.append("addressProof", files.addressProof as File);
+    formData.append("fullName", fullName);
+    formData.append("phone", phone);
+    formData.append("address", address);
 
     try {
       await submitMutation.mutateAsync(formData);
@@ -169,10 +178,10 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
 
       {step === 1 ? (
         <div className="space-y-4">
-          <Input label="Full Name" value={currentUser?.name ?? ""} readOnly />
+          <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
           <Input label="Email" value={currentUser?.email ?? ""} readOnly />
-          <Input label="Phone" value={currentUser?.phone ?? ""} readOnly />
-          <Input label="Address" value={currentUser?.address ?? ""} readOnly />
+          <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input label="Address" value={address} onChange={(e) => setAddress(e.target.value)} />
           <div className="flex justify-end">
             <Button type="button" onClick={() => setStep(2)}>
               Next

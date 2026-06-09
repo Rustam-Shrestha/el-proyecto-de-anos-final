@@ -2,7 +2,7 @@
 
 const endpoints = {
 	login: "/auth/login",
-	myProfile: "/auth/me",
+	myProfile: "/users/me",
 	users: "/users",
 	health: "/health"
 };

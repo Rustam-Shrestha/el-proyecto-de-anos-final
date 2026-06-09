@@ -12,7 +12,7 @@ const UserKYCPage = () => {
   const meQuery = useQuery({
     queryKey: ["auth", "me", "kyc-page"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data?: Record<string, unknown> }>("/auth/me");
+      const { data } = await apiClient.get<{ data?: Record<string, unknown> }>("/users/me");
       return data.data ?? null;
     },
     staleTime: 5 * 60 * 1000,

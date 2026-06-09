@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { authenticate } from '@/middleware/auth';
 import { authorize } from '@/middleware/rbac';
+import { uploadMiddleware } from '@/middleware/upload';
 import { validate } from '@/middleware/requestValidation';
 import {
-  submitKycSchema,
   getKycStatusSchema,
   listKycApplicationsSchema,
   getKycByIdSchema,
@@ -63,7 +63,21 @@ const kycRouter = Router();
  *       401:
  *         description: Unauthorized
  */
-kycRouter.post('/submit', authenticate, validate(submitKycSchema), submitKyc);
+kycRouter.post(
+  '/submit',
+  authenticate,
+  (req, res, next) => {
+    uploadMiddleware.fields([
+      { name: 'selfie', maxCount: 1 },
+      { name: 'idProof', maxCount: 1 },
+      { name: 'addressProof', maxCount: 1 },
+    ])(req, res, (err: unknown) => {
+      if (err) return next(err);
+      next();
+    });
+  },
+  submitKyc
+);
 
 /**
  * @swagger
