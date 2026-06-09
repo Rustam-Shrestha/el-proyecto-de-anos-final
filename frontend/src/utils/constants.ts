@@ -1,0 +1,23 @@
+export const BASE_API_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+
+export const ROLE = {
+  USER: 'USER',
+  ADMIN: 'ADMIN',
+  REVIEWER: 'REVIEWER',
+} as const;
+
+export const DOCUMENT_TYPES = {
+  CITIZENSHIP_FRONT: 'CITIZENSHIP_FRONT',
+  CITIZENSHIP_BACK: 'CITIZENSHIP_BACK',
+  PASSPORT: 'PASSPORT',
+  SELFIE: 'SELFIE',
+  OTHER: 'OTHER',
+} as const;
+
+export const KYC_STATUS = {
+  PENDING: 'PENDING',
+  UNDER_REVIEW: 'UNDER_REVIEW',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  RESUBMIT_REQUIRED: 'RESUBMIT_REQUIRED',
+} as const;
