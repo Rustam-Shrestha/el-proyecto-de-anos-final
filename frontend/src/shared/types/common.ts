@@ -47,7 +47,16 @@ export enum DocumentVerificationStatus {
   VERIFIED = "VERIFIED",
   FAILED = "FAILED",
   NOT_REQUIRED = "NOT_REQUIRED",
+  MANUAL_REVIEW = "MANUAL_REVIEW",
+  PROCESSING = "PROCESSING",
 }
+
+export const FILE_VALIDATION = {
+  MAX_SIZE_BYTES: 5 * 1024 * 1024,
+  MAX_SIZE_MB: 5,
+  ALLOWED_MIME_TYPES: ["image/jpeg", "image/png", "application/pdf"] as const,
+  ALLOWED_EXTENSIONS: [".jpg", ".jpeg", ".png", ".pdf"] as const,
+} as const;
 
 export type UserRole = "USER" | "ADMIN" | "REVIEWER";
 
