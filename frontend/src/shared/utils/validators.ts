@@ -28,6 +28,8 @@ export const profileUpdateSchema = z.object({
   address: z.string().optional(),
 });
 
+export const updateProfileSchema = profileUpdateSchema;
+
 export const kycSubmitSchema = z.object({
   documents: z
     .array(
