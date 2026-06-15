@@ -1,75 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@shared/lib/apiClient";
-
-export type User = {
-  id: string;
-  email: string;
-  role: string;
-  createdAt?: string;
-  created_at?: string;
-};
-
-export type PaginatedUsers = {
-  data: User[];
-  page: number;
-  limit: number;
-  total: number;
-};
-
-type UsersApiResponse =
-  | PaginatedUsers
-  | {
-      success: boolean;
-      data: User[];
-      meta: {
-        page: number;
-        limit: number;
-        total: number;
-      };
-    };
-
-type CreateUserApiResponse =
-  | User
-  | {
-      success: boolean;
-      data: User;
-    };
-
-type UpdateUserApiResponse = CreateUserApiResponse;
-
-type DeleteUserApiResponse =
-  | { success: boolean }
-  | {
-      success: boolean;
-      data?: unknown;
-    };
+import type { User, ApiResponse, PaginationMeta } from "@shared/types/common";
 
 export type UsersListResponse = {
   users: User[];
   total: number;
 };
 
-export const listUsers = async (page = 1, limit = 10) => {
-  const { data } = await apiClient.get<PaginatedUsers>(`/users?page=${page}&limit=${limit}`);
-  return data;
+export const userKeys = {
+  all: ["users"] as const,
+  list: (page: number, limit: number) => ["users", "list", page, limit] as const,
+  detail: (id: string) => ["users", id] as const,
 };
 
-export const useUsersList = (page: number, limit: number) => {
+export const useUsersList = (page: number, limit: number, role?: string) => {
   return useQuery<UsersListResponse>({
-    queryKey: ["users", page, limit],
+    queryKey: [...userKeys.list(page, limit), role].filter(Boolean),
     queryFn: async () => {
-      const { data } = await apiClient.get<UsersApiResponse>(`/users?page=${page}&limit=${limit}`);
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+      if (role) params.set("role", role);
 
-      if ("meta" in data) {
-        return {
-          users: data.data,
-          total: data.meta.total,
-        };
-      }
+      const { data } = await apiClient.get<ApiResponse<User[]> & { meta: PaginationMeta }>(
+        `/users?${params.toString()}`
+      );
 
       return {
         users: data.data,
-        total: data.total,
+        total: data.meta.total,
       };
     },
     staleTime: 5 * 60 * 1000,
@@ -77,31 +36,28 @@ export const useUsersList = (page: number, limit: number) => {
   });
 };
 
-export const createUser = async (payload: Omit<User, "id">) => {
-  const { data } = await apiClient.post<User>("/users", payload);
-  return data;
-};
-
-export const updateUser = async (id: string, payload: Omit<User, "id">) => {
-  const { data } = await apiClient.patch<UpdateUserApiResponse>(`/users/${id}`, payload);
-  if ("success" in data) {
-    return data.data;
-  }
-  return data;
-};
-
-export const deleteUser = async (id: string) => {
-  const { data } = await apiClient.delete<DeleteUserApiResponse>(`/users/${id}`);
-  return data;
+export const useGetUser = (id: string, options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: userKeys.detail(id),
+    queryFn: async () => {
+      const { data } = await apiClient.get<ApiResponse<User>>(`/users/${id}`);
+      return data.data;
+    },
+    enabled: Boolean(id) && (options?.enabled ?? true),
+    staleTime: 5 * 60 * 1000,
+  });
 };
 
 export const useCreateUserMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: Omit<User, "id">) => createUser(payload),
+    mutationFn: async (payload: { email: string; password: string; role: string; fullName?: string }) => {
+      const { data } = await apiClient.post<ApiResponse<User>>("/users", payload);
+      return data.data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
 };
@@ -110,9 +66,12 @@ export const useUpdateUserMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Omit<User, "id"> }) => updateUser(id, payload),
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<User> }) => {
+      const { data } = await apiClient.patch<ApiResponse<User>>(`/users/${id}`, payload);
+      return data.data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
 };
@@ -121,9 +80,27 @@ export const useDeleteUserMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => deleteUser(id),
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.delete<ApiResponse<null>>(`/users/${id}`);
+      return data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+};
+
+export const useUpdateProfileMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Pick<User, "fullName" | "phone" | "address">> }) => {
+      const { data } = await apiClient.patch<ApiResponse<User>>(`/users/${id}/profile`, payload);
+      return data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: userKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
 };

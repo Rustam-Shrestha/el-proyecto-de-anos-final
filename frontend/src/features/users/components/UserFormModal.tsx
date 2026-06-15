@@ -4,29 +4,38 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Modal } from "@shared/components/Modal";
 import Input from "@components/Input";
-import { Button } from "@components/Button";
-import { useToast } from "@hooks/useToast";
-import { useCreateUserMutation, useUpdateUserMutation, type User } from "@features/users/api/usersApi";
+import { Button } from "@shared/components/Button";
+import { useToast } from "@shared/hooks/useToast";
+import {
+  useGetUser,
+  useCreateUserMutation,
+  useUpdateUserMutation,
+} from "@features/users/api/usersApi";
+import { userCreateSchema, userUpdateSchema } from "@shared/utils/validators";
 
-const userSchema = z.object({
+const createFormSchema = userCreateSchema;
+const updateFormSchema = userUpdateSchema.extend({
   email: z.string().email("Enter a valid email address"),
-  role: z.enum(["admin", "staff", "user"]),
+  role: z.enum(["USER", "ADMIN", "REVIEWER"]),
 });
 
-type UserFormValues = z.infer<typeof userSchema>;
+type CreateFormValues = z.infer<typeof createFormSchema>;
+type UpdateFormValues = z.infer<typeof updateFormSchema>;
 
 type UserFormModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  user?: User;
-  onSuccess: () => void;
+  userId?: string;
 };
 
-export const UserFormModal = ({ isOpen, onClose, user, onSuccess }: UserFormModalProps) => {
+export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) => {
+  const isEditing = Boolean(userId);
   const toast = useToast();
-  const isEditing = Boolean(user?.id);
   const createMutation = useCreateUserMutation();
   const updateMutation = useUpdateUserMutation();
+  const { data: existingUser } = useGetUser(userId ?? "", {
+    enabled: isEditing && isOpen,
+  });
 
   const {
     register,
@@ -34,70 +43,110 @@ export const UserFormModal = ({ isOpen, onClose, user, onSuccess }: UserFormModa
     reset,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
+  } = useForm<CreateFormValues | UpdateFormValues>({
+    resolver: zodResolver(isEditing ? updateFormSchema : createFormSchema),
     defaultValues: {
       email: "",
-      role: "staff",
+      role: "USER",
+      ...(isEditing ? {} : { password: "", fullName: "" }),
     },
   });
 
   useEffect(() => {
     if (isOpen) {
-      reset({
-        email: user?.email ?? "",
-        role: user?.role === "admin" || user?.role === "user" || user?.role === "staff" ? user.role : "staff",
-      });
+      if (isEditing && existingUser) {
+        reset({
+          email: existingUser.email,
+          role: existingUser.role as "USER" | "ADMIN" | "REVIEWER",
+        });
+      } else if (!isEditing) {
+        reset({
+          email: "",
+          password: "",
+          role: "USER",
+          fullName: "",
+        });
+      }
     }
-  }, [isOpen, reset, user]);
+  }, [isOpen, isEditing, existingUser, reset]);
 
   const handleClose = () => {
-    reset({ email: "", role: "staff" });
+    reset();
     onClose();
   };
 
-  const onSubmit = async (values: UserFormValues) => {
+  const onSubmit = async (values: CreateFormValues | UpdateFormValues) => {
     try {
-      if (isEditing && user?.id) {
-        await updateMutation.mutateAsync({ id: user.id, payload: values });
+      if (isEditing && userId) {
+        await updateMutation.mutateAsync({
+          id: userId,
+          payload: values as UpdateFormValues,
+        });
         toast.success("User updated successfully");
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(values as CreateFormValues);
         toast.success("User created successfully");
       }
-
-      onSuccess();
       handleClose();
     } catch (error) {
       const apiError = error as {
-        response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } };
+        response?: {
+          status?: number;
+          data?: { message?: string; errors?: Record<string, string[]> };
+        };
       };
-      const message = apiError.response?.data?.message || "Unable to save user";
-      const emailError = apiError.response?.data?.errors?.email?.[0];
 
       if (apiError.response?.status === 403) {
         toast.error("You don't have permission");
         return;
       }
 
+      const emailError = apiError.response?.data?.errors?.email?.[0];
       if (emailError) {
         setError("email", { type: "manual", message: emailError });
       }
 
-      toast.error(message);
+      toast.error(
+        apiError.response?.data?.message || "Unable to save user"
+      );
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={isEditing ? "Edit User" : "Create User"}>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={isEditing ? "Edit User" : "Create User"}
+    >
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <Input
           label="Email"
           type="email"
           placeholder="user@example.com"
+          disabled={isEditing}
           error={errors.email?.message}
           {...register("email")}
         />
+
+        {!isEditing && (
+          <Input
+            label="Password"
+            type="password"
+            placeholder="Min. 8 characters"
+            error={"password" in errors ? (errors.password?.message ?? "") : ""}
+            {...register("password")}
+          />
+        )}
+
+        {!isEditing && (
+          <Input
+            label="Full Name"
+            type="text"
+            placeholder="John Doe"
+            error={"fullName" in errors ? (errors.fullName?.message ?? "") : ""}
+            {...register("fullName")}
+          />
+        )}
 
         <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
           Role
@@ -105,18 +154,27 @@ export const UserFormModal = ({ isOpen, onClose, user, onSuccess }: UserFormModa
             className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             {...register("role")}
           >
-            <option value="admin">Admin</option>
-            <option value="staff">Staff</option>
-            <option value="user">User</option>
+            <option value="USER">User</option>
+            <option value="ADMIN">Admin</option>
+            <option value="REVIEWER">Reviewer</option>
           </select>
-          {errors.role ? <span className="text-sm text-red-500">{errors.role.message}</span> : null}
+          {errors.role ? (
+            <span className="text-sm text-red-500">{errors.role.message}</span>
+          ) : null}
         </label>
 
         <div className="flex items-center justify-end gap-3 pt-2">
           <Button variant="ghost" type="button" onClick={handleClose}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
+          <Button
+            type="submit"
+            isLoading={
+              isSubmitting ||
+              createMutation.isPending ||
+              updateMutation.isPending
+            }
+          >
             {isEditing ? "Update User" : "Create User"}
           </Button>
         </div>

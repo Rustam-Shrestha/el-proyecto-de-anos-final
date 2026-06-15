@@ -3,10 +3,17 @@ import type { AxiosProgressEvent } from "axios";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@shared/lib/apiClient";
+import type { ApiResponse, PaginationMeta } from "@shared/types/common";
+import type {
+  KYCApplication,
+  KYCStatus,
+  KYCDocument,
+  DocumentType,
+} from "@shared/types/common";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-export interface KYCStatus {
+export interface KYCStatusResponse {
   kyc_application_id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   confidence_score: number;
@@ -54,41 +61,6 @@ export interface VerifyResponse {
   message: string;
 }
 
-export type KYCApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
-
-export type KYCApplication = {
-  id: string;
-  applicantEmail: string;
-  applicant_email?: string;
-  status: KYCApplicationStatus;
-  appliedAt: string;
-  applied_at?: string;
-  approvedAt?: string | null;
-  approved_at?: string | null;
-  rejectedAt?: string | null;
-  rejected_at?: string | null;
-  rejectionReason?: string | null;
-  rejection_reason?: string | null;
-  documents: { id?: string; name?: string; filename?: string }[];
-  notes?: string | null;
-};
-
-export type MyKYCStatus = {
-  id: string;
-  status: KYCApplicationStatus;
-  appliedAt: string;
-  applied_at?: string;
-  approvedAt?: string | null;
-  approved_at?: string | null;
-  rejectedAt?: string | null;
-  rejected_at?: string | null;
-  rejectionReason?: string | null;
-  rejection_reason?: string | null;
-  approvalMessage?: string | null;
-  approval_message?: string | null;
-  documents: { id?: string; name?: string; filename?: string }[];
-};
-
 type KYCListApiResponse =
   | {
       applications: KYCApplication[];
@@ -97,9 +69,7 @@ type KYCListApiResponse =
   | {
       success: boolean;
       data: KYCApplication[];
-      meta: {
-        total: number;
-      };
+      meta: { total: number };
     };
 
 type KYCDetailsApiResponse =
@@ -109,16 +79,11 @@ type KYCDetailsApiResponse =
       data: KYCApplication;
     };
 
-type KYCStatusPayload = {
-  notes?: string;
-  reason?: string;
-};
-
 type MyKYCStatusApiResponse =
-  | MyKYCStatus
+  | KYCApplication
   | {
       success: boolean;
-      data: MyKYCStatus | null;
+      data: KYCApplication | null;
     }
   | null;
 
@@ -135,14 +100,18 @@ type SubmitKYCResponse =
       message?: string;
     };
 
+export const kycKeys = {
+  all: ["kyc"] as const,
+  list: (page: number, limit: number, status?: string) =>
+    ["kyc", "list", page, limit, status].filter(Boolean) as readonly string[],
+  detail: (id: string) => ["kyc", id] as const,
+  myStatus: ["kyc", "my-status"] as const,
+  documents: (kycId: string) => ["kyc", "documents", kycId] as const,
+};
+
 class KycApiService {
   private baseURL = API_BASE_URL;
 
-  /**
-   * Upload a document for KYC processing.
-   *
-   * Triggers OCR processing asynchronously for citizenship documents.
-   */
   async uploadDocument(
     userId: string,
     documentType: string,
@@ -155,64 +124,40 @@ class KycApiService {
     formData.append("file", file as string);
 
     try {
-      const response = await axios.post(
-        `${this.baseURL}/kyc/upload`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            if (onProgress && progressEvent.total) {
-              onProgress((progressEvent.loaded / progressEvent.total) * 100);
-            }
-          },
-        }
-      );
-
+      const response = await axios.post(`${this.baseURL}/kyc/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+          if (onProgress && progressEvent.total) {
+            onProgress((progressEvent.loaded / progressEvent.total) * 100);
+          }
+        },
+      });
       return response.data;
     } catch (error) {
       throw new Error(`Document upload failed: ${error}`);
     }
   }
 
-  /**
-   * Verify face match between selfie and ID document.
-   *
-   * Returns match verdict and confidence distance.
-   */
   async verifyFace(
     kycApplicationId: string,
     selfiePath: string,
     idDocumentPath: string
   ): Promise<VerifyResponse> {
     try {
-      const response = await axios.post(
-        `${this.baseURL}/kyc/verify`,
-        {
-          kyc_application_id: kycApplicationId,
-          selfie_path: selfiePath,
-          id_document_path: idDocumentPath,
-        }
-      );
-
+      const response = await axios.post(`${this.baseURL}/kyc/verify`, {
+        kyc_application_id: kycApplicationId,
+        selfie_path: selfiePath,
+        id_document_path: idDocumentPath,
+      });
       return response.data;
     } catch (error) {
       throw new Error(`Face verification failed: ${error}`);
     }
   }
 
-  /**
-   * Retrieve KYC application status and results.
-   *
-   * Includes OCR results, face verification results, and documents.
-   */
-  async getKYCStatus(kycApplicationId: string): Promise<KYCStatus> {
+  async getKYCStatus(kycApplicationId: string): Promise<KYCStatusResponse> {
     try {
-      const response = await axios.get(
-        `${this.baseURL}/kyc/status/${kycApplicationId}`
-      );
-
+      const response = await axios.get(`${this.baseURL}/kyc/status/${kycApplicationId}`);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to retrieve KYC status: ${error}`);
@@ -222,9 +167,9 @@ class KycApiService {
 
 export const kycApiService = new KycApiService();
 
-export const useKYCApplications = (page: number, limit: number, status: string) => {
+export const useKYCList = (page: number, limit: number, status?: string) => {
   return useQuery({
-    queryKey: ["kyc", page, limit, status],
+    queryKey: kycKeys.list(page, limit, status),
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       searchParams.set("page", String(page));
@@ -233,7 +178,9 @@ export const useKYCApplications = (page: number, limit: number, status: string) 
         searchParams.set("status", status);
       }
 
-      const { data } = await apiClient.get<KYCListApiResponse>(`/kyc?${searchParams.toString()}`);
+      const { data } = await apiClient.get<KYCListApiResponse>(
+        `/kyc?${searchParams.toString()}`
+      );
 
       if ("applications" in data) {
         return data;
@@ -249,19 +196,16 @@ export const useKYCApplications = (page: number, limit: number, status: string) 
   });
 };
 
-export const useKYCApplication = (id?: string) => {
+export const useGetKYCDetails = (id: string) => {
   return useQuery({
-    queryKey: ["kyc", id],
+    queryKey: kycKeys.detail(id),
     queryFn: async () => {
-      if (!id) {
-        throw new Error("KYC application id is required");
-      }
+      if (!id) throw new Error("KYC application id is required");
 
       const { data } = await apiClient.get<KYCDetailsApiResponse>(`/kyc/${id}`);
       if ("success" in data) {
         return data.data;
       }
-
       return data;
     },
     enabled: Boolean(id),
@@ -270,35 +214,21 @@ export const useKYCApplication = (id?: string) => {
   });
 };
 
-export const useApproveKYCMutation = () => {
-  const queryClient = useQueryClient();
+export const useGetMyKYCStatus = () => {
+  return useQuery({
+    queryKey: kycKeys.myStatus,
+    queryFn: async () => {
+      const { data } = await apiClient.get<MyKYCStatusApiResponse>("/kyc/my-status");
 
-  return useMutation({
-    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
-      const { data } = await apiClient.patch<KYCDetailsApiResponse>(`/kyc/${id}/approve`, {
-        notes,
-      } satisfies KYCStatusPayload);
-      return "success" in data ? data.data : data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["kyc"] });
-    },
-  });
-};
+      if (!data) return null;
 
-export const useRejectKYCMutation = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const { data } = await apiClient.patch<KYCDetailsApiResponse>(`/kyc/${id}/reject`, {
-        reason,
-      } satisfies KYCStatusPayload);
-      return "success" in data ? data.data : data;
+      if ("success" in data) {
+        return data.data;
+      }
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["kyc"] });
-    },
+    staleTime: 5 * 60 * 1000,
+    retry: true,
   });
 };
 
@@ -310,9 +240,7 @@ export const useSubmitKYCMutation = () => {
     mutationFn: async (payload: FormData) => {
       setUploadProgress(0);
       const { data } = await apiClient.post<SubmitKYCResponse>("/kyc/submit", payload, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (event) => {
           if (event.total) {
             setUploadProgress(Math.round((event.loaded / event.total) * 100));
@@ -320,44 +248,141 @@ export const useSubmitKYCMutation = () => {
         },
       });
 
-      if ("success" in data) {
-        return data.data;
-      }
-
+      if ("success" in data) return data.data;
       return data;
     },
     onSuccess: () => {
       setUploadProgress(100);
-      queryClient.invalidateQueries({ queryKey: ["kyc"] });
+      queryClient.invalidateQueries({ queryKey: kycKeys.all });
+      queryClient.invalidateQueries({ queryKey: kycKeys.myStatus });
     },
     onSettled: () => {
       setTimeout(() => setUploadProgress(0), 300);
     },
   });
 
-  return {
-    ...mutation,
-    uploadProgress,
-  };
+  return { ...mutation, uploadProgress };
 };
 
-export const useGetMyKYCStatus = () => {
-  return useQuery({
-    queryKey: ["kyc", "my-status"],
-    queryFn: async () => {
-      const { data } = await apiClient.get<MyKYCStatusApiResponse>("/kyc/my-status");
+export const useUploadDocumentMutation = () => {
+  const queryClient = useQueryClient();
 
-      if (!data) {
-        return null;
-      }
+  return useMutation({
+    mutationFn: async ({
+      kycId,
+      documentType,
+      file,
+    }: {
+      kycId: string;
+      documentType: DocumentType;
+      file: File;
+    }) => {
+      const formData = new FormData();
+      formData.append("kycId", kycId);
+      formData.append("type", documentType);
+      formData.append("document", file);
 
-      if ("success" in data) {
-        return data.data;
-      }
-
-      return data;
+      const { data } = await apiClient.post<ApiResponse<KYCDocument>>(
+        "/kyc/documents/upload",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      return data.data;
     },
-    staleTime: 5 * 60 * 1000,
-    retry: true,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: kycKeys.all });
+    },
   });
 };
+
+export const useApproveKYCMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const { data } = await apiClient.patch<KYCDetailsApiResponse>(
+        `/kyc/${id}/approve`,
+        { notes }
+      );
+      return "success" in data ? data.data : data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: kycKeys.all });
+    },
+  });
+};
+
+export const useRejectKYCMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const { data } = await apiClient.patch<KYCDetailsApiResponse>(
+        `/kyc/${id}/reject`,
+        { reason }
+      );
+      return "success" in data ? data.data : data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: kycKeys.all });
+    },
+  });
+};
+
+export const useGetKYCDocuments = (kycId: string) => {
+  return useQuery({
+    queryKey: kycKeys.documents(kycId),
+    queryFn: async () => {
+      const { data } = await apiClient.get<ApiResponse<KYCDocument[]>>(
+        `/kyc/${kycId}/documents`
+      );
+      return data.data;
+    },
+    enabled: Boolean(kycId),
+  });
+};
+
+export const useVerifyDocumentMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { data } = await apiClient.patch<ApiResponse<KYCDocument>>(
+        `/kyc/documents/${id}/verify`,
+        { status }
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: kycKeys.all });
+    },
+  });
+};
+
+export const useReplaceDocumentMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const formData = new FormData();
+      formData.append("document", file);
+
+      const { data } = await apiClient.post<ApiResponse<KYCDocument>>(
+        `/kyc/documents/${id}/replace`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: kycKeys.all });
+    },
+  });
+};
+
+export const useKYCApplications = useKYCList;
+export const useKYCApplication = useGetKYCDetails;
