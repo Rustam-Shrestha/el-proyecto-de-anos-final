@@ -10,6 +10,59 @@ datasource db {
   schemas  = ["auth"]
 }
 
+// Document types for KYC and loan documents
+enum DocumentType {
+  CITIZENSHIP_FRONT
+  CITIZENSHIP_BACK
+  SELFIE
+  INCOME_PROOF
+  BANK_STATEMENT
+  EXISTING_LOAN
+  COLLATERAL
+
+  @@schema("auth")
+}
+
+// Document verification statuses
+enum DocumentVerificationStatus {
+  PENDING
+  PROCESSING
+  VERIFIED
+  REJECTED
+  MANUAL_REVIEW
+
+  @@schema("auth")
+}
+
+// Loan application statuses
+enum LoanStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+
+  @@schema("auth")
+}
+
+// Loan purpose categories
+enum LoanPurpose {
+  HOME
+  EDUCATION
+  BUSINESS
+  PERSONAL
+
+  @@schema("auth")
+}
+
+// Credit risk levels
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@schema("auth")
+}
+
 // Roles for RBAC
 model Role {
   id    String @id @default(cuid())
@@ -35,11 +88,16 @@ model User {
   role   Role   @relation(fields: [roleId], references: [id])
 
   // Relations
-  profile       Profile?
-  sessions      Session[]
-  auditLogs     AuditLog[]
-  kycApplications KycApplication[]
-  documents     Document[]
+  profile          Profile?
+  sessions         Session[]
+  auditLogs        AuditLog[]
+  kycApplications  KycApplication[]
+  documents        Document[]
+  employmentInfo   EmploymentInfo?
+  borrowerFeatures BorrowerFeatures?
+  loanApplications LoanApplication[]
+  reviewedLoans    LoanApplication[] @relation("LoanReviewer")
+  verifiedDocuments Document[]       @relation("DocumentVerifier")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -129,25 +187,41 @@ model KycApplication {
 
 // Document storage
 model Document {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kycId        String
-  kyc          KycApplication @relation(fields: [kycId], references: [id], onDelete: Cascade)
-  type         String   // CITIZENSHIP_FRONT, CITIZENSHIP_BACK, PASSPORT, SELFIE, OTHER
-  filePath     String   // e.g., kyc/documents/abc123_PASSPORT_1716000000000.pdf
-  mimeType     String
-  sizeBytes    Int
-  isDeleted    Boolean  @default(false)
-  version      Int      @default(1)
+  id                   String                     @id @default(cuid())
+  userId               String
+  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycId                String
+  kyc                  KycApplication             @relation(fields: [kycId], references: [id], onDelete: Cascade)
+  documentType         DocumentType
+  filePath             String
+  fileMimeType         String?
+  fileSize             Int?
+  ocrStatus            DocumentVerificationStatus @default(PENDING)
+  ocrConfidence        Float?
+  extractedData        Json?
+  ocrErrorMessage      String?
+  ocrProcessedAt       DateTime?
+  verificationStatus   DocumentVerificationStatus @default(PENDING)
+  verificationNotes    String?
+  verifiedBy           String?
+  verifiedByUser       User?                      @relation("DocumentVerifier", fields: [verifiedBy], references: [id])
+  verifiedAt           DateTime?
+  isDeleted            Boolean                    @default(false)
+  version              Int                        @default(1)
+  replacedById         String?
+  replacedBy           Document?                  @relation("DocumentVersions", fields: [replacedById], references: [id])
+  previousVersions     Document[]                 @relation("DocumentVersions")
 
   // Relations
   versions DocumentVersion[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([kycId])
+  @@index([documentType])
+  @@index([verificationStatus])
   @@index([isDeleted])
   @@map("documents")
   @@schema("auth")
@@ -165,5 +239,69 @@ model DocumentVersion {
 
   @@index([documentId])
   @@map("document_versions")
+  @@schema("auth")
+}
+
+// Employment information for borrower income assessment
+model EmploymentInfo {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobTitle              String
+  employmentStartDate   DateTime
+  declaredAnnualIncome  Decimal  @db.Decimal(12, 2)
+  employmentTenureMonths Int?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@map("employment_info")
+  @@schema("auth")
+}
+
+// Precomputed borrower features for risk assessment
+model BorrowerFeatures {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amtIncomeTotal          Decimal? @db.Decimal(12, 2)
+  amtCredit               Decimal? @db.Decimal(12, 2)
+  daysBirth               Int?
+  daysEmployed            Int?
+  debtToIncomeRatio       Decimal? @db.Decimal(5, 2)
+  paymentConsistencyScore Decimal? @db.Decimal(5, 2)
+  cntInstalment           Int?     @default(0)
+  amtAnnuity              Decimal? @db.Decimal(12, 2)
+  computedAt              DateTime @default(now())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([userId])
+  @@map("borrower_features")
+  @@schema("auth")
+}
+
+// Loan applications with risk assessment
+model LoanApplication {
+  id                String     @id @default(cuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestedAmount   Decimal    @db.Decimal(12, 2)
+  tenureMonths      Int
+  purpose           LoanPurpose
+  calculatedEmi     Decimal?   @db.Decimal(10, 2)
+  status            LoanStatus @default(SUBMITTED)
+  riskScore         Int?
+  riskLevel         RiskLevel?
+  loanOfficerNotes  String?
+  reviewedBy        String?
+  reviewedByUser    User?      @relation("LoanReviewer", fields: [reviewedBy], references: [id])
+  reviewedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("loan_applications")
   @@schema("auth")
 }
