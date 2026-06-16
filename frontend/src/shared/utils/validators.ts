@@ -58,7 +58,10 @@ export const kycRejectSchema = z.object({
 });
 
 export const loanApplicationSchema = z.object({
-  amount: z.number().positive("Loan amount must be positive"),
+  amount: z
+    .number()
+    .min(10000, "Minimum loan amount is NPR 10,000")
+    .max(2000000, "Maximum loan amount is NPR 2,000,000"),
   purpose: z.enum([
     "PERSONAL",
     "BUSINESS",

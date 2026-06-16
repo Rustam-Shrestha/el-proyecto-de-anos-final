@@ -16,6 +16,8 @@ const KYCListPage = lazy(() => import("@features/kyc/pages/KYCListPage"));
 const KYCPage = lazy(() => import("@features/kyc/pages/KYCPage"));
 const UserKYCPage = lazy(() => import("@features/kyc/pages/UserKYCPage"));
 const KYCStatusPage = lazy(() => import("@features/kyc/pages/KYCStatusPage"));
+const LoanApplicationPage = lazy(() => import("@features/loans/pages/LoanApplicationPage"));
+const LoanStatusPage = lazy(() => import("@features/loans/pages/LoanStatusPage"));
 const DashboardPage = lazy(() => import("@pages/DashboardPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 
@@ -148,6 +150,22 @@ export const router = createBrowserRouter([
         element: (
           <RoleProtectedRoute requiredRoles={["user", "admin"]}>
             <ProfilePage />
+          </RoleProtectedRoute>
+        )
+      },
+      {
+        path: "loans/apply",
+        element: (
+          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+            <LoanApplicationPage />
+          </RoleProtectedRoute>
+        )
+      },
+      {
+        path: "loans/status",
+        element: (
+          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+            <LoanStatusPage />
           </RoleProtectedRoute>
         )
       }
