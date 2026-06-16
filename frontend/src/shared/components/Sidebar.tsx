@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, ScanSearch, FileBarChart2, UserCircle2 } from "lucide-react";
-import useAuth from "@hooks/useAuth";
+import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, ScanSearch, FileBarChart2, UserCircle2, HandCoins, Landmark } from "lucide-react";
+import { useAuth } from "@store/hooks";
 
 type SidebarProps = {
   isOpen: boolean;
@@ -18,21 +18,30 @@ const userItems: MenuItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "Submit KYC", path: "/dashboard/kyc-submit", icon: ScanSearch },
   { label: "KYC Status", path: "/dashboard/kyc-status", icon: ShieldCheck },
+  { label: "Apply for Loan", path: "/dashboard/loans/apply", icon: HandCoins },
+  { label: "My Loans", path: "/dashboard/loans/status", icon: FileBarChart2 },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
 
 const adminItems: MenuItem[] = [
   { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
   { label: "Users Management", path: "/dashboard/users", icon: Users },
-  { label: "KYC Management", path: "/dashboard/kyc", icon: FileText },
+  { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
+  { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
   { label: "Reports", path: "/dashboard/reports", icon: FileBarChart2 },
+];
+
+const reviewerItems: MenuItem[] = [
+  { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
+  { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
 ];
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { userData } = useAuth();
-  const isAdmin = useMemo(() => userData?.role?.trim().toUpperCase() === "ADMIN", [userData?.role]);
-  const renderedItems = useMemo(() => userItems, []);
-  const renderedAdminItems = useMemo(() => (isAdmin ? adminItems : []), [isAdmin]);
+  const role = useMemo(() => userData?.role?.trim().toLowerCase() ?? "", [userData?.role]);
+  const showUserItems = useMemo(() => role === "user" || role === "admin", [role]);
+  const showAdminItems = useMemo(() => role === "admin", [role]);
+  const showReviewerItems = useMemo(() => role === "reviewer", [role]);
 
   const linkClassName = ({ isActive }: { isActive: boolean }) =>
     [
@@ -61,7 +70,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       </div>
 
       <nav className="space-y-2">
-        {renderedItems.map((item) => {
+        {showUserItems && userItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -78,13 +87,13 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           );
         })}
 
-        {renderedAdminItems.length ? (
+        {showAdminItems && (
           <div className="pt-4">
             <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
               Admin
             </p>
             <div className="space-y-2">
-              {renderedAdminItems.map((item) => {
+              {adminItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <NavLink
@@ -102,7 +111,33 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               })}
             </div>
           </div>
-        ) : null}
+        )}
+
+        {showReviewerItems && (
+          <div className="pt-4">
+            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+              Reviewer
+            </p>
+            <div className="space-y-2">
+              {reviewerItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.label}
+                    to={item.path}
+                    onClick={onClose}
+                    className={linkClassName}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)] dark:bg-gray-800 dark:text-gray-100">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
     </aside>
   );

@@ -8,7 +8,7 @@ import AccessDeniedPage from "../pages/AccessDeniedPage";
 // Route-level lazy loading keeps the initial bundle light.
 const LoginPage = lazy(() => import("@features/auth/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@features/auth/pages/RegisterPage"));
-const AdminDashboardPage = lazy(() => import("@features/admin/pages/AdminDashboardPage"));
+const AdminDashboardPage = lazy(() => import("@features/dashboard/pages/AdminDashboardPage"));
 const ProfilePage = lazy(() => import("@features/profile/pages/ProfilePage"));
 const UsersPage = lazy(() => import("@features/users/pages/UsersPage"));
 const UserAccessPage = lazy(() => import("@features/users/pages/UserAccessPage"));
@@ -114,7 +114,7 @@ export const router = createBrowserRouter([
       {
         path: "kyc",
         element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
+          <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
             <KYCListPage />
           </RoleProtectedRoute>
         )
@@ -133,7 +133,7 @@ export const router = createBrowserRouter([
       {
         path: "loans",
         element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
+          <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
             <LoanOfficerDashboardPage />
           </RoleProtectedRoute>
         )
