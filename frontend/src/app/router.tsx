@@ -15,7 +15,7 @@ const UserAccessPage = lazy(() => import("@features/users/pages/UserAccessPage")
 const KYCListPage = lazy(() => import("@features/kyc/pages/KYCListPage"));
 const KYCPage = lazy(() => import("@features/kyc/pages/KYCPage"));
 const UserKYCPage = lazy(() => import("@features/kyc/pages/UserKYCPage"));
-const UserKYCStatusPage = lazy(() => import("@features/kyc/pages/UserKYCStatusPage"));
+const KYCStatusPage = lazy(() => import("@features/kyc/pages/KYCStatusPage"));
 const DashboardPage = lazy(() => import("@pages/DashboardPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 
@@ -139,7 +139,7 @@ export const router = createBrowserRouter([
         path: "kyc-status",
         element: (
           <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <UserKYCStatusPage />
+            <KYCStatusPage />
           </RoleProtectedRoute>
         )
       },
