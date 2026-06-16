@@ -1,78 +1,108 @@
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
+import { memo, useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, Download, XCircle } from "lucide-react";
 import { Modal } from "@shared/components/Modal";
-import { Button } from "@components/Button";
-import Input from "@components/Input";
-import { useToast } from "@hooks/useToast";
+import { Button } from "@shared/components/Button";
+import { DocumentStatusBadge } from "@shared/components/DocumentStatusBadge";
+import { useToast } from "@shared/hooks/useToast";
+import { env } from "@shared/lib/env";
 import {
-  type KYCApplication,
   useApproveKYCMutation,
   useRejectKYCMutation,
 } from "@features/kyc/api/kycApi";
+import type { KYCApplication, KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
+import { DocumentType } from "@shared/types/common";
 
-const rejectSchema = z.object({
-  reason: z.string().min(3, "Reason is required"),
-  notes: z.string().optional(),
-});
+const documentTypeLabels: Record<string, string> = {
+  [DocumentType.CITIZENSHIP_FRONT]: "Citizenship (Front)",
+  [DocumentType.CITIZENSHIP_BACK]: "Citizenship (Back)",
+  [DocumentType.PASSPORT]: "Passport",
+  [DocumentType.SELFIE]: "Selfie",
+  [DocumentType.INCOME_PROOF]: "Income Proof",
+  [DocumentType.BANK_STATEMENT]: "Bank Statement",
+  [DocumentType.EXISTING_LOAN]: "Existing Loan",
+  [DocumentType.COLLATERAL]: "Collateral",
+  [DocumentType.OTHER]: "Other",
+};
 
-type RejectFormValues = z.infer<typeof rejectSchema>;
+const docStatusToBadgeStatus = (
+  status?: DocumentVerificationStatus
+): "PENDING" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW" | "PROCESSING" => {
+  switch (status) {
+    case "VERIFIED":
+      return "VERIFIED";
+    case "FAILED":
+      return "REJECTED";
+    case "MANUAL_REVIEW":
+      return "MANUAL_REVIEW";
+    case "PROCESSING":
+      return "PROCESSING";
+    default:
+      return "PENDING";
+  }
+};
+
+const statusBadgeClasses: Record<string, string> = {
+  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+  APPROVED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  REJECTED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+  UNDER_REVIEW: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "--";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "--"
+    : new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(date);
+};
+
+const resolveDocumentUrl = (filePath: string): string => {
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  const base = env.VITE_API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  const normalized = filePath.startsWith("/") ? filePath : `/${filePath}`;
+  return `${base}${normalized}`;
+};
+
+const isImage = (mimeType: string) => mimeType.startsWith("image/");
+const isPdf = (mimeType: string) => mimeType === "application/pdf";
 
 type KYCDetailsModalProps = {
   isOpen: boolean;
   onClose: () => void;
   application: KYCApplication | null;
-  onSuccess: () => void;
 };
 
-const statusBadgeClasses: Record<KYCApplication["status"], string> = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
-  APPROVED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
-};
-
-export const KYCDetailsModal = ({ isOpen, onClose, application, onSuccess }: KYCDetailsModalProps) => {
+const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps) => {
   const toast = useToast();
   const approveMutation = useApproveKYCMutation();
   const rejectMutation = useRejectKYCMutation();
   const [showRejectForm, setShowRejectForm] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    getValues,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<RejectFormValues>({
-    resolver: zodResolver(rejectSchema),
-    defaultValues: {
-      reason: "",
-      notes: "",
-    },
-  });
+  const [rejectReason, setRejectReason] = useState("");
+  const [approveNotes, setApproveNotes] = useState("");
 
   useEffect(() => {
     if (!isOpen) {
       setShowRejectForm(false);
-      reset({ reason: "", notes: "" });
+      setRejectReason("");
+      setApproveNotes("");
     }
-  }, [isOpen, reset]);
+  }, [isOpen]);
 
-  const documents = useMemo(() => {
-    return application?.documents ?? [];
-  }, [application?.documents]);
+  const documents = useMemo<KYCDocument[]>(
+    () => application?.documents ?? [],
+    [application?.documents]
+  );
 
   const handleApprove = async () => {
-    if (!application?.id) {
-      return;
-    }
-
+    if (!application?.id) return;
     try {
-      await approveMutation.mutateAsync({ id: application.id, notes: getValues("notes") });
+      await approveMutation.mutateAsync({ id: application.id, notes: approveNotes || undefined });
       toast.success("KYC application approved");
-      onSuccess();
       onClose();
     } catch (error) {
       const apiError = error as { response?: { data?: { message?: string } } };
@@ -80,86 +110,199 @@ export const KYCDetailsModal = ({ isOpen, onClose, application, onSuccess }: KYC
     }
   };
 
-  const handleReject = handleSubmit(async (values) => {
-    if (!application?.id) {
-      return;
-    }
-
+  const handleReject = async () => {
+    if (!application?.id || !rejectReason.trim()) return;
     try {
-      await rejectMutation.mutateAsync({ id: application.id, reason: values.reason });
+      await rejectMutation.mutateAsync({ id: application.id, reason: rejectReason.trim() });
       toast.success("KYC application rejected");
-      onSuccess();
       onClose();
     } catch (error) {
       const apiError = error as { response?: { data?: { message?: string } } };
       toast.error(apiError.response?.data?.message || "Unable to reject application");
     }
-  });
+  };
+
+  const isPending = application?.status === "PENDING";
+  const isRejecting = showRejectForm;
+  const isMutating = approveMutation.isPending || rejectMutation.isPending;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={application?.applicantEmail || "KYC Details"}>
+    <Modal isOpen={isOpen} onClose={onClose} title="KYC Application Details">
       {!application ? null : (
-        <div className="space-y-5">
+        <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses[application.status]}`}>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                statusBadgeClasses[application.status] ?? statusBadgeClasses.PENDING
+              }`}
+            >
               {application.status}
             </span>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Applied {new Date(application.appliedAt ?? application.applied_at ?? Date.now()).toLocaleDateString()}
+              Applied {formatDate(application.appliedAt ?? application.submittedAt)}
             </p>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Uploaded Documents</p>
-            {documents.length ? (
-              <ul className="mt-3 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                {documents.map((document, index) => (
-                  <li key={document.id ?? `${document.name ?? document.filename ?? "document"}-${index}`}>
-                    {document.name ?? document.filename ?? `Document ${index + 1}`}
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Applicant Information
+            </h3>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-gray-500 dark:text-gray-400">Email</dt>
+                <dd className="font-medium text-gray-900 dark:text-gray-100">
+                  {application.applicantEmail ?? application.userEmail ?? "--"}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500 dark:text-gray-400">Submitted</dt>
+                <dd className="font-medium text-gray-900 dark:text-gray-100">
+                  {formatDate(application.submittedAt)}
+                </dd>
+              </div>
+              {application.reviewedAt ? (
+                <div className="flex justify-between">
+                  <dt className="text-gray-500 dark:text-gray-400">Reviewed</dt>
+                  <dd className="font-medium text-gray-900 dark:text-gray-100">
+                    {formatDate(application.reviewedAt)}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Documents
+            </h3>
+            {documents.length === 0 ? (
+              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                No documents available.
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-gray-200 dark:divide-gray-800">
+                {documents.map((doc) => (
+                  <li key={doc.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {documentTypeLabels[doc.type] ?? doc.type}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          Uploaded {formatDate(doc.createdAt)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <DocumentStatusBadge
+                          status={docStatusToBadgeStatus(doc.verificationStatus)}
+                        />
+                        {isImage(doc.mimeType) ? (
+                          <a
+                            href={resolveDocumentUrl(doc.filePath)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                            aria-label={`Preview ${documentTypeLabels[doc.type] ?? doc.type}`}
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        ) : null}
+                        {isPdf(doc.mimeType) ? (
+                          <a
+                            href={resolveDocumentUrl(doc.filePath)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            PDF
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                    {isImage(doc.mimeType) ? (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                        <img
+                          src={resolveDocumentUrl(doc.filePath)}
+                          alt={documentTypeLabels[doc.type] ?? doc.type}
+                          className="max-h-48 w-full object-contain bg-gray-100 dark:bg-gray-800"
+                        />
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No documents available.</p>
             )}
           </div>
 
-          {application.rejectionReason || application.rejection_reason ? (
+          {application.rejectionReason ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
               <p className="flex items-center gap-2 text-sm font-semibold">
                 <AlertCircle className="h-4 w-4" />
                 Rejection Reason
               </p>
-              <p className="mt-2 text-sm">{application.rejectionReason ?? application.rejection_reason}</p>
+              <p className="mt-2 text-sm">{application.rejectionReason}</p>
             </div>
           ) : null}
 
-          {application.status === "PENDING" ? (
+          {isPending ? (
             <div className="space-y-4 border-t border-gray-200 pt-4 dark:border-gray-800">
-              <Input label="Reviewer Notes" placeholder="Optional notes" {...register("notes")} />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Reviewer Notes
+                </label>
+                <textarea
+                  value={approveNotes}
+                  onChange={(e) => setApproveNotes(e.target.value)}
+                  placeholder="Optional notes about this application"
+                  rows={2}
+                  className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                />
+              </div>
 
-              {showRejectForm ? (
-                <form className="space-y-4" onSubmit={handleReject}>
-                  <Input
-                    label="Rejection Reason"
-                    placeholder="Explain why this application is rejected"
-                    error={errors.reason?.message}
-                    {...register("reason")}
-                  />
+              {isRejecting ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-red-700 dark:text-red-300">
+                      Rejection Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="Explain why this application is rejected"
+                      rows={3}
+                      className="mt-1 w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-red-500 dark:border-red-800 dark:bg-gray-900 dark:text-gray-100"
+                    />
+                    {rejectReason.trim().length > 0 ? null : (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                        Reason is required
+                      </p>
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center justify-end gap-3">
-                    <Button variant="ghost" type="button" onClick={() => setShowRejectForm(false)}>
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      onClick={() => {
+                        setShowRejectForm(false);
+                        setRejectReason("");
+                      }}
+                      disabled={isMutating}
+                    >
                       Cancel
                     </Button>
                     <Button
                       variant="danger"
-                      type="submit"
-                      isLoading={isSubmitting || rejectMutation.isPending}
+                      type="button"
+                      onClick={handleReject}
+                      isLoading={rejectMutation.isPending}
+                      disabled={!rejectReason.trim()}
                       leftIcon={<XCircle className="h-4 w-4" />}
                     >
-                      Reject
+                      Confirm Reject
                     </Button>
                   </div>
-                </form>
+                </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-end gap-3">
                   <Button variant="ghost" type="button" onClick={onClose}>
@@ -169,6 +312,7 @@ export const KYCDetailsModal = ({ isOpen, onClose, application, onSuccess }: KYC
                     variant="danger"
                     type="button"
                     onClick={() => setShowRejectForm(true)}
+                    disabled={isMutating}
                     leftIcon={<XCircle className="h-4 w-4" />}
                   >
                     Reject
@@ -177,6 +321,7 @@ export const KYCDetailsModal = ({ isOpen, onClose, application, onSuccess }: KYC
                     type="button"
                     onClick={handleApprove}
                     isLoading={approveMutation.isPending}
+                    disabled={isMutating}
                     leftIcon={<CheckCircle2 className="h-4 w-4" />}
                   >
                     Approve
@@ -197,4 +342,7 @@ export const KYCDetailsModal = ({ isOpen, onClose, application, onSuccess }: KYC
   );
 };
 
-export default KYCDetailsModal;
+KYCDetailsModal.displayName = "KYCDetailsModal";
+
+export { KYCDetailsModal };
+export default memo(KYCDetailsModal);
