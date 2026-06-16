@@ -18,6 +18,7 @@ const UserKYCPage = lazy(() => import("@features/kyc/pages/UserKYCPage"));
 const KYCStatusPage = lazy(() => import("@features/kyc/pages/KYCStatusPage"));
 const LoanApplicationPage = lazy(() => import("@features/loans/pages/LoanApplicationPage"));
 const LoanStatusPage = lazy(() => import("@features/loans/pages/LoanStatusPage"));
+const LoanOfficerDashboardPage = lazy(() => import("@features/loans/pages/LoanOfficerDashboardPage"));
 const DashboardPage = lazy(() => import("@pages/DashboardPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 
@@ -126,6 +127,14 @@ export const router = createBrowserRouter([
               title="Reports"
               description="Reporting views will be added here in a later prompt."
             />
+          </RoleProtectedRoute>
+        )
+      },
+      {
+        path: "loans",
+        element: (
+          <RoleProtectedRoute requiredRoles={["admin"]}>
+            <LoanOfficerDashboardPage />
           </RoleProtectedRoute>
         )
       },
