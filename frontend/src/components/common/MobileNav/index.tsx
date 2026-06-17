@@ -32,8 +32,8 @@ const MobileNav = ({
   const formattedHours = hours % 12 || 12;
   const formattedMinutes = now.getMinutes().toString().padStart(2, "0");
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
     onCloseMobileMenu();
   };

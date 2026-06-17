@@ -55,9 +55,15 @@ export const useAuth = () => {
     setLoading(true);
     try {
       await service.logout();
-      setUser(null);
-      navigate('/auth/login');
+    } catch {
+      // still clear local state even if API fails
     } finally {
+      setUser(null);
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("userData");
+      localStorage.removeItem("clientDetails");
       setLoading(false);
     }
   };

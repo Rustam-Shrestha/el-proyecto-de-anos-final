@@ -53,8 +53,8 @@ const UserProfile = () => {
 
   const toggleSearch = () => setShowSearch((prev) => !prev);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     closeProfileDropdown();
     navigate("/login");
   };

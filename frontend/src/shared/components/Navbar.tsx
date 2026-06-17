@@ -19,8 +19,8 @@ const displayName: string = useMemo(() => {
   return userData?.name || 'User'; 
 }, [userData]); // Make sure the dependency array also uses 'userData'
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     window.location.href = "/login";
   };
 
