@@ -157,16 +157,32 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   return (
     <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
       <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">KYC Submission</p>
-        <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">Submit your KYC application</h2>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
+          KYC Submission
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Submit your KYC application
+        </h2>
       </div>
 
       <div className="flex items-center gap-3 text-sm">
-        <span className={step >= 1 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}>1. Personal</span>
+        <span
+          className={step >= 1 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}
+        >
+          1. Personal
+        </span>
         <span className="text-gray-400">-</span>
-        <span className={step >= 2 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}>2. Upload</span>
+        <span
+          className={step >= 2 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}
+        >
+          2. Upload
+        </span>
         <span className="text-gray-400">-</span>
-        <span className={step >= 3 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}>3. Review</span>
+        <span
+          className={step >= 3 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}
+        >
+          3. Review
+        </span>
       </div>
 
       <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
@@ -194,10 +210,14 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
         <div className="space-y-5">
           {(["selfie", "idProof", "addressProof"] as FileField[]).map((field) => (
             <div key={field} className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label
+                htmlFor={field}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 {field === "selfie" ? "Selfie" : field === "idProof" ? "ID Proof" : "Address Proof"}
               </label>
               <input
+                id={field}
                 type="file"
                 accept="image/jpeg,image/png"
                 onChange={(event) => handleFileChange(field, event.target.files?.item(0) ?? null)}
@@ -206,7 +226,11 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
               {errors[field] ? <p className="text-sm text-red-500">{errors[field]}</p> : null}
               {previews[field] ? (
                 <div className="space-y-2">
-                  <img src={previews[field]} alt={`${field} preview`} className="h-40 rounded-2xl object-cover" />
+                  <img
+                    src={previews[field]}
+                    alt={`${field} preview`}
+                    className="h-40 rounded-2xl object-cover"
+                  />
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {files[field]?.name} • {files[field] ? readableSize(files[field].size) : ""}
                   </p>
@@ -242,7 +266,9 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                   style={{ width: `${submitMutation.uploadProgress}%` }}
                 />
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Uploading application... {Math.round(submitMutation.uploadProgress)}%</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Uploading application... {Math.round(submitMutation.uploadProgress)}%
+              </p>
             </div>
           ) : null}
 
