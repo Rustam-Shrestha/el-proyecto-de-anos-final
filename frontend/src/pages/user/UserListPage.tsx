@@ -7,7 +7,7 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner';
 const UserListPage: React.FC = () => {
   useProtectedRoute(['ADMIN']);
   const { listUsers } = useUser();
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLoansList } from "@features/loans/api/loansApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
-import type { LoanApplication } from "@shared/types/common";
+
 
 const statusBadgeClasses: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",

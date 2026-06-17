@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@shared/lib/apiClient";
-import type { ApiResponse, PaginationMeta } from "@shared/types/common";
+import type { ApiResponse } from "@shared/types/common";
 import type {
   LoanApplication,
   LoanStatus,
   LoanPurpose,
-  BorrowerFeatures,
 } from "@shared/types/common";
 
 type LoanListApiResponse =

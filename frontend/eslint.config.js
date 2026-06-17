@@ -16,6 +16,7 @@ export default [
         clearTimeout: "readonly",
         console: "readonly",
         document: "readonly",
+        fetch: "readonly",
         FormData: "readonly",
         File: "readonly",
         FileReader: "readonly",

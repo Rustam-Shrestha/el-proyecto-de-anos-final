@@ -3,10 +3,9 @@ import type { AxiosProgressEvent } from "axios";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@shared/lib/apiClient";
-import type { ApiResponse, PaginationMeta } from "@shared/types/common";
+import type { ApiResponse } from "@shared/types/common";
 import type {
   KYCApplication,
-  KYCStatus,
   KYCDocument,
   DocumentType,
 } from "@shared/types/common";

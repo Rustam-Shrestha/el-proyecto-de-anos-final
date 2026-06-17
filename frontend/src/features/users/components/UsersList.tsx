@@ -14,7 +14,6 @@ import { selectUserData } from "@store/slices/authSlice";
 import { useUsersList } from "@features/users/api/usersApi";
 import { usePagination } from "@hooks/usePagination";
 import { useModal } from "@shared/hooks/useModal";
-import { userKeys } from "@features/users/api/usersApi";
 import DeleteUserModal from "@features/users/components/DeleteUserModal";
 import type { User } from "@shared/types/common";
 
@@ -54,7 +53,7 @@ const roleBadge = (role: string) => {
 };
 
 const UsersList = memo(({ onEdit }: UsersListProps) => {
-  const { page, limit, goToNextPage, goToPreviousPage, setPage } = usePagination();
+  const { page, limit, goToNextPage, goToPreviousPage } = usePagination();
   const { data, isLoading, error, refetch } = useUsersList(page, limit);
   const userData = useAppSelector(selectUserData);
   const deleteModal = useModal();

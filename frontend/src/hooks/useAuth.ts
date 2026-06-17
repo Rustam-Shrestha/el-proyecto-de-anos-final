@@ -26,25 +26,25 @@ export const useAuth = () => {
     setError(null);
     try {
       const res = await service.login(payload);
-      setUser(res.data.user as any);
+      setUser(res.data.user as AuthUser);
       return res.data;
-    } catch (err: any) {
-      setError(err?.message || 'Login failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (payload: any) => {
+  const register = async (payload: Record<string, unknown>) => {
     setLoading(true);
     setError(null);
     try {
       const res = await service.register(payload);
-      setUser(res.data.user as any);
+      setUser(res.data.user as AuthUser);
       return res.data;
-    } catch (err: any) {
-      setError(err?.message || 'Registration failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
       throw err;
     } finally {
       setLoading(false);

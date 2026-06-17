@@ -5,7 +5,7 @@ import { useToast } from '../../shared/hooks/useToast';
 type Props = {
   kycId: string;
   type: string;
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: unknown) => void;
 };
 
 const DocumentUploadField: React.FC<Props> = ({ kycId, type, onSuccess }) => {
@@ -54,7 +54,7 @@ const DocumentUploadField: React.FC<Props> = ({ kycId, type, onSuccess }) => {
       onSuccess?.(response.data ?? response);
       setFile(null);
       setPreview(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error?.message || 'Upload failed');
     } finally {
       setUploading(false);

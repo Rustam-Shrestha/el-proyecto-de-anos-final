@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { DocumentStatusBadge } from "@shared/components/DocumentStatusBadge";
-import type { KYCStatus, KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
+import type { KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
 import { DocumentType } from "@shared/types/common";
 
 const documentTypeLabels: Record<string, string> = {
@@ -246,7 +246,7 @@ const ApprovedSection = ({
 
 const RejectedSection = ({
   rejectionReason,
-  kycId,
+  kycId: _kycId,
 }: {
   rejectionReason?: string | null;
   kycId: string;

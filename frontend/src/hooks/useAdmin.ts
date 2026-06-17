@@ -6,13 +6,18 @@ export const useAdmin = () => {
   const service = useAdminService();
   const [dashboard, setDashboard] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await service.getDashboard();
       setDashboard(res.data || res);
       return res.data || res;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch dashboard');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -28,7 +33,7 @@ export const useAdmin = () => {
     }
   }, [service]);
 
-  const fetchAudit = useCallback(async (params?: any) => {
+  const fetchAudit = useCallback(async (params?: Record<string, unknown>) => {
     setLoading(true);
     try {
       const res = await service.getAudit(params);

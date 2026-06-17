@@ -2,7 +2,7 @@ export interface DashboardStats {
   users: Record<string, number>;
   kyc: Record<string, number>;
   documents: Record<string, number>;
-  recentActivity?: any[];
+  recentActivity?: unknown[];
 }
 
 export interface PaginatedResponse<T> {

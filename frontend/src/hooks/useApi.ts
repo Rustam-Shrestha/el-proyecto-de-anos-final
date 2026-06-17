@@ -28,17 +28,17 @@ const useApi = () => {
     return res.json();
   };
 
-  const post = async (path: string, data?: any, config?: Record<string, unknown>) => {
+  const post = async (path: string, data?: unknown, config?: Record<string, unknown>) => {
     const isForm = data instanceof FormData;
-    const url = buildUrl(path, config?.params as any);
+    const url = buildUrl(path, config?.params as Record<string, string> | undefined);
     const res = await fetch(url, { method: 'POST', headers: headersWithAuth(isForm), body: isForm ? data : JSON.stringify(data) });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   };
 
-  const patch = async (path: string, data?: any, config?: Record<string, unknown>) => {
+  const patch = async (path: string, data?: unknown, config?: Record<string, unknown>) => {
     const isForm = data instanceof FormData;
-    const url = buildUrl(path, config?.params as any);
+    const url = buildUrl(path, config?.params as Record<string, string> | undefined);
     const res = await fetch(url, { method: 'PATCH', headers: headersWithAuth(isForm), body: isForm ? data : JSON.stringify(data) });
     if (!res.ok) throw new Error(await res.text());
     return res.json();

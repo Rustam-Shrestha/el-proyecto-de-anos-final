@@ -7,7 +7,7 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner';
 const KycListPage: React.FC = () => {
   useProtectedRoute(['ADMIN', 'REVIEWER']);
   const { fetchList } = useKyc();
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
