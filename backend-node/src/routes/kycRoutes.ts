@@ -13,6 +13,7 @@ import {
 } from '@/routes/kycSchemas';
 import {
   submitKyc,
+  getMyStatus,
   getKycStatus,
   listKycApplications,
   getKycById,
@@ -96,6 +97,8 @@ kycRouter.post(
  *       401:
  *         description: Unauthorized
  */
+kycRouter.get('/my-status', authenticate, getMyStatus);
+
 kycRouter.get('/status', authenticate, validate(getKycStatusSchema), getKycStatus);
 
 /**

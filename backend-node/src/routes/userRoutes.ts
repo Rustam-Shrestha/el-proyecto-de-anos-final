@@ -8,6 +8,7 @@ import {
   getUserByIdSchema,
   updateUserSchema,
   updateUserRoleSchema,
+  updateUserProfileSchema,
   deleteUserSchema,
 } from '@/routes/schemas';
 import {
@@ -17,6 +18,7 @@ import {
   deleteAvatar,
   listUsers,
   getUser,
+  updateProfile,
   changeUserRole,
   deleteUser,
 } from '@/controllers/userController';
@@ -205,6 +207,54 @@ userRouter.get(
   authorize('ADMIN'),
   validate(getUserByIdSchema),
   getUser
+);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/profile:
+ *   patch:
+ *     tags: [Users]
+ *     summary: Update user profile (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               phoneNumber:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User not found
+ */
+userRouter.patch(
+  '/:id/profile',
+  authenticate,
+  authorize('ADMIN'),
+  validate(updateUserProfileSchema),
+  updateProfile
 );
 
 /**

@@ -4,6 +4,7 @@ import { authorize } from '@/middleware/rbac';
 import { validate } from '@/middleware/requestValidation';
 import { z } from 'zod';
 import {
+  getStats,
   getDashboard,
   getUsersWithKycStatus,
   getAuditLogs,
@@ -420,6 +421,13 @@ adminRouter.get(
   authenticate,
   authorize('ADMIN'),
   getSystemStats
+);
+
+adminRouter.get(
+  '/stats',
+  authenticate,
+  authorize('ADMIN'),
+  getStats
 );
 
 export default adminRouter;

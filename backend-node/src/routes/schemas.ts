@@ -34,6 +34,20 @@ export const updateUserRoleSchema = z.object({
   }),
 });
 
+export const updateUserProfileSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid user ID format'),
+  }),
+  body: z.object({
+    firstName: z.string().min(1, 'First name is required').optional(),
+    lastName: z.string().min(1, 'Last name is required').optional(),
+    phoneNumber: z.string().optional(),
+  }).refine(
+    (data) => data.firstName || data.lastName || data.phoneNumber,
+    { message: 'At least one field must be provided' }
+  ),
+});
+
 export const deleteUserSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid user ID format'),

@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { kycService } from '@/services/kycService';
+import { documentService } from '@/services/documentService';
 import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
@@ -9,6 +10,47 @@ const documentTypeMap: Record<string, string> = {
   selfie: 'SELFIE',
   idProof: 'PASSPORT',
   addressProof: 'OTHER',
+};
+
+/**
+ * GET /api/v1/kyc/my-status
+ * Get current user's KYC status with document summary
+ */
+export const getMyStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const application = await kycService.getKycStatus(req.user.id);
+
+    if (!application) {
+      res.json(apiResponse.success('No KYC application found', {
+        hasApplication: false,
+        application: null,
+        documents: [],
+        summary: null,
+      }));
+      return;
+    }
+
+    const summary = await documentService.getDocumentSummary(application.id);
+
+    res.json(apiResponse.success('KYC status retrieved', {
+      hasApplication: true,
+      status: application.status,
+      application,
+      documents: application.documents || [],
+      summary,
+    }));
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**

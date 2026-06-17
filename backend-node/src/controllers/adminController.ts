@@ -6,6 +6,48 @@ import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 
 /**
+ * GET /api/v1/admin/stats
+ * Get unified admin statistics
+ */
+export const getStats = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const [totalUsers, kycStats, loanStats] = await Promise.all([
+      prisma.user.count({ where: { isDeleted: false } }),
+      prisma.kycApplication.groupBy({
+        by: ['status'],
+        _count: { status: true },
+      }),
+      prisma.loanApplication.groupBy({
+        by: ['status'],
+        _count: { status: true },
+      }),
+    ]);
+
+    const mapStatus = (stats: Array<{ status: string; _count: { status: number } }>, status: string) =>
+      stats.find((s) => s.status === status)?._count.status ?? 0;
+
+    const data = {
+      totalUsers,
+      pendingKyc: mapStatus(kycStats, 'PENDING'),
+      approvedKyc: mapStatus(kycStats, 'APPROVED'),
+      rejectedKyc: mapStatus(kycStats, 'REJECTED'),
+      pendingLoans: mapStatus(loanStats, 'SUBMITTED'),
+      approvedLoans: mapStatus(loanStats, 'APPROVED'),
+      rejectedLoans: mapStatus(loanStats, 'REJECTED'),
+      totalLoans: loanStats.reduce((sum: number, s: { _count: { status: number } }) => sum + s._count.status, 0),
+    };
+
+    res.json(apiResponse.success('Admin statistics retrieved', data));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/v1/admin/dashboard
  * Get admin dashboard statistics
  */

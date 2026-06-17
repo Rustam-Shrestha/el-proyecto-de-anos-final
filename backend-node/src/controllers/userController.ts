@@ -216,6 +216,48 @@ export const changeUserRole = async (req: Request, res: Response, next: NextFunc
 };
 
 /**
+ * PATCH /api/v1/users/:id/profile
+ * Update user profile (admin)
+ */
+export const updateProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const { id } = req.params;
+    const { firstName, lastName, phoneNumber } = req.body;
+
+    const data: Record<string, string> = {};
+    if (firstName || lastName) {
+      data.fullName = `${firstName || ''} ${lastName || ''}`.trim();
+    }
+    if (phoneNumber !== undefined) {
+      data.phone = phoneNumber;
+    }
+
+    const user = await userService.updateUser(id, data);
+
+    await auditService.log({
+      userId: req.user.id,
+      action: 'UPDATE_PROFILE',
+      metadata: { targetUserId: id, fields: Object.keys(data) },
+      ip: req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(apiResponse.success('Profile updated successfully', user));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * DELETE /api/v1/users/:id
  * Soft delete a user (ADMIN only)
  */
