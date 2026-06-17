@@ -1,46 +1,28 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
-import fs from 'fs/promises';
-import path from 'path';
+import { DocumentType, DocumentVerificationStatus } from '@prisma/client';
 
-export interface DocumentDetail {
-  id: string;
-  userId: string;
-  kycId: string;
-  type: string;
-  filePath: string;
-  mimeType: string;
-  sizeBytes: number;
-  isDeleted: boolean;
-  version: number;
-  createdAt: Date;
-}
-
-export interface DocumentVersion {
-  id: string;
-  documentId: string;
-  filePath: string;
-  version: number;
-  createdAt: Date;
+export interface DocumentSummary {
+  total: number;
+  verified: number;
+  pending: number;
+  rejected: number;
+  allRequiredVerified: boolean;
 }
 
 export const documentService = {
-  /**
-   * Upload a new document
-   */
   async uploadDocument(
     userId: string,
-    kycId: string,
+    kycApplicationId: string,
+    documentType: DocumentType,
     filePath: string,
-    type: string,
-    mimeType: string,
-    sizeBytes: number
-  ): Promise<DocumentDetail> {
+    fileMimeType: string,
+    fileSize: number
+  ) {
     try {
-      // Verify KYC application exists and belongs to user
       const kyc = await prisma.kycApplication.findUnique({
-        where: { id: kycId },
+        where: { id: kycApplicationId },
       });
 
       if (!kyc) {
@@ -51,84 +33,99 @@ export const documentService = {
         throw new AppError('KYC application does not belong to you', 403);
       }
 
-      // Check if document of this type already exists
-      const existingDoc = await prisma.document.findFirst({
+      const existing = await prisma.document.findFirst({
         where: {
-          kycId,
-          type,
+          kycId: kycApplicationId,
+          documentType,
           isDeleted: false,
         },
       });
 
-      // If exists, this will be handled by replaceDocument
-      if (existingDoc) {
+      if (existing) {
         throw new AppError(
-          'Document of this type already exists. Use replace endpoint to update.',
+          'A document of this type already exists for this KYC. Use the replace endpoint to update it.',
           409
         );
       }
 
-      // Create document record
       const document = await prisma.document.create({
         data: {
           userId,
-          kycId,
-          type,
+          kycId: kycApplicationId,
+          documentType,
           filePath,
-          mimeType,
-          sizeBytes,
+          fileMimeType,
+          fileSize,
           version: 1,
+          ocrStatus: 'PENDING' as DocumentVerificationStatus,
+          verificationStatus: 'PENDING' as DocumentVerificationStatus,
         },
       });
 
       logger.info(
-        { userId, kycId, documentId: document.id, type },
+        { userId, kycId: kycApplicationId, documentId: document.id, documentType },
         'Document uploaded'
       );
 
-      return document as DocumentDetail;
+      return document;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error(
-        { err: error, userId, kycId },
-        'Failed to upload document'
-      );
+      logger.error({ err: error, userId, kycId: kycApplicationId }, 'Failed to upload document');
       throw new AppError('Failed to upload document', 500);
     }
   },
 
-  /**
-   * Get document metadata
-   */
-  async getDocument(documentId: string, userId: string): Promise<DocumentDetail> {
+  async getDocumentsByKycId(kycApplicationId: string) {
+    try {
+      const documents = await prisma.document.findMany({
+        where: {
+          kycId: kycApplicationId,
+          isDeleted: false,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return documents;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, kycId: kycApplicationId }, 'Failed to fetch documents');
+      throw new AppError('Failed to fetch documents', 500);
+    }
+  },
+
+  async getDocumentById(documentId: string) {
     try {
       const document = await prisma.document.findUnique({
         where: { id: documentId },
+        include: {
+          user: {
+            select: { id: true, email: true },
+          },
+          kyc: {
+            select: { id: true, status: true },
+          },
+        },
       });
 
       if (!document) {
         throw new AppError('Document not found', 404);
       }
 
-      // Verify ownership
-      if (document.userId !== userId) {
-        throw new AppError('You do not have access to this document', 403);
-      }
-
-      return document as DocumentDetail;
+      return document;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, documentId, userId }, 'Failed to get document');
+      logger.error({ err: error, documentId }, 'Failed to fetch document');
       throw new AppError('Failed to fetch document', 500);
     }
   },
 
-  /**
-   * Get document version history
-   */
-  async getDocumentVersions(documentId: string, userId: string): Promise<DocumentVersion[]> {
+  async verifyDocument(
+    documentId: string,
+    reviewerId: string,
+    status: DocumentVerificationStatus,
+    notes?: string
+  ) {
     try {
-      // Verify document ownership
       const document = await prisma.document.findUnique({
         where: { id: documentId },
       });
@@ -137,28 +134,34 @@ export const documentService = {
         throw new AppError('Document not found', 404);
       }
 
-      if (document.userId !== userId) {
-        throw new AppError('You do not have access to this document', 403);
+      if (document.isDeleted) {
+        throw new AppError('Cannot verify a deleted document', 400);
       }
 
-      // Get all versions
-      const versions = await prisma.documentVersion.findMany({
-        where: { documentId },
-        orderBy: { version: 'desc' },
+      const updated = await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          verificationStatus: status,
+          verifiedBy: reviewerId,
+          verifiedAt: new Date(),
+          verificationNotes: notes ?? null,
+        },
       });
 
-      return versions as DocumentVersion[];
+      logger.info(
+        { documentId, reviewerId, status },
+        'Document verification status updated'
+      );
+
+      return updated;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, documentId, userId }, 'Failed to get document versions');
-      throw new AppError('Failed to fetch document versions', 500);
+      logger.error({ err: error, documentId }, 'Failed to verify document');
+      throw new AppError('Failed to verify document', 500);
     }
   },
 
-  /**
-   * Soft-delete a document (move to archive folder)
-   */
-  async deleteDocument(documentId: string, userId: string): Promise<DocumentDetail> {
+  async softDeleteDocument(documentId: string) {
     try {
       const document = await prisma.document.findUnique({
         where: { id: documentId },
@@ -166,139 +169,141 @@ export const documentService = {
 
       if (!document) {
         throw new AppError('Document not found', 404);
-      }
-
-      if (document.userId !== userId) {
-        throw new AppError('You do not have access to this document', 403);
       }
 
       if (document.isDeleted) {
         throw new AppError('Document is already deleted', 400);
       }
 
-      // Move file to archive folder (fire-and-forget)
-      try {
-        const uploadDir = process.env.UPLOAD_DIR || 'uploads/kyc';
-        const archiveDir = path.join(process.cwd(), uploadDir, 'archive');
-
-        // Ensure archive directory exists
-        await fs.mkdir(archiveDir, { recursive: true });
-
-        // Move file
-        const sourceFile = path.join(process.cwd(), document.filePath);
-        const archivedFileName = `${documentId}_${document.type}_archived_${Date.now()}${path.extname(document.filePath)}`;
-        const archiveFile = path.join(archiveDir, archivedFileName);
-
-        await fs.rename(sourceFile, archiveFile);
-
-        logger.info(
-          { documentId, from: sourceFile, to: archiveFile },
-          'Document file moved to archive'
-        );
-      } catch (fileError) {
-        logger.warn(
-          { err: fileError, documentId },
-          'Failed to move file to archive (continuing with DB update)'
-        );
-        // Don't throw — continue with DB update
-      }
-
-      // Update document in database
       const updated = await prisma.document.update({
         where: { id: documentId },
         data: { isDeleted: true },
       });
 
-      return updated as DocumentDetail;
+      logger.info({ documentId }, 'Document soft-deleted');
+
+      return updated;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, documentId, userId }, 'Failed to delete document');
+      logger.error({ err: error, documentId }, 'Failed to delete document');
       throw new AppError('Failed to delete document', 500);
     }
   },
 
-  /**
-   * Replace a document with a new version
-   */
   async replaceDocument(
-    documentId: string,
+    existingDocumentId: string,
     userId: string,
-    newFilePath: string,
-    newMimeType: string,
-    newSizeBytes: number,
-    newType?: string
-  ): Promise<DocumentDetail> {
+    filePath: string,
+    fileMimeType: string,
+    fileSize: number,
+    documentType?: DocumentType
+  ) {
     try {
-      const document = await prisma.document.findUnique({
-        where: { id: documentId },
+      const existing = await prisma.document.findUnique({
+        where: { id: existingDocumentId },
       });
 
-      if (!document) {
+      if (!existing) {
         throw new AppError('Document not found', 404);
       }
 
-      if (document.userId !== userId) {
+      if (existing.userId !== userId) {
         throw new AppError('You do not have access to this document', 403);
       }
 
-      if (document.isDeleted) {
+      if (existing.isDeleted) {
         throw new AppError('Cannot replace a deleted document', 400);
       }
 
-      // Create version entry for old document
+      const newDoc = await prisma.document.create({
+        data: {
+          userId: existing.userId,
+          kycId: existing.kycId,
+          documentType: documentType ?? existing.documentType,
+          filePath,
+          fileMimeType,
+          fileSize,
+          version: existing.version + 1,
+          ocrStatus: 'PENDING' as DocumentVerificationStatus,
+          verificationStatus: 'PENDING' as DocumentVerificationStatus,
+          replacedById: existing.id,
+        },
+      });
+
+      await prisma.document.update({
+        where: { id: existing.id },
+        data: { isDeleted: true },
+      });
+
       await prisma.documentVersion.create({
         data: {
-          documentId,
-          filePath: document.filePath,
-          version: document.version,
+          documentId: existing.id,
+          filePath: existing.filePath,
+          version: existing.version,
         },
       });
 
       logger.info(
-        { documentId, version: document.version },
-        'Document version created'
-      );
-
-      // Archive old file (fire-and-forget)
-      try {
-        const uploadDir = process.env.UPLOAD_DIR || 'uploads/kyc';
-        const archiveDir = path.join(process.cwd(), uploadDir, 'archive');
-
-        await fs.mkdir(archiveDir, { recursive: true });
-
-        const oldFile = path.join(process.cwd(), document.filePath);
-        const archivedFileName = `${documentId}_v${document.version}_${Date.now()}${path.extname(oldFile)}`;
-        const archiveFile = path.join(archiveDir, archivedFileName);
-
-        await fs.rename(oldFile, archiveFile);
-
-        logger.info({ documentId, oldFile, archiveFile }, 'Old document version archived');
-      } catch (fileError) {
-        logger.warn({ err: fileError, documentId }, 'Failed to archive old version');
-      }
-
-      // Update document with new version
-      const updated = await prisma.document.update({
-        where: { id: documentId },
-        data: {
-          filePath: newFilePath,
-          mimeType: newMimeType,
-          sizeBytes: newSizeBytes,
-          type: newType || document.type,
-          version: document.version + 1,
-        },
-      });
-
-      logger.info(
-        { documentId, newVersion: updated.version },
+        { existingDocumentId, newDocumentId: newDoc.id, newVersion: newDoc.version },
         'Document replaced with new version'
       );
 
-      return updated as DocumentDetail;
+      return newDoc;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, documentId, userId }, 'Failed to replace document');
+      logger.error({ err: error, documentId: existingDocumentId }, 'Failed to replace document');
       throw new AppError('Failed to replace document', 500);
+    }
+  },
+
+  async getDocumentSummary(kycApplicationId: string): Promise<DocumentSummary> {
+    try {
+      interface DocSummary {
+        id: string;
+        documentType: DocumentType;
+        verificationStatus: DocumentVerificationStatus;
+      }
+
+      const documents: DocSummary[] = await prisma.document.findMany({
+        where: {
+          kycId: kycApplicationId,
+          isDeleted: false,
+        },
+        select: {
+          id: true,
+          documentType: true,
+          verificationStatus: true,
+        },
+      });
+
+      const total = documents.length;
+      const verified = documents.filter((d) => d.verificationStatus === 'VERIFIED').length;
+      const pending = documents.filter((d) => d.verificationStatus === 'PENDING' || d.verificationStatus === 'PROCESSING').length;
+      const rejected = documents.filter((d) => d.verificationStatus === 'REJECTED').length;
+
+      const requiredTypes: DocumentType[] = [
+        'CITIZENSHIP_FRONT',
+        'CITIZENSHIP_BACK',
+        'SELFIE',
+        'INCOME_PROOF',
+      ];
+
+      const presentTypes = new Set(documents.map((d) => d.documentType));
+      const allRequiredPresent = requiredTypes.every((t) => presentTypes.has(t));
+
+      const verifiedTypes = new Set(
+        documents
+          .filter((d) => d.verificationStatus === 'VERIFIED')
+          .map((d) => d.documentType)
+      );
+      const allRequiredVerified = allRequiredPresent
+        && requiredTypes.every((t) => verifiedTypes.has(t));
+
+      return { total, verified, pending, rejected, allRequiredVerified };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error, kycId: kycApplicationId }, 'Failed to compute document summary');
+      throw new AppError('Failed to compute document summary', 500);
     }
   },
 };

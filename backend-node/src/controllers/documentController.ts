@@ -2,18 +2,23 @@ import type { Request, Response, NextFunction } from 'express';
 import { documentService } from '@/services/documentService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
+import { DocumentType, DocumentVerificationStatus } from '@prisma/client';
 
-/**
- * POST /api/v1/documents/upload
- * Upload a new document
- */
+function getRelativePath(filePath: string): string {
+  return filePath
+    .replace(process.cwd(), '')
+    .replace(/\\/g, '/')
+    .replace(/^\//, '');
+}
+
 export const uploadDocument = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
+    const user = (req as any).user;
+    if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
     }
@@ -23,33 +28,26 @@ export const uploadDocument = async (
       return;
     }
 
-    const { kycId, type } = req.body;
-
-    // Calculate relative path for storage
-    const relativePath = req.file.path
-      .replace(process.cwd(), '')
-      .replace(/\\/g, '/') // Convert backslashes to forward slashes
-      .replace(/^\//, ''); // Remove leading slash
+    const { kycId, documentType } = req.body;
 
     const result = await documentService.uploadDocument(
-      req.user.id,
+      user.id,
       kycId,
-      relativePath,
-      type,
+      documentType as DocumentType,
+      getRelativePath(req.file.path),
       req.file.mimetype,
       req.file.size
     );
 
-    // Log upload
     await auditService.log({
-      userId: req.user.id,
+      userId: user.id,
       action: 'UPLOAD',
       metadata: {
         documentId: result.id,
         kycId,
-        type,
+        documentType,
         fileName: req.file.filename,
-        sizeBytes: req.file.size,
+        fileSize: req.file.size,
       },
       ip: req.ip || undefined,
       userAgent: req.headers['user-agent'],
@@ -59,117 +57,107 @@ export const uploadDocument = async (
       apiResponse.success('Document uploaded successfully', result)
     );
   } catch (error) {
-    // Clean up uploaded file on error (fire-and-forget)
     if (req.file) {
       import('fs/promises')
         .then((fs) => fs.unlink(req.file!.path))
-        .catch(() => {
-          /* ignore */
-        });
+        .catch(() => { /* ignore */ });
     }
     next(error);
   }
 };
 
-/**
- * GET /api/v1/documents/:id
- * Get document metadata
- */
+export const getKycDocuments = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const { kycId } = req.params as { kycId: string };
+
+    const documents = await documentService.getDocumentsByKycId(kycId);
+
+    res.json(apiResponse.success('Documents retrieved', documents));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getDocument = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
+    const user = (req as any).user;
+    if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
     }
 
-    const { id } = req.params;
+    const { documentId } = req.params as { documentId: string };
 
-    const document = await documentService.getDocument(id, req.user.id);
+    const document = await documentService.getDocumentById(documentId);
 
-    res.json(apiResponse.success('Document metadata retrieved', document));
+    res.json(apiResponse.success('Document retrieved', document));
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * GET /api/v1/documents/:id/versions
- * Get document version history
- */
-export const getDocumentVersions = async (
+export const verifyDocument = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
+    const user = (req as any).user;
+    if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
     }
 
-    const { id } = req.params;
+    const { documentId } = req.params as { documentId: string };
+    const { verificationStatus, verificationNotes } = req.body;
 
-    const versions = await documentService.getDocumentVersions(id, req.user.id);
+    const result = await documentService.verifyDocument(
+      documentId,
+      user.id,
+      verificationStatus as DocumentVerificationStatus,
+      verificationNotes
+    );
 
-    res.json(apiResponse.success('Document versions retrieved', versions));
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * DELETE /api/v1/documents/:id
- * Soft-delete a document
- */
-export const deleteDocument = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json(apiResponse.error('Authentication required', 401));
-      return;
-    }
-
-    const { id } = req.params;
-
-    const result = await documentService.deleteDocument(id, req.user.id);
-
-    // Log deletion
     await auditService.log({
-      userId: req.user.id,
-      action: 'DELETE_FILE',
+      userId: user.id,
+      action: 'VERIFY_DOCUMENT',
       metadata: {
-        documentId: id,
-        type: result.type,
-        filePath: result.filePath,
+        documentId,
+        verificationStatus,
+        verificationNotes,
       },
       ip: req.ip || undefined,
       userAgent: req.headers['user-agent'],
     });
 
-    res.json(apiResponse.success('Document deleted successfully', result));
+    res.json(apiResponse.success('Document verified successfully', result));
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * POST /api/v1/documents/:id/replace
- * Replace a document with a new version
- */
 export const replaceDocument = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
+    const user = (req as any).user;
+    if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
     }
@@ -179,49 +167,74 @@ export const replaceDocument = async (
       return;
     }
 
-    const { id } = req.params;
-    const { type } = req.body;
-
-    // Calculate relative path for storage
-    const relativePath = req.file.path
-      .replace(process.cwd(), '')
-      .replace(/\\/g, '/') // Convert backslashes to forward slashes
-      .replace(/^\//, ''); // Remove leading slash
+    const { documentId } = req.params as { documentId: string };
+    const { documentType } = req.body;
 
     const result = await documentService.replaceDocument(
-      id,
-      req.user.id,
-      relativePath,
+      documentId,
+      user.id,
+      getRelativePath(req.file.path),
       req.file.mimetype,
       req.file.size,
-      type
+      documentType as DocumentType | undefined
     );
 
-    // Log replacement
     await auditService.log({
-      userId: req.user.id,
+      userId: user.id,
       action: 'UPLOAD',
       metadata: {
-        documentId: id,
+        documentId,
         action: 'REPLACE',
+        newDocumentId: result.id,
         newVersion: result.version,
         fileName: req.file.filename,
-        sizeBytes: req.file.size,
+        fileSize: req.file.size,
       },
       ip: req.ip || undefined,
       userAgent: req.headers['user-agent'],
     });
 
-    res.json(apiResponse.success('Document replaced with new version', result));
+    res.json(apiResponse.success('Document replaced successfully', result));
   } catch (error) {
-    // Clean up uploaded file on error
     if (req.file) {
       import('fs/promises')
         .then((fs) => fs.unlink(req.file!.path))
-        .catch(() => {
-          /* ignore */
-        });
+        .catch(() => { /* ignore */ });
     }
+    next(error);
+  }
+};
+
+export const deleteDocument = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const { documentId } = req.params as { documentId: string };
+
+    const result = await documentService.softDeleteDocument(documentId);
+
+    await auditService.log({
+      userId: user.id,
+      action: 'DELETE_FILE',
+      metadata: {
+        documentId,
+        documentType: result.documentType,
+        filePath: result.filePath,
+      },
+      ip: req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(apiResponse.success('Document deleted successfully', result));
+  } catch (error) {
     next(error);
   }
 };

@@ -1,35 +1,54 @@
 import { z } from 'zod';
 
-export const uploadDocumentSchema = z.object({
+const uploadDocumentSchema = z.object({
   body: z.object({
-    kycId: z.string().uuid('Invalid KYC ID'),
-    type: z.enum(['CITIZENSHIP_FRONT', 'CITIZENSHIP_BACK', 'PASSPORT', 'SELFIE', 'OTHER']),
+    kycId: z.string(),
+    documentType: z.string(),
   }),
 });
 
-export const getDocumentSchema = z.object({
+const getKycDocumentsSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid document ID'),
+    kycId: z.string(),
   }),
 });
 
-export const getDocumentVersionsSchema = z.object({
+const getDocumentSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid document ID'),
+    documentId: z.string(),
   }),
 });
 
-export const deleteDocumentSchema = z.object({
+const verifyDocumentSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid document ID'),
-  }),
-});
-
-export const replaceDocumentSchema = z.object({
-  params: z.object({
-    id: z.string().uuid('Invalid document ID'),
+    documentId: z.string(),
   }),
   body: z.object({
-    type: z.enum(['CITIZENSHIP_FRONT', 'CITIZENSHIP_BACK', 'PASSPORT', 'SELFIE', 'OTHER']).optional(),
+    verificationStatus: z.string(),
+    verificationNotes: z.string().optional(),
   }),
 });
+
+const replaceDocumentSchema = z.object({
+  params: z.object({
+    documentId: z.string(),
+  }),
+  body: z.object({
+    documentType: z.string().optional(),
+  }),
+});
+
+const deleteDocumentSchema = z.object({
+  params: z.object({
+    documentId: z.string(),
+  }),
+});
+
+export {
+  uploadDocumentSchema,
+  getKycDocumentsSchema,
+  getDocumentSchema,
+  verifyDocumentSchema,
+  replaceDocumentSchema,
+  deleteDocumentSchema,
+};

@@ -20,6 +20,9 @@ import {
   rejectKyc,
   requestKycResubmit,
 } from '@/controllers/kycController';
+import { getKycDocuments } from '@/controllers/documentController';
+import { getKycDocumentsSchema } from '@/routes/documentSchemas';
+import documentRoutes from '@/routes/documentRoutes';
 
 const kycRouter = Router();
 
@@ -312,5 +315,15 @@ kycRouter.patch(
   validate(requestResubmitSchema),
   requestKycResubmit
 );
+
+// Document routes
+kycRouter.get(
+  '/:kycId/documents',
+  authenticate,
+  validate(getKycDocumentsSchema),
+  getKycDocuments
+);
+
+kycRouter.use('/documents', documentRoutes);
 
 export default kycRouter;
