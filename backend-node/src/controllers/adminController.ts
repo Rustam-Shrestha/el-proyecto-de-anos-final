@@ -202,7 +202,7 @@ export const getUsersWithKycStatus = async (
     const search = (req.query.search as string) || undefined; // Search by email or full name
 
     // Build where clause
-    const where: any = {
+    const where: Record<string, unknown> = {
       isDeleted: false,
     };
 
@@ -311,7 +311,7 @@ export const getAuditLogs = async (
     const endDate = (req.query.endDate as string) || undefined;
 
     // Build where clause
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (action) {
       where.action = action;

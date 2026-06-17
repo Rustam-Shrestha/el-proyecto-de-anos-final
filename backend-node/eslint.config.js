@@ -15,6 +15,7 @@ export default [
         __dirname: "readonly",
         __filename: "readonly",
         exports: "readonly",
+        Express: "readonly",
         module: "readonly",
         process: "readonly",
         require: "readonly"

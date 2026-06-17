@@ -68,7 +68,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
       return;
     }
 
-    const userId = (req.user as any).id;
+    const userId = req.user.id;
 
     await authService.logout(userId);
 
@@ -213,7 +213,7 @@ export const changePassword = async (
 
     const { currentPassword, newPassword } = req.body;
 
-    const userId = (req.user as any).id;
+    const userId = req.user.id;
 
     await authService.changePassword(userId, currentPassword, newPassword);
 
