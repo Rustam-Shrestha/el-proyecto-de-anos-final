@@ -125,7 +125,7 @@ export const router = createBrowserRouter([
           <RoleProtectedRoute requiredRoles={["admin"]}>
             <RoutePlaceholder
               title="Reports"
-              description="Reporting views will be added here in a later prompt."
+              description="Reporting views will be added here in a later "
             />
           </RoleProtectedRoute>
         )
