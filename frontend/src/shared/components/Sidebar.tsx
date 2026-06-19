@@ -38,7 +38,12 @@ const reviewerItems: MenuItem[] = [
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { userData } = useAuth();
-  const role = useMemo(() => userData?.role?.trim().toLowerCase() ?? "", [userData?.role]);
+  const role = useMemo(() => {
+    const r = userData?.role;
+    if (Array.isArray(r)) return r[0]?.trim().toLowerCase() ?? "";
+    if (typeof r !== "string") return "";
+    return r.trim().toLowerCase();
+  }, [userData?.role]);
   const showUserItems = useMemo(() => role === "user" || role === "admin", [role]);
   const showAdminItems = useMemo(() => role === "admin", [role]);
   const showReviewerItems = useMemo(() => role === "reviewer", [role]);

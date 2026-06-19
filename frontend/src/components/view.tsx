@@ -34,9 +34,12 @@ const TableRow = memo(({ row, columns, rowIndex }) => {
   return (
     <tr className="transition-colors">
       {columns.map((column, index) => {
+        const value = row[column.accessor];
         const render = column.render
-          ? column.render(row[column.accessor], row, null, rowIndex)
-          : row[column.accessor] || "N/A";
+          ? column.render(value, row, null, rowIndex)
+          : (typeof value === "object" && value !== null
+              ? JSON.stringify(value)
+              : value ?? "N/A");
         return render ? (
           <td
             key={index}

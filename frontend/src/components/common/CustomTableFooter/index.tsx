@@ -40,7 +40,9 @@ const TableRow = memo(({ row, columns, rowIndex }) => {
         >
           {column.render
             ? column.render(row[column.accessor], row, rowIndex)
-            : row[column.accessor] || "N/A"}
+            : (typeof row[column.accessor] === "object" && row[column.accessor] !== null
+                ? JSON.stringify(row[column.accessor])
+                : row[column.accessor] ?? "N/A")}
         </td>
       ))}
     </tr>

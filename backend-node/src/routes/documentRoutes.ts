@@ -55,7 +55,7 @@ documentRouter.post(
   '/upload',
   authenticate,
   (req, res, next) => {
-    documentUpload.single('file')(req, res, (err: unknown) => {
+    documentUpload.single('document')(req, res, (err: unknown) => {
       if (err) return next(err);
       next();
     });
@@ -83,7 +83,7 @@ documentRouter.post(
   '/:documentId/replace',
   authenticate,
   (req, res, next) => {
-    documentUpload.single('file')(req, res, (err: unknown) => {
+    documentUpload.single('document')(req, res, (err: unknown) => {
       if (err) return next(err);
       next();
     });

@@ -110,7 +110,9 @@ const TableRow = memo(({ row, columns, hasExpandableRows, isExpanded, onToggleEx
           >
             {column.render
               ? column.render(row[column.accessor], row)
-              : row[column.accessor] || "N/A"}{" "}
+              : (typeof row[column.accessor] === "object" && row[column.accessor] !== null
+                  ? JSON.stringify(row[column.accessor])
+                  : row[column.accessor] ?? "N/A")}{" "}
           </td>
         ))}
       </tr>

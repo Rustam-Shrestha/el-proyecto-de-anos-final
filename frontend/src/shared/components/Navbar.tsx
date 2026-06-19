@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Menu, Moon, LogOut, UserCircle2 } from "lucide-react";
-import useAuth from "@hooks/useAuth";
+import { useAuth } from "@store/hooks";
 import useUI from "@hooks/useUI";
 import { Button } from "@components/common/Button";
 import { resolveAvatarUrl } from "@shared/lib/avatar";

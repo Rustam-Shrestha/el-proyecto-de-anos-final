@@ -8,8 +8,8 @@ import { paginate } from '@/utils/pagination';
 
 const documentTypeMap: Record<string, string> = {
   selfie: 'SELFIE',
-  idProof: 'PASSPORT',
-  addressProof: 'OTHER',
+  idProof: 'CITIZENSHIP_FRONT',
+  addressProof: 'CITIZENSHIP_BACK',
 };
 
 /**

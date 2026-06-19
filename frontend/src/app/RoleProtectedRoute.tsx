@@ -10,7 +10,11 @@ type RoleProtectedRouteProps = {
   fallback?: ReactNode;
 };
 
-const normalizeRole = (role?: string | null) => role?.trim().toLowerCase() ?? "";
+const normalizeRole = (role?: string | string[] | null): string => {
+  if (Array.isArray(role)) return role[0]?.trim().toLowerCase() ?? "";
+  if (typeof role !== "string") return "";
+  return role.trim().toLowerCase();
+};
 
 export const RoleProtectedRoute = ({ children, requiredRoles, fallback }: RoleProtectedRouteProps) => {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);

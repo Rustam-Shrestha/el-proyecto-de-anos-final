@@ -1,6 +1,5 @@
 import { memo, useState } from "react";
 import { Plus } from "lucide-react";
-import { DashboardLayout } from "@shared/layouts/DashboardLayout";
 import { Button } from "@shared/components/Button";
 import { useModal } from "@shared/hooks/useModal";
 import UsersList from "@features/users/components/UsersList";
@@ -28,36 +27,34 @@ const UsersPage = memo(() => {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
-              User Management
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
-              Users
-            </h2>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Manage all registered users, roles, and permissions.
-            </p>
-          </div>
-
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Add User
-          </Button>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
+            User Management
+          </p>
+          <h2 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+            Users
+          </h2>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Manage all registered users, roles, and permissions.
+          </p>
         </div>
 
-        <UsersList onEdit={openEdit} />
-
-        <UserFormModal
-          isOpen={createModal.isOpen || editModal.isOpen}
-          onClose={handleModalClose}
-          userId={selectedUserId}
-        />
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          Add User
+        </Button>
       </div>
-    </DashboardLayout>
+
+      <UsersList onEdit={openEdit} />
+
+      <UserFormModal
+        isOpen={createModal.isOpen || editModal.isOpen}
+        onClose={handleModalClose}
+        userId={selectedUserId}
+      />
+    </div>
   );
 });
 

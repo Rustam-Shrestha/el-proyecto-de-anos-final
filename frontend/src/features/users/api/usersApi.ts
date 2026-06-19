@@ -32,7 +32,7 @@ export const useUsersList = (page: number, limit: number, role?: string) => {
       };
     },
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 1,
   });
 };
 

@@ -227,7 +227,7 @@ export const useGetMyKYCStatus = () => {
       return data;
     },
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 1,
   });
 };
 
@@ -239,7 +239,6 @@ export const useSubmitKYCMutation = () => {
     mutationFn: async (payload: FormData) => {
       setUploadProgress(0);
       const { data } = await apiClient.post<SubmitKYCResponse>("/kyc/submit", payload, {
-        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (event) => {
           if (event.total) {
             setUploadProgress(Math.round((event.loaded / event.total) * 100));
@@ -278,15 +277,12 @@ export const useUploadDocumentMutation = () => {
     }) => {
       const formData = new FormData();
       formData.append("kycId", kycId);
-      formData.append("type", documentType);
+      formData.append("documentType", documentType);
       formData.append("document", file);
 
       const { data } = await apiClient.post<ApiResponse<KYCDocument>>(
         "/kyc/documents/upload",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        formData
       );
       return data.data;
     },
@@ -370,10 +366,7 @@ export const useReplaceDocumentMutation = () => {
 
       const { data } = await apiClient.post<ApiResponse<KYCDocument>>(
         `/kyc/documents/${id}/replace`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        formData
       );
       return data.data;
     },

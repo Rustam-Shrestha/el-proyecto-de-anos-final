@@ -2,7 +2,7 @@
 
 .layout-shell {
   min-height: 100vh;
-  background: linear-gradient(180deg, var(--green-footer) 0%, var(--bg-color) 48%, #f7faf7 100%);
+  background: var(--bg-color);
   color: var(--text-color);
 }
 
@@ -76,7 +76,7 @@ button {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at top, #edf6ef, #f8fbf8 52%, #e5eee7);
+  background: var(--bg-color);
   color: var(--text-color);
 }
 

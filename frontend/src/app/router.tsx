@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@app/ProtectedRoute";
 import { RoleProtectedRoute } from "@app/RoleProtectedRoute";
 import { DashboardLayout } from "@shared/layouts/DashboardLayout";
 import AccessDeniedPage from "../pages/AccessDeniedPage";
+import ErrorPage from "../pages/ErrorPage";
 
 // Route-level lazy loading keeps the initial bundle light.
 const LoginPage = lazy(() => import("@features/auth/pages/LoginPage"));
@@ -32,156 +33,161 @@ const RoutePlaceholder = ({ title, description }: { title: string; description: 
 
 export const router = createBrowserRouter([
   {
-    path: "/",
-    element: <Navigate to="/dashboard" replace />
-  },
-  {
-    path: "/app",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { index: true, element: <Navigate to="/app/dashboard" replace /> },
-      {
-        path: "dashboard",
-        element: (
-          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <DashboardPage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "users",
-        element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
-            <UsersPage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "kyc",
-        element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
-            <KYCPage />
-          </RoleProtectedRoute>
-        )
-      },
-      { path: "access-denied", element: <AccessDeniedPage /> },
-      {
-        path: "user-access",
-        element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
-            <UserAccessPage />
-          </RoleProtectedRoute>
-        )
-      }
-    ]
-  },
-  {
-    path: "/dashboard",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
+    errorElement: <ErrorPage />,
     children: [
       {
-        index: true,
-        element: (
-          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <DashboardPage />
-          </RoleProtectedRoute>
-        )
+        path: "/",
+        element: <Navigate to="/dashboard" replace />
       },
       {
-        path: "admin",
+        path: "/app",
         element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
-            <AdminDashboardPage />
-          </RoleProtectedRoute>
-        )
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { index: true, element: <Navigate to="/app/dashboard" replace /> },
+          {
+            path: "dashboard",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <DashboardPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "users",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin"]}>
+                <UsersPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "kyc",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin"]}>
+                <KYCPage />
+              </RoleProtectedRoute>
+            )
+          },
+          { path: "access-denied", element: <AccessDeniedPage /> },
+          {
+            path: "user-access",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin"]}>
+                <UserAccessPage />
+              </RoleProtectedRoute>
+            )
+          }
+        ]
       },
       {
-        path: "users",
+        path: "/dashboard",
         element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
-            <UsersPage />
-          </RoleProtectedRoute>
-        )
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          {
+            index: true,
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <DashboardPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "admin",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin"]}>
+                <AdminDashboardPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "users",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin"]}>
+                <UsersPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "kyc",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+                <KYCListPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "reports",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin"]}>
+                <RoutePlaceholder
+                  title="Reports"
+                  description="Reporting views will be added here in a later "
+                />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "loans",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+                <LoanOfficerDashboardPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "kyc-submit",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <UserKYCPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "kyc-status",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <KYCStatusPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "profile",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <ProfilePage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "loans/apply",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <LoanApplicationPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "loans/status",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <LoanStatusPage />
+              </RoleProtectedRoute>
+            )
+          }
+        ]
       },
-      {
-        path: "kyc",
-        element: (
-          <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
-            <KYCListPage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "reports",
-        element: (
-          <RoleProtectedRoute requiredRoles={["admin"]}>
-            <RoutePlaceholder
-              title="Reports"
-              description="Reporting views will be added here in a later "
-            />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "loans",
-        element: (
-          <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
-            <LoanOfficerDashboardPage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "kyc-submit",
-        element: (
-          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <UserKYCPage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "kyc-status",
-        element: (
-          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <KYCStatusPage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "profile",
-        element: (
-          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <ProfilePage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "loans/apply",
-        element: (
-          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <LoanApplicationPage />
-          </RoleProtectedRoute>
-        )
-      },
-      {
-        path: "loans/status",
-        element: (
-          <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-            <LoanStatusPage />
-          </RoleProtectedRoute>
-        )
-      }
+      { path: "/login", element: <LoginPage /> },
+      { path: "/register", element: <RegisterPage /> },
+      { path: "/auth", element: <Navigate to="/login" replace /> },
+      { path: "*", element: <NotFoundPage /> }
     ]
-  },
-  { path: "/login", element: <LoginPage /> },
-  { path: "/register", element: <RegisterPage /> },
-  { path: "/auth", element: <Navigate to="/login" replace /> },
-  { path: "*", element: <NotFoundPage /> }
+  }
 ]);

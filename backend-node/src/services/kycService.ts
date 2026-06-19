@@ -1,6 +1,7 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
+import { DocumentType } from '@prisma/client';
 import { mailService } from '@/services/mailService';
 
 export interface SubmitKycInput {
@@ -69,10 +70,10 @@ export const kycService = {
           documents: {
             create: input.documents.map((doc) => ({
               userId: input.userId,
-              type: doc.type,
+              documentType: doc.type,
               filePath: doc.filePath,
-              mimeType: doc.mimeType,
-              sizeBytes: doc.sizeBytes,
+              fileMimeType: doc.mimeType,
+              fileSize: doc.sizeBytes,
               version: 1,
             })),
           },
@@ -81,10 +82,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -92,7 +93,7 @@ export const kycService = {
 
       logger.info({ userId: input.userId, kycId: kyc.id }, 'KYC application submitted');
 
-      return kyc as KycApplicationDetail;
+      return kyc as unknown as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId: input.userId }, 'Failed to submit KYC');
@@ -112,10 +113,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -139,10 +140,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
           user: {
@@ -214,8 +215,10 @@ export const kycService = {
             documents: {
               select: {
                 id: true,
-                type: true,
+                documentType: true,
                 filePath: true,
+                fileMimeType: true,
+                fileSize: true,
               },
             },
           },
@@ -255,10 +258,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -283,10 +286,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -337,10 +340,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -366,10 +369,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -417,10 +420,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -446,10 +449,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },

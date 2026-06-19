@@ -81,8 +81,6 @@ export const Step5Review = memo(
     isSubmitting,
     onSubmit,
   }: Step5ReviewProps) => {
-    const allUploaded = Boolean(frontUploaded && backUploaded && selfieUploaded);
-
     return (
       <div className="space-y-6">
         <div>
@@ -151,7 +149,7 @@ export const Step5Review = memo(
           <button
             type="button"
             onClick={onSubmit}
-            disabled={!allUploaded || isSubmitting}
+            disabled={isSubmitting}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? "Submitting..." : "Submit Application"}

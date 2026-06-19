@@ -5,7 +5,7 @@ import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import LoanApplicationForm from "@features/loans/components/LoanApplicationForm";
 
 const LoanApplicationPage = () => {
-  const { data: kyc, isLoading } = useGetMyKYCStatus();
+  const { data: kyc, isLoading, isError } = useGetMyKYCStatus();
 
   const isKycApproved = kyc?.status === "APPROVED";
 
@@ -25,6 +25,10 @@ const LoanApplicationPage = () => {
 
       {isLoading ? (
         <SkeletonLoader count={2} type="list" />
+      ) : isError ? (
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+          Unable to load KYC status. Please try again later.
+        </div>
       ) : !kyc ? (
         <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
           <p className="text-base font-medium text-gray-900 dark:text-gray-100">

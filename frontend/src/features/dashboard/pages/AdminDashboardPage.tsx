@@ -57,7 +57,7 @@ const AdminDashboardPage = () => {
 
       {isLoading ? (
         <Skeleton />
-      ) : isError || !data ? (
+      ) : isError || !data?.stats ? (
         <div className="rounded-3xl border border-red-200 bg-white p-6 shadow-sm dark:border-red-900/40 dark:bg-gray-900">
           <p className="text-sm font-medium text-red-600 dark:text-red-400">Unable to load admin statistics.</p>
           <button
@@ -70,11 +70,11 @@ const AdminDashboardPage = () => {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-          <StatCard label="Total Users" value={data.stats.users.total} icon={Users} colorClass="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300" />
-          <StatCard label="Active Users" value={data.stats.users.active} icon={Activity} colorClass="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-300" />
-          <StatCard label="Pending KYC" value={data.stats.kyc.pending} icon={FileText} colorClass="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300" />
-          <StatCard label="Approved KYC" value={data.stats.kyc.approved} icon={CheckCircle} colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300" />
-          <StatCard label="Rejected KYC" value={data.stats.kyc.rejected} icon={XCircle} colorClass="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300" />
+          <StatCard label="Total Users" value={data!.stats!.users?.total ?? 0} icon={Users} colorClass="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300" />
+          <StatCard label="Active Users" value={data!.stats!.users?.active ?? 0} icon={Activity} colorClass="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-300" />
+          <StatCard label="Pending KYC" value={data!.stats!.kyc?.pending ?? 0} icon={FileText} colorClass="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300" />
+          <StatCard label="Approved KYC" value={data!.stats!.kyc?.approved ?? 0} icon={CheckCircle} colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300" />
+          <StatCard label="Rejected KYC" value={data!.stats!.kyc?.rejected ?? 0} icon={XCircle} colorClass="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300" />
         </div>
       )}
     </section>
