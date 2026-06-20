@@ -11,7 +11,7 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate, user?.id]);
 

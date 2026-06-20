@@ -45,7 +45,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate, user?.id]);
 
@@ -81,7 +81,7 @@ const Auth = () => {
       dispatch(setUser(nextUser));
 
       PopMessage.success("Login successful");
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
       const apiError = error as {
         response?: { data?: { message?: string } };

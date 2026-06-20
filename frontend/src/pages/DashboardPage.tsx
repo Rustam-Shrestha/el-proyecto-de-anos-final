@@ -35,7 +35,7 @@ const DashboardPage = () => {
     { label: "KYC Status", to: "/dashboard/kyc-status", description: "Check application status" },
     { label: "Profile", to: "/dashboard/profile", description: "Update your account" },
     { label: "Reports", to: "/dashboard/reports", description: "Open reporting views" },
-    { label: "User Access", to: "/app/user-access", description: "Assign or review access" },
+    { label: "User Access", to: "/dashboard/users", description: "Assign or review access" },
   ];
 
   return (
@@ -117,7 +117,7 @@ const DashboardPage = () => {
         <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Users Snapshot</h3>
-            <Link to="/app/user-access" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            <Link to="/dashboard/users" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
               User Access
             </Link>
           </div>

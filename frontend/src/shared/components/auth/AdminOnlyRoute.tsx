@@ -43,7 +43,7 @@ export const AdminOnlyRoute = () => {
   }
 
   if (role !== "admin") {
-    return <Navigate to="/app/access-denied" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/dashboard" replace state={{ from: location.pathname }} />;
   }
 
   return <Outlet />;

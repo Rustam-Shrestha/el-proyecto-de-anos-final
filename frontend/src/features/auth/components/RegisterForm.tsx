@@ -67,7 +67,7 @@ const RegisterForm = () => {
       dispatch(setUser(nextUser));
 
       toast.success("Account created");
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
       const apiError = error as {
         response?: { data?: { message?: string } };

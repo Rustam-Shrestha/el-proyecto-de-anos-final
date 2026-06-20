@@ -3,7 +3,6 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@app/ProtectedRoute";
 import { RoleProtectedRoute } from "@app/RoleProtectedRoute";
 import { DashboardLayout } from "@shared/layouts/DashboardLayout";
-import AccessDeniedPage from "../pages/AccessDeniedPage";
 import ErrorPage from "../pages/ErrorPage";
 
 // Route-level lazy loading keeps the initial bundle light.
@@ -12,9 +11,7 @@ const RegisterPage = lazy(() => import("@features/auth/pages/RegisterPage"));
 const AdminDashboardPage = lazy(() => import("@features/dashboard/pages/AdminDashboardPage"));
 const ProfilePage = lazy(() => import("@features/profile/pages/ProfilePage"));
 const UsersPage = lazy(() => import("@features/users/pages/UsersPage"));
-const UserAccessPage = lazy(() => import("@features/users/pages/UserAccessPage"));
 const KYCListPage = lazy(() => import("@features/kyc/pages/KYCListPage"));
-const KYCPage = lazy(() => import("@features/kyc/pages/KYCPage"));
 const UserKYCPage = lazy(() => import("@features/kyc/pages/UserKYCPage"));
 const KYCStatusPage = lazy(() => import("@features/kyc/pages/KYCStatusPage"));
 const LoanApplicationPage = lazy(() => import("@features/loans/pages/LoanApplicationPage"));
@@ -38,50 +35,6 @@ export const router = createBrowserRouter([
       {
         path: "/",
         element: <Navigate to="/dashboard" replace />
-      },
-      {
-        path: "/app",
-        element: (
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        ),
-        children: [
-          { index: true, element: <Navigate to="/app/dashboard" replace /> },
-          {
-            path: "dashboard",
-            element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-                <DashboardPage />
-              </RoleProtectedRoute>
-            )
-          },
-          {
-            path: "users",
-            element: (
-              <RoleProtectedRoute requiredRoles={["admin"]}>
-                <UsersPage />
-              </RoleProtectedRoute>
-            )
-          },
-          {
-            path: "kyc",
-            element: (
-              <RoleProtectedRoute requiredRoles={["admin"]}>
-                <KYCPage />
-              </RoleProtectedRoute>
-            )
-          },
-          { path: "access-denied", element: <AccessDeniedPage /> },
-          {
-            path: "user-access",
-            element: (
-              <RoleProtectedRoute requiredRoles={["admin"]}>
-                <UserAccessPage />
-              </RoleProtectedRoute>
-            )
-          }
-        ]
       },
       {
         path: "/dashboard",
