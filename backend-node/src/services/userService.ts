@@ -1,7 +1,6 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
-import type { User } from '@prisma/client';
 
 type UserProfileFields = {
   fullName?: string | null;
@@ -10,16 +9,34 @@ type UserProfileFields = {
   avatarUrl?: string | null;
 };
 
-type UserWithProfile = Pick<User, 'id' | 'email' | 'role' | 'isVerified' | 'isDeleted' | 'createdAt' | 'updatedAt'> & {
+type UserWithProfile = {
+  id: string;
+  email: string;
+  role: { name: string };
+  isVerified: boolean;
+  isDeleted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
   profile?: UserProfileFields | null;
 };
 
-export type UserListItem = Pick<User, 'id' | 'email' | 'role' | 'isVerified' | 'createdAt'>;
+export type UserListItem = {
+  id: string;
+  email: string;
+  role: string;
+  isVerified: boolean;
+  createdAt: Date;
+};
 
-export type UserDetail = Pick<
-  User,
-  'id' | 'email' | 'role' | 'isVerified' | 'isDeleted' | 'createdAt' | 'updatedAt'
-> & UserProfileFields;
+export type UserDetail = {
+  id: string;
+  email: string;
+  role: string;
+  isVerified: boolean;
+  isDeleted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+} & UserProfileFields;
 
 const profileSelect = {
   fullName: true,
@@ -31,7 +48,7 @@ const profileSelect = {
 const mapUserProfile = (user: UserWithProfile): Omit<UserDetail, 'isDeleted'> => ({
   id: user.id,
   email: user.email,
-  role: user.role,
+  role: user.role.name,
   isVerified: user.isVerified,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
@@ -70,7 +87,9 @@ export const userService = {
           select: {
             id: true,
             email: true,
-            role: true,
+            role: {
+              select: { name: true },
+            },
             isVerified: true,
             createdAt: true,
           },
@@ -98,7 +117,9 @@ export const userService = {
         select: {
           id: true,
           email: true,
-          role: true,
+          role: {
+            select: { name: true },
+          },
           isVerified: true,
           isDeleted: true,
           createdAt: true,
@@ -114,7 +135,14 @@ export const userService = {
         throw new AppError('User has been deleted', 404);
       }
 
-      return user;
+      return {
+        ...user,
+        role: user.role.name,
+        fullName: null,
+        phone: null,
+        address: null,
+        avatarUrl: null,
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to get user by ID');
@@ -132,7 +160,9 @@ export const userService = {
         select: {
           id: true,
           email: true,
-          role: true,
+          role: {
+            select: { name: true },
+          },
           isVerified: true,
           createdAt: true,
           updatedAt: true,
@@ -221,7 +251,9 @@ export const userService = {
         select: {
           id: true,
           email: true,
-          role: true,
+          role: {
+            select: { name: true },
+          },
           isVerified: true,
           isDeleted: true,
           createdAt: true,
@@ -257,7 +289,9 @@ export const userService = {
         select: {
           id: true,
           email: true,
-          role: true,
+          role: {
+            select: { name: true },
+          },
           isVerified: true,
           isDeleted: true,
           createdAt: true,
@@ -293,7 +327,9 @@ export const userService = {
         select: {
           id: true,
           email: true,
-          role: true,
+          role: {
+            select: { name: true },
+          },
           isVerified: true,
           isDeleted: true,
           createdAt: true,
@@ -332,11 +368,13 @@ export const userService = {
 
       const updated = await prisma.user.update({
         where: { id: userId },
-        data: { role: newRole },
+        data: { role: { connect: { name: newRole } } },
         select: {
           id: true,
           email: true,
-          role: true,
+          role: {
+            select: { name: true },
+          },
           isVerified: true,
           isDeleted: true,
           createdAt: true,
@@ -344,7 +382,14 @@ export const userService = {
         },
       });
 
-      return updated;
+      return {
+        ...updated,
+        role: updated.role.name,
+        fullName: null,
+        phone: null,
+        address: null,
+        avatarUrl: null,
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to change user role');
