@@ -17,16 +17,9 @@ const KYCStatusPage = lazy(() => import("@features/kyc/pages/KYCStatusPage"));
 const LoanApplicationPage = lazy(() => import("@features/loans/pages/LoanApplicationPage"));
 const LoanStatusPage = lazy(() => import("@features/loans/pages/LoanStatusPage"));
 const LoanOfficerDashboardPage = lazy(() => import("@features/loans/pages/LoanOfficerDashboardPage"));
+const ReportsPage = lazy(() => import("@features/dashboard/pages/ReportsPage"));
 const DashboardPage = lazy(() => import("@pages/DashboardPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
-
-const RoutePlaceholder = ({ title, description }: { title: string; description: string }) => (
-  <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">Coming Soon</p>
-    <h2 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
-    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{description}</p>
-  </section>
-);
 
 export const router = createBrowserRouter([
   {
@@ -80,10 +73,7 @@ export const router = createBrowserRouter([
             path: "reports",
             element: (
               <RoleProtectedRoute requiredRoles={["admin"]}>
-                <RoutePlaceholder
-                  title="Reports"
-                  description="Reporting views will be added here in a later "
-                />
+                <ReportsPage />
               </RoleProtectedRoute>
             )
           },

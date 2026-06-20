@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, ScanSearch, FileBarChart2, UserCircle2, HandCoins, Landmark } from "lucide-react";
 import { useAuth } from "@store/hooks";
+import { normalizeRole } from "@shared/utils/roleUtils";
 
 type SidebarProps = {
   isOpen: boolean;
@@ -38,12 +39,7 @@ const reviewerItems: MenuItem[] = [
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { userData } = useAuth();
-  const role = useMemo(() => {
-    const r = userData?.role;
-    if (Array.isArray(r)) return r[0]?.trim().toLowerCase() ?? "";
-    if (typeof r !== "string") return "";
-    return r.trim().toLowerCase();
-  }, [userData?.role]);
+  const role = useMemo(() => normalizeRole(userData?.role), [userData?.role]);
   const showUserItems = useMemo(() => role === "user" || role === "admin", [role]);
   const showAdminItems = useMemo(() => role === "admin", [role]);
   const showReviewerItems = useMemo(() => role === "reviewer", [role]);
