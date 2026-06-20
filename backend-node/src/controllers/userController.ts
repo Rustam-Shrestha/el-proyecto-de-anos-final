@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import fs from 'fs/promises';
 import path from 'path';
+import bcryptjs from 'bcryptjs';
+import { prisma } from '@/config/database';
 import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
@@ -19,6 +21,143 @@ const deleteUploadIfPresent = async (value?: string | null): Promise<void> => {
     await fs.unlink(resolveUploadFilePath(value as string));
   } catch {
     // Missing files are fine; the database record is authoritative.
+  }
+};
+
+/**
+ * POST /api/v1/users
+ * Create a new user (ADMIN only)
+ */
+export const createUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { email, password, role, fullName } = req.body;
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      res.status(409).json(apiResponse.error('Email already registered', 409));
+      return;
+    }
+
+    const passwordHash = await bcryptjs.hash(password, 12);
+    const roleRecord = await prisma.role.findUnique({ where: { name: role } });
+    if (!roleRecord) {
+      res.status(400).json(apiResponse.error(`Role "${role}" not found`, 400));
+      return;
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        roleId: roleRecord.id,
+        isVerified: false,
+        profile: fullName ? { create: { fullName } } : undefined,
+      },
+      include: {
+        role: { select: { name: true } },
+        profile: { select: { fullName: true, phone: true, address: true, avatarUrl: true } },
+      },
+    });
+
+    await auditService.log({
+      userId: req.user!.id,
+      action: 'CREATE_USER',
+      metadata: { targetUserId: user.id, email, role },
+      ip: req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.status(201).json(
+      apiResponse.success('User created successfully', {
+        id: user.id,
+        email: user.email,
+        role: user.role.name,
+        isVerified: user.isVerified,
+        fullName: user.profile?.fullName ?? null,
+        phone: null,
+        address: null,
+        avatarUrl: null,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/v1/users/:id
+ * Update a user's email and/or role (ADMIN only)
+ */
+export const updateUserAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { email, role } = req.body;
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, isDeleted: true },
+    });
+    if (!existing || existing.isDeleted) {
+      res.status(404).json(apiResponse.error('User not found', 404));
+      return;
+    }
+
+    if (email) {
+      const emailTaken = await prisma.user.findFirst({
+        where: { email, NOT: { id } },
+      });
+      if (emailTaken) {
+        res.status(409).json(apiResponse.error('Email already in use', 409));
+        return;
+      }
+    }
+
+    if (role) {
+      const roleRecord = await prisma.role.findUnique({ where: { name: role } });
+      if (!roleRecord) {
+        res.status(400).json(apiResponse.error(`Role "${role}" not found`, 400));
+        return;
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(email && { email }),
+        ...(role && { role: { connect: { name: role } } }),
+      },
+      include: {
+        role: { select: { name: true } },
+        profile: { select: { fullName: true, phone: true, address: true, avatarUrl: true } },
+      },
+    });
+
+    await auditService.log({
+      userId: req.user!.id,
+      action: 'UPDATE_USER',
+      metadata: { targetUserId: id, email, role },
+      ip: req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(
+      apiResponse.success('User updated successfully', {
+        id: updated.id,
+        email: updated.email,
+        role: updated.role.name,
+        isVerified: updated.isVerified,
+        fullName: updated.profile?.fullName ?? null,
+        phone: updated.profile?.phone ?? null,
+        address: updated.profile?.address ?? null,
+        avatarUrl: updated.profile?.avatarUrl ?? null,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+      })
+    );
+  } catch (error) {
+    next(error);
   }
 };
 

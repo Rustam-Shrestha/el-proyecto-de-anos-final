@@ -48,6 +48,34 @@ export const updateUserProfileSchema = z.object({
   ),
 });
 
+export const createUserSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters'),
+    role: z.enum(['USER', 'ADMIN', 'REVIEWER'], {
+      errorMap: () => ({ message: 'Role must be USER, ADMIN, or REVIEWER' }),
+    }),
+    fullName: z.string().optional(),
+  }),
+});
+
+export const updateUserAdminSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid user ID format'),
+  }),
+  body: z.object({
+    email: z.string().email('Invalid email').optional(),
+    role: z.enum(['USER', 'ADMIN', 'REVIEWER'], {
+      errorMap: () => ({ message: 'Role must be USER, ADMIN, or REVIEWER' }),
+    }).optional(),
+  }).refine(
+    (data) => data.email || data.role,
+    { message: 'At least one field (email or role) must be provided' }
+  ),
+});
+
 export const deleteUserSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid user ID format'),
