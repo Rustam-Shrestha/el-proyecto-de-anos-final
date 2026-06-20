@@ -9,10 +9,34 @@ export const apiClient = axios.create({
   }
 });
 
+const getStoredAccessToken = () => {
+  const accessToken = localStorage.getItem("accessToken");
+  if (accessToken) {
+    return accessToken;
+  }
+  try {
+    const userAuth = JSON.parse(localStorage.getItem("userAuth") ?? "null");
+    return userAuth?.access?.token ?? userAuth?.accessToken ?? userAuth?.token ?? null;
+  } catch {
+    return null;
+  }
+};
+
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem("accessToken");
+  const token = getStoredAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);

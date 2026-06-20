@@ -6,8 +6,7 @@ import { Button } from "@components/common/Button";
 import InputField from "@components/common/Input";
 import PopMessage from "@components/PopMessage";
 import { useAppDispatch, useAppSelector } from "@hooks/reduxHooks";
-import { apiService } from "@services/apiService";
-import { endpoints } from "@services/endpoints";
+import { loginRequest } from "@features/auth/api/authApi";
 import { loginSchema, type LoginInput } from "@shared/validation/authSchemas";
 import {
   selectIsAuthenticated,
@@ -54,8 +53,7 @@ const Auth = () => {
     dispatch(setError(null));
 
     try {
-      const response = await apiService.post(endpoints.login, values);
-      const payload = response?.data?.data ?? response?.data ?? response;
+      const payload = await loginRequest(values);
       const accessToken = payload?.accessToken ?? null;
       const refreshToken = payload?.refreshToken ?? null;
       const nextUser = payload?.user ?? null;
