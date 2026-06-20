@@ -1835,3 +1835,236 @@ When touching the current repository, follow this order:
 ## Changelog Addendum
 
 - 2026-05-30: Added a current-state appendix for frontend and backend architecture, including theme system, auth flow, route discoverability, environment/port notes, and the current controller-service-validation split.
+- 2026-06-20: Full project context reconstruction. Added Route Inventory, API Inventory, Feature Map, Environment Variables table, Technical Debt section, Database model relationships, and cross-references to specialized docs under `/docs/`.
+
+---
+
+# Appendix C — Complete Route Inventory
+
+## Frontend Routes
+
+See full details in `docs/frontend/ROUTE_INVENTORY.md`.
+
+### Public Routes
+| Path | Component | Purpose |
+|---|---|---|
+| `/` | Navigate → `/dashboard` | Root redirect |
+| `/login` | LoginPage | Login form |
+| `/register` | RegisterPage | Registration form |
+| `/auth` | Navigate → `/login` | Auth redirect |
+| `*` | NotFoundPage | 404 catch-all |
+
+### Protected Routes (`/app/*`)
+| Path | Component | Roles | Purpose |
+|---|---|---|---|
+| `/app/dashboard` | DashboardPage | user, admin | Main dashboard |
+| `/app/users` | UsersPage | admin | User management |
+| `/app/kyc` | KYCPage | admin | KYC admin panel |
+| `/app/access-denied` | AccessDeniedPage | auth | Access denied |
+| `/app/user-access` | UserAccessPage | admin | User access control |
+
+### Protected Routes (`/dashboard/*`)
+| Path | Component | Roles | Purpose |
+|---|---|---|---|
+| `/dashboard` | DashboardPage | user, admin | Main dashboard |
+| `/dashboard/admin` | AdminDashboardPage | admin | Admin stats |
+| `/dashboard/users` | UsersPage | admin | User management |
+| `/dashboard/kyc` | KYCListPage | admin, reviewer | KYC list |
+| `/dashboard/kyc-submit` | UserKYCPage | user, admin | Submit KYC |
+| `/dashboard/kyc-status` | KYCStatusPage | user, admin | KYC status |
+| `/dashboard/reports` | Placeholder | admin | **NOT IMPLEMENTED** |
+| `/dashboard/loans` | LoanOfficerDashboardPage | admin, reviewer | Loan review |
+| `/dashboard/loans/apply` | LoanApplicationPage | user, admin | Apply loan |
+| `/dashboard/loans/status` | LoanStatusPage | user, admin | Loan status |
+| `/dashboard/profile` | ProfilePage | user, admin | Profile edit |
+
+## Backend API Routes
+
+See full details in `docs/backend-node/ROUTE_INVENTORY.md` and `docs/backend-node/API_INVENTORY.md`.
+
+### Route Families
+| Prefix | Routes | Auth |
+|---|---|---|
+| `/api/v1/auth` | login, register, logout, refresh, verify-email, forgot-password, reset-password, change-password | Mixed |
+| `/api/v1/users` | me, CRUD, avatar, role management | Auth+Admin |
+| `/api/v1/kyc` | submit, status, list, approve, reject, resubmit | Auth+Roles |
+| `/api/v1/kyc/documents` | upload, get, verify, replace, delete | Auth+Roles |
+| `/api/v1/loan` | apply, list, get, review | Auth+Roles |
+| `/api/v1/employment` | save, get | Auth |
+| `/api/v1/admin` | dashboard, users-kyc, audit, stats | Admin |
+| `/api/v1/health` | health check | Public |
+
+---
+
+# Appendix D — Feature Map
+
+See full details in `docs/frontend/FEATURE_MAP.md`.
+
+| Feature | Frontend Location | Backend APIs | DB Models |
+|---|---|---|---|
+| Auth | `features/auth/` | `POST /auth/*`, `GET /users/me` | User, Session, Role |
+| Dashboard | `features/dashboard/`, `pages/DashboardPage.tsx` | `GET /admin/dashboard`, `GET /admin/stats` | User, KYC, Loan aggregates |
+| KYC | `features/kyc/` | `POST/GET/PATCH /kyc/*`, FastAPI `/kyc/*` | KycApplication, Document, OCRResult, FaceVerification |
+| Loans | `features/loans/` | `POST/GET/PATCH /loan/*` | LoanApplication, EmploymentInfo, BorrowerFeatures |
+| Users | `features/users/` | `GET/PATCH/DELETE /users/*` | User, Profile, Role |
+| Profile | `features/profile/` | `GET/PATCH /users/me*` | User, Profile |
+| Admin | `features/admin/` | `GET /admin/*` | All models |
+| UI | `features/ui/`, `store/slices/uiSlice.ts` | None | Redux only |
+
+---
+
+# Appendix E — Database Model Relationships
+
+## Prisma Models (auth schema)
+
+```
+Role (id, name)
+  └── User (id, email, passwordHash, isVerified, isDeleted, roleId)
+        ├── Profile (userId, fullName, phone, address, dateOfBirth, avatarUrl)
+        ├── Session (userId, refreshTokenHash, isRevoked, expiresAt)
+        ├── AuditLog (userId, action, metadata, ip, userAgent)
+        ├── KycApplication (userId, status, submittedAt, reviewedAt, reviewerId, rejectionReason)
+        │     └── Document (userId, kycId, documentType, filePath, ocrStatus, verificationStatus, isDeleted, version)
+        │           └── DocumentVersion (documentId, filePath, version)
+        ├── EmploymentInfo (userId, jobTitle, employmentStartDate, declaredAnnualIncome, tenureMonths)
+        ├── BorrowerFeatures (userId, amtIncomeTotal, amtCredit, debtToIncomeRatio, ...)
+        └── LoanApplication (userId, requestedAmount, tenureMonths, purpose, calculatedEmi, status, riskScore, riskLevel, reviewedBy)
+```
+
+## FastAPI Models (public schema, async SQLAlchemy)
+
+```
+User (id, email, phone, name)
+  └── KYCApplication (user_id, status, document_type, feature_vector, confidence_score)
+        ├── Document (kyc_application_id, document_type, file_path, file_size, mime_type)
+        ├── OCRResult (kyc_application_id, document_type, raw_text, structured_data, confidence_score, language_detected)
+        └── FaceVerification (kyc_application_id, selfie_path, id_document_path, distance, is_match, model_used)
+```
+
+---
+
+# Appendix F — Authentication System
+
+## Flow
+1. **Register**: User POSTs to `/auth/register` → password hashed with bcryptjs → user stored → JWT access+refresh tokens generated → verification email sent (fire-and-forget)
+2. **Login**: User POSTs to `/auth/login` → password verified → JWT tokens generated → refresh token hashed and stored in sessions table → tokens returned
+3. **Authenticated Requests**: Frontend attaches `Authorization: Bearer <accessToken>` → `auth.ts` middleware verifies JWT → sets `req.user = { id, email, role }`
+4. **Token Refresh**: When access token expires → frontend calls `/auth/refresh` with refresh token → old session revoked → new token pair issued (rotation)
+5. **Logout**: Revokes ALL sessions for the user
+
+## Token Strategy
+- **Access Token**: JWT HS256, short-lived (default `2h`, configurable via `JWT_ACCESS_TTL`)
+- **Refresh Token**: JWT HS256, long-lived (default `7d`, configurable via `JWT_REFRESH_TTL`)
+- **Verification Token**: JWT, 24h expiry, `type: 'verify_email'` claim
+- **Password Reset Token**: JWT, 1h expiry, `type: 'password_reset'` claim
+
+## RBAC Roles
+| Role | Access |
+|---|---|
+| `USER` | Dashboard, own KYC, own loans, profile |
+| `ADMIN` | All user routes, admin dashboard, KYC/Loan review, role management |
+| `REVIEWER` | KYC list/review, Loan list/review |
+
+## Frontend Auth Flow
+1. Login form (`src/auth/index.tsx`) calls legacy `apiService.post(endpoints.login, ...)` 
+2. On success: stores `accessToken`, `refreshToken`, `user` in `localStorage` and Redux
+3. `ProtectedRoute` checks `isAuthenticated` from Redux → if missing, redirects to `/login`
+4. On mount, `ProtectedRoute` fetches `GET /users/me` to hydrate user data if missing
+5. `RoleProtectedRoute` checks `userData.role` against required roles
+6. Axios interceptor adds `Bearer` token to all requests automatically
+7. 401 interceptor in `apiService.ts` clears localStorage and redirects to `/login`
+
+## Frontend API Client Dual Setup
+- **Current**: `shared/lib/apiClient.ts` — axios with Bearer token interceptor (no 401 handling)
+- **Legacy**: `services/apiService.ts` — axios with Bearer token + 401 redirect interceptor
+- **Auth (login)**: Uses legacy `apiService` directly from `src/auth/index.tsx`
+
+---
+
+# Appendix G — Environment Variables
+
+See `docs/ENVIRONMENT_VARIABLES.md` for the complete table.
+
+Key variables:
+- `VITE_API_BASE_URL` — Frontend → Backend URL (default `http://localhost:4000/api/v1`)
+- `DATABASE_URL` — PostgreSQL connection (backend-node and backend-fastapi)
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — Token signing secrets
+- `CORS_ORIGIN` — Allowed CORS origins for backend
+- `PORT` — Backend Node port (4000 in Docker, 3000 in .env.example)
+
+---
+
+# Appendix H — Reusable Utilities
+
+## Frontend
+
+| Module | Path | Responsibility |
+|---|---|---|
+| `apiClient` | `shared/lib/apiClient.ts` | Axios instance, Bearer token injection |
+| `env` | `shared/lib/env.ts` | Validates required env vars at startup |
+| `theme` | `shared/lib/theme.ts` | Applies CSS variables for dark/light mode |
+| `authSchemas` | `shared/validation/authSchemas.ts` | Zod schemas for login/register |
+| `DashboardLayout` | `shared/layouts/DashboardLayout.tsx` | Main app shell with Navbar + Sidebar |
+| `Navbar` | `shared/components/Navbar.tsx` | Top navigation bar with user menu |
+| `Sidebar` | `shared/components/Sidebar.tsx` | Role-based navigation sidebar |
+| `Modal` | `shared/components/Modal.tsx` | Reusable modal component |
+| `Button` | `shared/components/Button.tsx` | Reusable button component |
+| `SkeletonLoader` | `shared/components/SkeletonLoader.tsx` | Loading skeleton |
+| `ProtectedRoute` | `app/ProtectedRoute.tsx` | Auth guard (checks token, fetches /users/me) |
+| `RoleProtectedRoute` | `app/RoleProtectedRoute.tsx` | Role-based access guard |
+| `useAppDispatch`/`useAppSelector` | `store/hooks.ts` | Typed Redux hooks |
+| `useAuth` (Redux) | `store/hooks.ts` | Auth state + actions from Redux |
+| `useUI` (Redux) | `store/hooks.ts` | UI state (sidebar, theme, notifications) |
+| `useUI` (hooks/) | `hooks/useUI.ts` | Legacy hook for modal/theme (uses @ts-nocheck) |
+| `useApiQuery`/`useApiMutation` | `hooks/useApiQuery.ts` | TanStack Query wrappers (uses @ts-nocheck) |
+| `useDebounce` | `hooks/useDebounce.tsx` | Debounce hook |
+| `useFormValidation` | `hooks/useFormValidation.ts` | Form validation hook |
+| `resolveAvatarUrl` | `shared/lib/avatar.ts` | Avatar URL resolution |
+
+## Backend (Node)
+
+| Module | Path | Responsibility |
+|---|---|---|
+| `apiResponse` | `utils/apiResponse.ts` | Standardized response helpers (success, error, paginated) |
+| `AppError` | `utils/AppError.ts` | Custom error class with statusCode + details |
+| `pagination` | `utils/pagination.ts` | Pagination helper (skip, take, page, limit) |
+| `logger` | `config/logger.ts` | Pino logger with pretty-print in dev |
+| `env` | `config/env.ts` | Zod-validated environment variables |
+| `prisma` | `config/database.ts` | Prisma client singleton with adapter-pg |
+| `authenticate` | `middleware/auth.ts` | JWT authentication middleware |
+| `authorize` | `middleware/rbac.ts` | Role-based authorization middleware |
+| `validate` | `middleware/requestValidation.ts` | Zod validation middleware |
+| `errorHandler` | `middleware/errorHandler.ts` | Global error handler |
+| `uploadMiddleware` | `middleware/upload.ts` | Multer config for KYC uploads |
+| `avatarUpload` | `middleware/avatarUpload.ts` | Multer config for avatar uploads |
+| `tokenService` | `services/tokenService.ts` | JWT generation and verification |
+| `mailService` | `services/mailService.ts` | Email sending (Nodemailer) |
+| `auditService` | `services/auditService.ts` | Fire-and-forget audit logging |
+
+---
+
+# Appendix I — Technical Debt & Known Issues
+
+See `docs/TECHNICAL_DEBT.md` for the complete catalog.
+
+### Key Frontend Issues
+- Dual architecture in migration (legacy vs current API clients, hooks, stores)
+- Orphan pages outside feature folders (`src/auth/index.tsx`, `pages/DashboardPage.tsx`)
+- Deprecated Context API files (`ThemeContext.tsx`, `ModalContext`)
+- Duplicate auth and UI slices (feature-level duplicates of global store slices)
+- `@ts-nocheck` in 4 source files
+- Reports page is a placeholder only
+- Both `/app/*` and `/dashboard/*` route trees exist with overlap
+
+### Key Backend Issues
+- Empty placeholder files (models, db, tests, some routes)
+- Incomplete migration from raw pg to Prisma
+- Missing RBAC on some KYC routes
+- No rate limiting on auth endpoints
+- No test coverage
+- FastAPI bypasses main API gateway (called directly from frontend)
+
+### Key Database Issues
+- Prisma schema uses `@@schema("auth")` but migration SQL creates in `public`
+- Missing composite indexes for common query patterns
+- No soft delete on KYC applications (only on documents)
