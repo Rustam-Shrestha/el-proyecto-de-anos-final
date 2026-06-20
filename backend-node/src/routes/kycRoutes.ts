@@ -323,6 +323,7 @@ kycRouter.patch(
 kycRouter.get(
   '/:kycId/documents',
   authenticate,
+  authorize('ADMIN', 'REVIEWER'),
   validate(getKycDocumentsSchema),
   getKycDocuments
 );

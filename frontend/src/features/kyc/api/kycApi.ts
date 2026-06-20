@@ -316,7 +316,7 @@ export const useRejectKYCMutation = () => {
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const { data } = await apiClient.patch<KYCDetailsApiResponse>(
         `/kyc/${id}/reject`,
-        { reason }
+        { rejectionReason: reason }
       );
       return "success" in data ? data.data : data;
     },

@@ -54,7 +54,7 @@ export const useAdminStats = () => {
     queryKey: dashboardKeys.adminStats,
     queryFn: async () => {
       const { data } = await apiClient.get<ApiResponse<AdminDashboardStats>>(
-        "/admin/stats"
+        "/admin/dashboard"
       );
       return data.data;
     },
