@@ -1,6 +1,5 @@
 // Frontend KYC Module - Exports for cleaner imports.
 
-export { default as KYCPage } from './pages/KYCPage';
 export { default as KYCForm } from './components/KYCForm';
 export { useKYC } from './hooks/useKYC';
 export { kycApiService } from './api/kycApi';
