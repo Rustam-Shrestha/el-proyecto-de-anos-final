@@ -96,9 +96,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-color)] px-4 py-10 text-[var(--text-color)] transition-colors dark:bg-[#10211a]">
+    <div className="min-h-screen bg-[var(--bg-color)] px-4 py-10 text-[var(--text-color)] transition-colors">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl items-center justify-center">
-        <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-xl transition-colors dark:bg-[#18251f] sm:p-8">
+        <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-sm sm:p-8">
           <div className="mb-6 space-y-2 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">
               CMS Access

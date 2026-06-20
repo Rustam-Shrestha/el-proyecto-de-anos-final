@@ -10,7 +10,7 @@ type StatCardProps = {
 };
 
 const StatCard = ({ label, value, icon: Icon, colorClass }: StatCardProps) => (
-  <article className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
+  <article className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
     <div className="flex items-start justify-between gap-4">
       <div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</p>

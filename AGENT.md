@@ -2068,3 +2068,9 @@ See `docs/TECHNICAL_DEBT.md` for the complete catalog.
 - Prisma schema uses `@@schema("auth")` but migration SQL creates in `public`
 - Missing composite indexes for common query patterns
 - No soft delete on KYC applications (only on documents)
+
+
+
+
+
+The frontend calls two separate backends because the KYC pipeline includes ML-heavy operations — OCR for document parsing and face-verification using deep learning models — that are best served by a Python-based service. The Node.js backend handles business logic, authentication, and CRUD, while the FastAPI service handles the ML inference. Ideally a single API gateway would proxy all FastAPI calls through the Node backend so auth is enforced uniformly; the current architecture is a transitional pattern where the frontend calls FastAPI directly. For the defense demo, we have secured this by adding JWT validation to the FastAPI endpoints using the same secret the Node backend uses, and by attaching the Bearer token from the frontend's existing auth state, so unauthenticated requests are rejected at the FastAPI layer itself

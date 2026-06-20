@@ -58,7 +58,7 @@ const DashboardPage = () => {
             return (
               <article
                 key={card.label}
-                className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
