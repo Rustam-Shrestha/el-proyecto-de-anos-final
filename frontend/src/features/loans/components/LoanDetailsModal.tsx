@@ -9,14 +9,14 @@ import { useReviewLoanMutation } from "@features/loans/api/loansApi";
 import type { LoanApplication, LoanStatus, RiskLevel } from "@shared/types/common";
 
 const statusBadgeClasses: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
-  UNDER_REVIEW: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
-  APPROVED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
-  DISBURSED: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
-  ACTIVE: "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300",
-  CLOSED: "bg-gray-100 text-gray-800 dark:bg-gray-500/15 dark:text-gray-300",
-  DEFAULTED: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+  PENDING: "bg-yellow-100 text-yellow-800  ",
+  UNDER_REVIEW: "bg-blue-100 text-blue-800  ",
+  APPROVED: "bg-green-100 text-green-800  ",
+  REJECTED: "bg-red-100 text-red-800  ",
+  DISBURSED: "bg-purple-100 text-purple-800  ",
+  ACTIVE: "bg-indigo-100 text-indigo-800  ",
+  CLOSED: "bg-gray-100 text-gray-800  ",
+  DEFAULTED: "bg-orange-100 text-orange-800  ",
 };
 
 const formatDate = (value?: string | null) => {
@@ -118,13 +118,13 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
           >
             {loan.status}
           </span>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500 ">
             Applied {formatDate(loan.appliedAt)}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Loan Details</h3>
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
+          <h3 className="text-sm font-semibold text-gray-900 ">Loan Details</h3>
           <dl className="mt-3 space-y-2 text-sm">
             <Row label="Amount" value={formatNPR(loan.amount)} />
             <Row label="Tenure" value={`${loan.termMonths} months`} />
@@ -135,17 +135,17 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Applicant</h3>
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
+          <h3 className="text-sm font-semibold text-gray-900 ">Applicant</h3>
           <dl className="mt-3 space-y-2 text-sm">
             <Row label="User ID" value={loan.userId} />
             {loan.userId ? (
               <div className="flex justify-between">
-                <dt className="text-gray-500 dark:text-gray-400">KYC</dt>
+                <dt className="text-gray-500 ">KYC</dt>
                 <dd>
                   <Link
                     to={`/dashboard/kyc`}
-                    className="font-medium text-blue-600 underline dark:text-blue-400"
+                    className="font-medium text-blue-600 underline "
                   >
                     View KYC
                   </Link>
@@ -155,8 +155,8 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Risk Assessment</h3>
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
+          <h3 className="text-sm font-semibold text-gray-900 ">Risk Assessment</h3>
           <div className="mt-3 flex items-center gap-3">
             <RiskScoreBadge
               score={null}
@@ -169,18 +169,18 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
         </div>
 
         {loan.rejectionReason ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800   ">
             <p className="text-sm font-semibold">Rejection Reason</p>
             <p className="mt-1 text-sm">{loan.rejectionReason}</p>
           </div>
         ) : null}
 
         {isReviewable ? (
-          <div className="space-y-4 border-t border-gray-200 pt-4 dark:border-gray-800">
+          <div className="space-y-4 border-t border-gray-200 pt-4 ">
             {action === "reject" ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-red-700 dark:text-red-300">
+                  <label className="block text-sm font-medium text-red-700 ">
                     Rejection Notes <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -188,10 +188,10 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Explain why this application is rejected"
                     rows={3}
-                    className="mt-1 w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-red-500 dark:border-red-800 dark:bg-gray-900 dark:text-gray-100"
+                    className="mt-1 w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-red-500   "
                   />
                   {notes.trim().length > 0 ? null : (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">Notes are required</p>
+                    <p className="mt-1 text-xs text-red-600 ">Notes are required</p>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-3">
@@ -206,7 +206,7 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
             ) : action === "approve" ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 ">
                     Approval Notes
                   </label>
                   <textarea
@@ -214,7 +214,7 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Optional notes"
                     rows={2}
-                    className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)]   "
                   />
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-3">
@@ -239,7 +239,7 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
             )}
           </div>
         ) : (
-          <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-gray-800">
+          <div className="flex justify-end border-t border-gray-200 pt-4 ">
             <Button variant="ghost" type="button" onClick={onClose}>Close</Button>
           </div>
         )}
@@ -250,8 +250,8 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
 
 const Row = ({ label, value }: { label: string; value: string }) => (
   <div className="flex justify-between">
-    <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-    <dd className="font-medium text-gray-900 dark:text-gray-100">{value}</dd>
+    <dt className="text-gray-500 ">{label}</dt>
+    <dd className="font-medium text-gray-900 ">{value}</dd>
   </div>
 );
 

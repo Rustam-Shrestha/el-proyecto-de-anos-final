@@ -40,12 +40,12 @@ const DashboardPage = () => {
 
   return (
     <section className="space-y-6">
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
           <p className="text-sm font-medium uppercase tracking-[0.22em] text-[var(--green-icon)]">Overview</p>
-          <h2 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="mt-2 text-3xl font-semibold text-gray-900 ">
             Welcome, {userData?.email || "User"}
           </h2>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Dashboard</p>
+          <p className="mt-2 text-sm text-gray-500 ">Dashboard</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -58,14 +58,14 @@ const DashboardPage = () => {
             return (
               <article
                 key={card.label}
-                className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+                className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  "
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{card.label}</p>
-                    <p className="mt-3 text-3xl font-semibold text-gray-900 dark:text-gray-100">{card.value}</p>
+                    <p className="text-sm text-gray-500 ">{card.label}</p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900 ">{card.value}</p>
                   </div>
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--green-footer)] text-[var(--green-background)] dark:bg-gray-800 dark:text-gray-100">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
                     <Icon className="h-5 w-5" />
                   </span>
                 </div>
@@ -75,18 +75,18 @@ const DashboardPage = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
-            <div className="mt-4 space-y-3 text-sm text-gray-500 dark:text-gray-400">
+          <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
+            <h3 className="text-lg font-semibold text-gray-900 ">Recent Activity</h3>
+            <div className="mt-4 space-y-3 text-sm text-gray-500 ">
               <p>No activity yet.</p>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Quick Actions</h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Jump to the pages that already exist in the router.</p>
+                <h3 className="text-lg font-semibold text-gray-900 ">Quick Actions</h3>
+                <p className="mt-1 text-sm text-gray-500 ">Jump to the pages that already exist in the router.</p>
               </div>
               <PrimaryButton label="Add User" onClick={() => setShowModal(true)} />
             </div>
@@ -104,19 +104,19 @@ const DashboardPage = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-[var(--green-icon)] hover:bg-white dark:border-gray-800 dark:bg-gray-950 dark:hover:bg-gray-800"
+                  className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-[var(--green-icon)] hover:bg-white   :bg-gray-800"
                 >
-                  <span className="block text-sm font-semibold text-gray-900 dark:text-gray-100">{link.label}</span>
-                  <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">{link.description}</span>
+                  <span className="block text-sm font-semibold text-gray-900 ">{link.label}</span>
+                  <span className="mt-1 block text-xs text-gray-500 ">{link.description}</span>
                 </Link>
               ))}
             </div>
           </section>
         </div>
 
-        <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Users Snapshot</h3>
+            <h3 className="text-lg font-semibold text-gray-900 ">Users Snapshot</h3>
             <Link to="/dashboard/users" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
               User Access
             </Link>

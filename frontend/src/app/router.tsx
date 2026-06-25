@@ -88,7 +88,7 @@ export const router = createBrowserRouter([
           {
             path: "kyc-submit",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user"]}>
                 <UserKYCPage />
               </RoleProtectedRoute>
             )
@@ -96,7 +96,7 @@ export const router = createBrowserRouter([
           {
             path: "kyc-status",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user"]}>
                 <KYCStatusPage />
               </RoleProtectedRoute>
             )
@@ -112,7 +112,7 @@ export const router = createBrowserRouter([
           {
             path: "loans/apply",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user"]}>
                 <LoanApplicationPage />
               </RoleProtectedRoute>
             )
@@ -120,7 +120,7 @@ export const router = createBrowserRouter([
           {
             path: "loans/status",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user"]}>
                 <LoanStatusPage />
               </RoleProtectedRoute>
             )

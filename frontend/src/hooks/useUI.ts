@@ -71,27 +71,20 @@ const useUI = () => {
     [dispatch]
   );
 
-  /**
-   * Apply theme — sets CSS variables and classes based on themeColor and darkMode.
-   */
   const applyTheme = useCallback(
-    (color, isDark) => {
-      applyThemeToDocument(color, isDark);
+    (color) => {
+      applyThemeToDocument(color);
       localStorage.setItem("selectedTheme", color);
       dispatch(setThemeColor(color));
     },
     [dispatch]
   );
 
-  /**
-   * Update theme color — applies CSS variable and persists to localStorage.
-   * Mirrors the old ThemeContext.updateTheme behavior.
-   */
   const updateTheme = useCallback(
     (color) => {
-      applyTheme(color, darkMode);
+      applyTheme(color);
     },
-    [applyTheme, darkMode]
+    [applyTheme]
   );
 
   const toggleProfileDropdown = useCallback(
@@ -115,26 +108,19 @@ const useUI = () => {
   );
 
   const toggleDarkMode = useCallback(
-    () => {
-      const newDarkMode = !darkMode;
-      dispatch(toggleDarkModeAction());
-      applyTheme(themeColor, newDarkMode);
-    },
-    [dispatch, applyTheme, themeColor, darkMode]
+    () => {},
+    []
   );
 
   return {
-    // State
     modalContent,
     modalProps,
     themeColor,
-    darkMode,
     refetch,
     menuAction,
     showProfileDropdown,
     showThemeModal,
 
-    // Actions
     openModal,
     closeModal,
     triggerRefetch,

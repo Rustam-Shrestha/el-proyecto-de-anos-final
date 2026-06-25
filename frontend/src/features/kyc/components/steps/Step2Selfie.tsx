@@ -27,7 +27,7 @@ export const Step2Selfie = memo(
             Selfie Photo
           </h3>
           <p
-            className="mt-1 rounded-lg border bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+            className="mt-1 rounded-lg border bg-amber-50 px-4 py-3 text-sm text-amber-800   "
             style={{ borderColor: "var(--border-color)" }}
           >
             Hold your citizenship ID next to your face so both are clearly visible in the photo

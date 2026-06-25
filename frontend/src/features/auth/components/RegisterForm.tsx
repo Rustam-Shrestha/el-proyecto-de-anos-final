@@ -102,7 +102,7 @@ const RegisterForm = () => {
         {...register("password")}
       />
 
-      <p className="-mt-2 text-xs text-gray-500 dark:text-gray-300">
+      <p className="-mt-2 text-xs text-gray-500 ">
         Password must be at least 8 characters and include uppercase, lowercase, and a number.
       </p>
 

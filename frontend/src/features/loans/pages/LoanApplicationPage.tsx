@@ -11,14 +11,14 @@ const LoanApplicationPage = () => {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
           Loan Application
         </p>
-        <h1 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+        <h1 className="mt-2 text-3xl font-semibold text-gray-900 ">
           Apply for Loan
         </h1>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-2 text-sm text-gray-500 ">
           Submit a new loan application. Your KYC must be approved first.
         </p>
       </div>
@@ -26,12 +26,12 @@ const LoanApplicationPage = () => {
       {isLoading ? (
         <SkeletonLoader count={2} type="list" />
       ) : isError ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800   ">
           Unable to load KYC status. Please try again later.
         </div>
       ) : !kyc ? (
-        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-          <p className="text-base font-medium text-gray-900 dark:text-gray-100">
+        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm   ">
+          <p className="text-base font-medium text-gray-900 ">
             KYC verification required
           </p>
           <p className="mt-2 text-sm">
@@ -45,7 +45,7 @@ const LoanApplicationPage = () => {
           </Link>
         </div>
       ) : !isKycApproved ? (
-        <div className="rounded-3xl border border-dashed border-yellow-300 bg-yellow-50 p-8 text-yellow-800 shadow-sm dark:border-yellow-900/40 dark:bg-yellow-950/40 dark:text-yellow-200">
+        <div className="rounded-3xl border border-dashed border-yellow-300 bg-yellow-50 p-8 text-yellow-800 shadow-sm   ">
           <p className="text-base font-medium">KYC not yet approved</p>
           <p className="mt-2 text-sm">
             Your KYC application status is{" "}

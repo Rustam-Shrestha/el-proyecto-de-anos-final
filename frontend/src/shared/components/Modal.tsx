@@ -48,16 +48,16 @@ export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="w-full max-w-xl rounded-3xl border border-gray-200 bg-white shadow-2xl transition-all duration-200 animate-in zoom-in-95 dark:border-gray-800 dark:bg-gray-900"
+        className="w-full max-w-xl rounded-3xl border border-gray-200 bg-white shadow-2xl transition-all duration-200 animate-in zoom-in-95  "
       >
-        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5 dark:border-gray-800">
-          <h2 id="modal-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5 ">
+          <h2 id="modal-title" className="text-lg font-semibold text-gray-900 ">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900   :bg-gray-800 :text-gray-100"
             aria-label="Close modal"
           >
             <X className="h-4 w-4" />

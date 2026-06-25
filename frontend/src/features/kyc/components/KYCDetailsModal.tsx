@@ -42,11 +42,11 @@ const docStatusToBadgeStatus = (
 };
 
 const statusBadgeClasses: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
-  APPROVED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
-  UNDER_REVIEW: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
-  RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+  PENDING: "bg-yellow-100 text-yellow-800  ",
+  APPROVED: "bg-green-100 text-green-800  ",
+  REJECTED: "bg-red-100 text-red-800  ",
+  UNDER_REVIEW: "bg-blue-100 text-blue-800  ",
+  RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800  ",
 };
 
 const formatDate = (value?: string | null) => {
@@ -62,14 +62,22 @@ const formatDate = (value?: string | null) => {
 };
 
 const resolveDocumentUrl = (filePath: string): string => {
+  if (!filePath) return "#";
   if (/^https?:\/\//i.test(filePath)) return filePath;
   const base = env.VITE_API_BASE_URL.replace(/\/api\/v1\/?$/, "");
   const normalized = filePath.startsWith("/") ? filePath : `/${filePath}`;
   return `${base}${normalized}`;
 };
 
-const isImage = (mimeType: string) => mimeType.startsWith("image/");
-const isPdf = (mimeType: string) => mimeType === "application/pdf";
+const isImage = (mimeType: string | undefined | null): boolean => {
+  if (!mimeType) return false;
+  return mimeType.startsWith("image/");
+};
+
+const isPdf = (mimeType: string | undefined | null): boolean => {
+  if (!mimeType) return false;
+  return mimeType === "application/pdf";
+};
 
 type KYCDetailsModalProps = {
   isOpen: boolean;
@@ -138,32 +146,32 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
             >
               {application.status}
             </span>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-500 ">
               Applied {formatDate(application.appliedAt ?? application.submittedAt)}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
+            <h3 className="text-sm font-semibold text-gray-900 ">
               Applicant Information
             </h3>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-gray-500 dark:text-gray-400">Email</dt>
-                <dd className="font-medium text-gray-900 dark:text-gray-100">
+                <dt className="text-gray-500 ">Email</dt>
+                <dd className="font-medium text-gray-900 ">
                   {application.applicantEmail ?? application.userEmail ?? "--"}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-gray-500 dark:text-gray-400">Submitted</dt>
-                <dd className="font-medium text-gray-900 dark:text-gray-100">
+                <dt className="text-gray-500 ">Submitted</dt>
+                <dd className="font-medium text-gray-900 ">
                   {formatDate(application.submittedAt)}
                 </dd>
               </div>
               {application.reviewedAt ? (
                 <div className="flex justify-between">
-                  <dt className="text-gray-500 dark:text-gray-400">Reviewed</dt>
-                  <dd className="font-medium text-gray-900 dark:text-gray-100">
+                  <dt className="text-gray-500 ">Reviewed</dt>
+                  <dd className="font-medium text-gray-900 ">
                     {formatDate(application.reviewedAt)}
                   </dd>
                 </div>
@@ -171,24 +179,24 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
             </dl>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
+            <h3 className="text-sm font-semibold text-gray-900 ">
               Documents
             </h3>
             {documents.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-3 text-sm text-gray-500 ">
                 No documents available.
               </p>
             ) : (
-              <ul className="mt-3 divide-y divide-gray-200 dark:divide-gray-800">
+              <ul className="mt-3 divide-y divide-gray-200 ">
                 {documents.map((doc) => (
                   <li key={doc.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <p className="text-sm font-medium text-gray-900 ">
                           {documentTypeLabels[doc.type] ?? doc.type}
                         </p>
-                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        <p className="mt-0.5 text-xs text-gray-500 ">
                           Uploaded {formatDate(doc.createdAt)}
                         </p>
                       </div>
@@ -201,7 +209,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                             href={resolveDocumentUrl(doc.filePath)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100   :bg-gray-800"
                             aria-label={`Preview ${documentTypeLabels[doc.type] ?? doc.type}`}
                           >
                             <Download className="h-4 w-4" />
@@ -212,7 +220,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                             href={resolveDocumentUrl(doc.filePath)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100   :bg-gray-800"
                           >
                             <Download className="h-3.5 w-3.5" />
                             PDF
@@ -221,11 +229,11 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                       </div>
                     </div>
                     {isImage(doc.mimeType) ? (
-                      <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                      <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 ">
                         <img
                           src={resolveDocumentUrl(doc.filePath)}
                           alt={documentTypeLabels[doc.type] ?? doc.type}
-                          className="max-h-48 w-full object-contain bg-gray-100 dark:bg-gray-800"
+                          className="max-h-48 w-full object-contain bg-gray-100 "
                         />
                       </div>
                     ) : null}
@@ -236,7 +244,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
           </div>
 
           {application.rejectionReason ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800   ">
               <p className="flex items-center gap-2 text-sm font-semibold">
                 <AlertCircle className="h-4 w-4" />
                 Rejection Reason
@@ -246,9 +254,9 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
           ) : null}
 
           {isPending ? (
-            <div className="space-y-4 border-t border-gray-200 pt-4 dark:border-gray-800">
+            <div className="space-y-4 border-t border-gray-200 pt-4 ">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                <label className="block text-sm font-medium text-gray-700 ">
                   Reviewer Notes
                 </label>
                 <textarea
@@ -256,14 +264,14 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                   onChange={(e) => setApproveNotes(e.target.value)}
                   placeholder="Optional notes about this application"
                   rows={2}
-                  className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)]   "
                 />
               </div>
 
               {isRejecting ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-red-700 dark:text-red-300">
+                    <label className="block text-sm font-medium text-red-700 ">
                       Rejection Reason <span className="text-red-500">*</span>
                     </label>
                     <textarea
@@ -271,10 +279,10 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                       onChange={(e) => setRejectReason(e.target.value)}
                       placeholder="Explain why this application is rejected"
                       rows={3}
-                      className="mt-1 w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-red-500 dark:border-red-800 dark:bg-gray-900 dark:text-gray-100"
+                      className="mt-1 w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-red-500   "
                     />
                     {rejectReason.trim().length > 0 ? null : (
-                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      <p className="mt-1 text-xs text-red-600 ">
                         Reason is required
                       </p>
                     )}
@@ -330,7 +338,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
               )}
             </div>
           ) : (
-            <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-gray-800">
+            <div className="flex justify-end border-t border-gray-200 pt-4 ">
               <Button variant="ghost" type="button" onClick={onClose}>
                 Close
               </Button>

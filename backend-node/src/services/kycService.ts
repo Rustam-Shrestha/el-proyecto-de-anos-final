@@ -1,7 +1,6 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
-import { DocumentType } from '@prisma/client';
 import { mailService } from '@/services/mailService';
 
 export interface SubmitKycInput {

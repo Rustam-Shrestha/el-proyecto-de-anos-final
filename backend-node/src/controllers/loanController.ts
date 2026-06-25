@@ -82,7 +82,7 @@ export const listLoans = async (
       return;
     }
 
-    const { skip, take, page, limit } = paginate(req.query);
+    const { take, page, limit } = paginate(req.query);
     const status = (req.query.status as string) || undefined;
     const userId = (req.query.userId as string) || undefined;
 

@@ -37,24 +37,24 @@ const docStatusToBadgeStatus = (
 
 const statusCardClasses: Record<string, string> = {
   PENDING:
-    "border-yellow-200 bg-yellow-50 dark:border-yellow-900/40 dark:bg-yellow-950/40",
+    "border-yellow-200 bg-yellow-50  ",
   APPROVED:
-    "border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-950/40",
+    "border-green-200 bg-green-50  ",
   REJECTED:
-    "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/40",
+    "border-red-200 bg-red-50  ",
 };
 
 const statusLabelClasses: Record<string, string> = {
   PENDING:
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+    "bg-yellow-100 text-yellow-800  ",
   APPROVED:
-    "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+    "bg-green-100 text-green-800  ",
   REJECTED:
-    "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+    "bg-red-100 text-red-800  ",
   UNDER_REVIEW:
-    "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+    "bg-blue-100 text-blue-800  ",
   RESUBMIT_REQUIRED:
-    "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+    "bg-orange-100 text-orange-800  ",
 };
 
 const formatDate = (value?: string | null): string => {
@@ -90,7 +90,7 @@ const KYCStatusPage = () => {
     return (
       <section className="space-y-6">
         <HeaderShell />
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800   ">
           Unable to load your KYC status. Please try again later.
         </div>
       </section>
@@ -110,7 +110,7 @@ const KYCStatusPage = () => {
     <section className="space-y-6">
       <HeaderShell />
 
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
         <div className="flex flex-wrap items-center gap-3">
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -119,9 +119,27 @@ const KYCStatusPage = () => {
           >
             {application.status}
           </span>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500">
             Applied {formatDate(application.appliedAt ?? application.submittedAt)}
           </p>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <h3 className="text-sm font-semibold text-gray-900">Applicant Information</h3>
+          <dl className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Email</dt>
+              <dd className="font-medium text-gray-900">
+                {application.applicantEmail ?? application.userEmail ?? "N/A"}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Submitted</dt>
+              <dd className="font-medium text-gray-900">
+                {formatDate(application.submittedAt)}
+              </dd>
+            </div>
+          </dl>
         </div>
 
         {application.status === "APPROVED" ? (
@@ -138,28 +156,61 @@ const KYCStatusPage = () => {
           />
         ) : null}
 
-        {["PENDING", "UNDER_REVIEW", "RESUBMIT_REQUIRED"].includes(application.status) ? (
-          <PendingDocumentsSection documents={documents} />
-        ) : null}
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold text-gray-900">Submitted Documents</h2>
+          {documents.length === 0 ? (
+            <p className="mt-2 text-sm text-gray-500">No documents recorded yet.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-gray-100">
+              {documents.map((doc) => (
+                <li key={doc.id} className="flex items-center justify-between py-3">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900">
+                      {documentTypeLabels[doc.type] ?? doc.type}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Uploaded {formatDate(doc.createdAt)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <DocumentStatusBadge
+                      status={docStatusToBadgeStatus(doc.verificationStatus)}
+                    />
+                    {doc.filePath ? (
+                      <a
+                        href={doc.filePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-blue-600 underline"
+                      >
+                        View
+                      </a>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   );
 };
 
 const HeaderShell = () => (
-  <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+  <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
     <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
       KYC Status
     </p>
-    <h1 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+    <h1 className="mt-2 text-3xl font-semibold text-gray-900 ">
       Your KYC application
     </h1>
   </div>
 );
 
 const NoApplicationCard = () => (
-  <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-    <p className="text-base font-medium text-gray-900 dark:text-gray-100">
+  <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm   ">
+    <p className="text-base font-medium text-gray-900 ">
       No KYC application found
     </p>
     <p className="mt-2 text-sm">
@@ -174,39 +225,7 @@ const NoApplicationCard = () => (
   </div>
 );
 
-const PendingDocumentsSection = ({ documents }: { documents: KYCDocument[] }) => (
-  <div className="mt-6">
-    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-      Submitted Documents
-    </h2>
-    {documents.length === 0 ? (
-      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-        No documents recorded yet.
-      </p>
-    ) : (
-      <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-        {documents.map((doc) => (
-          <li
-            key={doc.id}
-            className="flex items-center justify-between py-3"
-          >
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {documentTypeLabels[doc.type] ?? doc.type}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Uploaded {formatDate(doc.createdAt)}
-              </span>
-            </div>
-            <DocumentStatusBadge
-              status={docStatusToBadgeStatus(doc.verificationStatus)}
-            />
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-);
+
 
 const ApprovedSection = ({
   approvedAt,
@@ -218,25 +237,25 @@ const ApprovedSection = ({
   <div
     className={`mt-4 rounded-2xl border p-4 ${statusCardClasses.APPROVED}`}
   >
-    <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+    <p className="text-sm font-semibold text-green-800 ">
       Application Approved
     </p>
-    <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+    <p className="mt-1 text-sm text-green-700 ">
       {approvalMessage ?? "Your KYC application has been approved."}
     </p>
-    <p className="mt-2 text-sm text-green-700 dark:text-green-300">
+    <p className="mt-2 text-sm text-green-700 ">
       Approved on {formatDate(approvedAt)}
     </p>
-    <div className="mt-4 rounded-xl border border-green-200 bg-green-100/50 p-3 dark:border-green-800 dark:bg-green-900/20">
-      <p className="text-sm font-medium text-green-800 dark:text-green-200">
+    <div className="mt-4 rounded-xl border border-green-200 bg-green-100/50 p-3  ">
+      <p className="text-sm font-medium text-green-800 ">
         Next Steps
       </p>
-      <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+      <p className="mt-1 text-sm text-green-700 ">
         Your identity has been verified. You can now apply for a loan.
       </p>
       <Link
         to="/dashboard"
-        className="mt-2 inline-block text-sm font-semibold text-green-800 underline dark:text-green-200"
+        className="mt-2 inline-block text-sm font-semibold text-green-800 underline "
       >
         Go to Dashboard
       </Link>
@@ -254,29 +273,29 @@ const RejectedSection = ({
   <div
     className={`mt-4 rounded-2xl border p-4 ${statusCardClasses.REJECTED}`}
   >
-    <p className="text-sm font-semibold text-red-800 dark:text-red-200">
+    <p className="text-sm font-semibold text-red-800 ">
       Application Rejected
     </p>
     {rejectionReason ? (
-      <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+      <p className="mt-1 text-sm text-red-700 ">
         {rejectionReason}
       </p>
     ) : (
-      <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+      <p className="mt-1 text-sm text-red-700 ">
         No specific reason provided.
       </p>
     )}
-    <div className="mt-4 rounded-xl border border-red-200 bg-red-100/50 p-3 dark:border-red-800 dark:bg-red-900/20">
-      <p className="text-sm font-medium text-red-800 dark:text-red-200">
+    <div className="mt-4 rounded-xl border border-red-200 bg-red-100/50 p-3  ">
+      <p className="text-sm font-medium text-red-800 ">
         Need to resubmit?
       </p>
-      <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+      <p className="mt-1 text-sm text-red-700 ">
         Please review the reason above, correct any issues, and submit a new
         application.
       </p>
       <Link
         to="/dashboard/kyc-submit"
-        className="mt-2 inline-block text-sm font-semibold text-red-800 underline dark:text-red-200"
+        className="mt-2 inline-block text-sm font-semibold text-red-800 underline "
       >
         Submit New Application
       </Link>

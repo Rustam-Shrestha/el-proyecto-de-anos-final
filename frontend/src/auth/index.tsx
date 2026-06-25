@@ -104,7 +104,7 @@ const Auth = () => {
               CMS Access
             </p>
             <h1 className="text-3xl font-semibold text-[var(--text-color)]">Login to FinGuard</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-300">Enter your credentials</p>
+            <p className="text-sm text-gray-500 ">Enter your credentials</p>
           </div>
 
           <form

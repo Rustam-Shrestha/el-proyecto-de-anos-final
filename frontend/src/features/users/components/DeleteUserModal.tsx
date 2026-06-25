@@ -48,9 +48,9 @@ export const DeleteUserModal = ({
   return (
     <Modal isOpen={isOpen} onClose={onCancel} title="Delete User">
       <div className="space-y-5">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm text-gray-600 ">
           Are you sure you want to delete{" "}
-          <span className="font-semibold text-gray-900 dark:text-gray-100">
+          <span className="font-semibold text-gray-900 ">
             {user?.email}
           </span>
           ? This action cannot be undone.

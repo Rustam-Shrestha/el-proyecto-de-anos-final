@@ -80,13 +80,13 @@ const TableRow = memo(({ row, columns, hasExpandableRows, isExpanded, onToggleEx
 
   return (
     <>
-      <tr className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+      <tr className="transition-colors hover:bg-gray-50 :bg-gray-800">
         {hasExpandableRows && (
           <td className="py-2 px-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
             {hasChildren ? (
               <button
                 onClick={() => onToggleExpand(row.id)}
-                className={`p-1 rounded transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-700 ${isExpanded ? 'bg-primary/10' : ''}`}
+                className={`p-1 rounded transition-all duration-200 hover:bg-gray-200 :bg-gray-700 ${isExpanded ? 'bg-primary/10' : ''}`}
               >
                 <ChevronDown 
                   className={`w-4 h-4 text-primary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
@@ -198,7 +198,7 @@ const TableFooter = memo(({
                       className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm transition-colors duration-200 flex-shrink-0 ${
                         currentPage === page
                           ? "bg-primary text-white hover:bg-primary-dark"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300   :bg-gray-600"
                       }`}
                     >
                       {page}

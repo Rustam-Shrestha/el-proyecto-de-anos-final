@@ -155,37 +155,37 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   }
 
   return (
-    <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
           KYC Submission
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="mt-2 text-2xl font-semibold text-gray-900 ">
           Submit your KYC application
         </h2>
       </div>
 
       <div className="flex items-center gap-3 text-sm">
         <span
-          className={step >= 1 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}
+          className={step >= 1 ? "font-semibold text-gray-900 " : "text-gray-500"}
         >
           1. Personal
         </span>
         <span className="text-gray-400">-</span>
         <span
-          className={step >= 2 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}
+          className={step >= 2 ? "font-semibold text-gray-900 " : "text-gray-500"}
         >
           2. Upload
         </span>
         <span className="text-gray-400">-</span>
         <span
-          className={step >= 3 ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-500"}
+          className={step >= 3 ? "font-semibold text-gray-900 " : "text-gray-500"}
         >
           3. Review
         </span>
       </div>
 
-      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 ">
         <div
           className="h-full rounded-full bg-[var(--green-icon)] transition-all"
           style={{ width: `${(step / 3) * 100}%` }}
@@ -212,7 +212,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
             <div key={field} className="space-y-2">
               <label
                 htmlFor={field}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                className="block text-sm font-medium text-gray-700 "
               >
                 {field === "selfie" ? "Selfie" : field === "idProof" ? "ID Proof" : "Address Proof"}
               </label>
@@ -231,7 +231,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                     alt={`${field} preview`}
                     className="h-40 rounded-2xl object-cover"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 ">
                     {files[field]?.name} • {files[field] ? readableSize(files[field].size) : ""}
                   </p>
                 </div>
@@ -252,7 +252,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
 
       {step === 3 ? (
         <div className="space-y-5">
-          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+          <div className="space-y-2 text-sm text-gray-600 ">
             <p>Selfie: {files.selfie?.name ?? "Not selected"}</p>
             <p>ID Proof: {files.idProof?.name ?? "Not selected"}</p>
             <p>Address Proof: {files.addressProof?.name ?? "Not selected"}</p>
@@ -260,13 +260,13 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
 
           {submitMutation.isPending ? (
             <div className="space-y-2">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 ">
                 <div
                   className="h-full rounded-full bg-[var(--green-icon)] transition-all"
                   style={{ width: `${submitMutation.uploadProgress}%` }}
                 />
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-500 ">
                 Uploading application... {Math.round(submitMutation.uploadProgress)}%
               </p>
             </div>

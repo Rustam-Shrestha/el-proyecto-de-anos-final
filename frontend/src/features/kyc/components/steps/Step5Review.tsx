@@ -35,7 +35,7 @@ const Row = ({ label, value }: { label: string; value: string }) => (
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <div>
-    <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+    <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-600 ">
       {title}
     </h4>
     <div
@@ -54,9 +54,9 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
 const formatFile = (file: File | null, uploaded: UploadedDoc | null) => {
   if (!file) return <span className="text-red-500">Not provided</span>;
   const status = uploaded ? (
-    <span className="text-green-600 dark:text-green-400">Uploaded</span>
+    <span className="text-green-600 ">Uploaded</span>
   ) : (
-    <span className="text-amber-600 dark:text-amber-400">Ready to upload</span>
+    <span className="text-amber-600 ">Ready to upload</span>
   );
   return (
     <span>

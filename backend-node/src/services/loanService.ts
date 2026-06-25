@@ -2,7 +2,7 @@ import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { riskService } from '@/services/riskService';
-import { LoanPurpose, LoanStatus, RiskLevel } from '@prisma/client';
+import { LoanPurpose, LoanStatus } from '@prisma/client';
 
 export interface ApplyLoanInput {
   requestedAmount: number;
