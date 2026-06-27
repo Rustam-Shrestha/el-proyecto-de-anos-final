@@ -3,8 +3,17 @@ import { Link } from "react-router-dom";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { DocumentStatusBadge } from "@shared/components/DocumentStatusBadge";
+import { env } from "@shared/lib/env";
 import type { KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
 import { DocumentType } from "@shared/types/common";
+
+const resolveDocumentUrl = (filePath: string): string => {
+  if (!filePath) return "#";
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  const base = env.VITE_API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  const normalized = filePath.startsWith("/") ? filePath : `/${filePath}`;
+  return `${base}${normalized}`;
+};
 
 const documentTypeLabels: Record<string, string> = {
   [DocumentType.CITIZENSHIP_FRONT]: "Citizenship (Front)",
@@ -178,7 +187,7 @@ const KYCStatusPage = () => {
                     />
                     {doc.filePath ? (
                       <a
-                        href={doc.filePath}
+                        href={resolveDocumentUrl(doc.filePath)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs font-medium text-blue-600 underline"

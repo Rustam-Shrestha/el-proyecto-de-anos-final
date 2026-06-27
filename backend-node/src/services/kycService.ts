@@ -16,6 +16,8 @@ export interface SubmitKycInput {
 export interface KycApplicationDetail {
   id: string;
   userId: string;
+  userEmail?: string;
+  applicantEmail?: string;
   status: string;
   submittedAt: Date;
   reviewedAt: Date | null;
@@ -27,9 +29,35 @@ export interface KycApplicationDetail {
     filePath: string;
     mimeType: string;
     sizeBytes: number;
+    verificationStatus?: string;
+    createdAt?: Date;
   }>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+function formatKycDocument(doc: any) {
+  return {
+    id: doc.id,
+    type: doc.documentType ?? doc.type,
+    filePath: doc.filePath,
+    mimeType: doc.fileMimeType ?? doc.mimeType,
+    sizeBytes: doc.fileSize ?? doc.sizeBytes,
+    verificationStatus: doc.verificationStatus ?? 'PENDING',
+    createdAt: doc.createdAt ?? doc.uploadedAt,
+  };
+}
+
+function formatKycApplication(kyc: any, userEmail?: string) {
+  if (!kyc) return null;
+  const user = kyc.user as { email?: string } | undefined;
+  const email = userEmail ?? user?.email;
+  return {
+    ...kyc,
+    userEmail: email,
+    applicantEmail: email,
+    documents: (kyc.documents ?? []).map(formatKycDocument),
+  } as KycApplicationDetail;
 }
 
 export const kycService = {
@@ -92,7 +120,7 @@ export const kycService = {
 
       logger.info({ userId: input.userId, kycId: kyc.id }, 'KYC application submitted');
 
-      return kyc as unknown as KycApplicationDetail;
+      return { ...kyc, userEmail: user.email, applicantEmail: user.email, documents: kyc.documents.map((d: any) => ({ id: d.id, type: d.documentType, filePath: d.filePath, mimeType: d.fileMimeType, sizeBytes: d.fileSize, verificationStatus: 'PENDING', createdAt: new Date() })) } as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId: input.userId }, 'Failed to submit KYC');
@@ -116,12 +144,19 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
+          },
+          user: {
+            select: { email: true },
           },
         },
       });
 
-      return kyc as KycApplicationDetail | null;
+      if (!kyc) return null;
+
+      return formatKycApplication(kyc);
     } catch (error) {
       logger.error({ err: error, userId }, 'Failed to get KYC status');
       throw new AppError('Failed to fetch KYC status', 500);
@@ -143,6 +178,8 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
           user: {
@@ -163,7 +200,7 @@ export const kycService = {
         throw new AppError('KYC application not found', 404);
       }
 
-      return kyc as unknown as KycApplicationDetail;
+      return formatKycApplication(kyc) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to get KYC by ID');
@@ -218,6 +255,8 @@ export const kycService = {
                 filePath: true,
                 fileMimeType: true,
                 fileSize: true,
+                verificationStatus: true,
+                createdAt: true,
               },
             },
           },
@@ -228,7 +267,10 @@ export const kycService = {
         prisma.kycApplication.count({ where }),
       ]);
 
-      return { applications, total };
+      return {
+        applications: applications.map((a) => formatKycApplication(a)),
+        total,
+      };
     } catch (error) {
       logger.error({ err: error }, 'Failed to list KYC applications');
       throw new AppError('Failed to fetch KYC applications', 500);
@@ -261,6 +303,8 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -289,6 +333,8 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -305,7 +351,7 @@ export const kycService = {
         'KYC application approved'
       );
 
-      return updated as KycApplicationDetail;
+      return formatKycApplication(updated) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to approve KYC');
@@ -343,6 +389,8 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -372,6 +420,8 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -389,7 +439,7 @@ export const kycService = {
         'KYC application rejected'
       );
 
-      return updated as KycApplicationDetail;
+      return formatKycApplication(updated) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to reject KYC');
@@ -423,6 +473,8 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -452,6 +504,8 @@ export const kycService = {
               filePath: true,
               fileMimeType: true,
               fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -469,7 +523,7 @@ export const kycService = {
         'KYC resubmission requested'
       );
 
-      return updated as KycApplicationDetail;
+      return formatKycApplication(updated) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to request resubmission');

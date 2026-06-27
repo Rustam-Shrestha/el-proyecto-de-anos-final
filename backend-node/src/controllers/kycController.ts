@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
 import { kycService } from '@/services/kycService';
-import { documentService } from '@/services/documentService';
 import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
@@ -30,24 +29,11 @@ export const getMyStatus = async (
     const application = await kycService.getKycStatus(req.user.id);
 
     if (!application) {
-      res.json(apiResponse.success('No KYC application found', {
-        hasApplication: false,
-        application: null,
-        documents: [],
-        summary: null,
-      }));
+      res.json(apiResponse.success('No KYC application found', null));
       return;
     }
 
-    const summary = await documentService.getDocumentSummary(application.id);
-
-    res.json(apiResponse.success('KYC status retrieved', {
-      hasApplication: true,
-      status: application.status,
-      application,
-      documents: application.documents || [],
-      summary,
-    }));
+    res.json(apiResponse.success('KYC status retrieved', application));
   } catch (error) {
     next(error);
   }

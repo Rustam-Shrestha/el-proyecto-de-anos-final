@@ -11,6 +11,8 @@ import { Users, FileText, CreditCard } from "lucide-react";
 const DashboardPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [query, setQuery] = useState<string>("");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const { userData } = useAuth();
 
   const rows = useMemo(
@@ -35,7 +37,6 @@ const DashboardPage = () => {
     { label: "KYC Status", to: "/dashboard/kyc-status", description: "Check application status" },
     { label: "Profile", to: "/dashboard/profile", description: "Update your account" },
     { label: "Reports", to: "/dashboard/reports", description: "Open reporting views" },
-    { label: "User Access", to: "/dashboard/users", description: "Assign or review access" },
   ];
 
   return (
@@ -102,7 +103,7 @@ const DashboardPage = () => {
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {quickLinks.map((link) => (
                 <Link
-                  key={link.to}
+                  key={link.label}
                   to={link.to}
                   className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-[var(--green-icon)] hover:bg-white   :bg-gray-800"
                 >
@@ -140,12 +141,12 @@ const DashboardPage = () => {
         </section>
 
         {showModal && (
-          <Modal title="Create ERP User" size="md" onClose={() => setShowModal(false)}>
+          <Modal title="Create ERP User" size="md" onClose={() => { setShowModal(false); setNewName(""); setNewEmail(""); }}>
             <div className="grid gap-3">
-              <InputField name="name" label="Name" placeholder="Full name" value="" onChange={() => {}} />
-              <InputField name="email" label="Email" placeholder="Email" value="" onChange={() => {}} />
+              <InputField name="name" label="Name" placeholder="Full name" value={newName} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)} />
+              <InputField name="email" label="Email" placeholder="Email" value={newEmail} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)} />
               <div className="flex justify-end">
-                <PrimaryButton label="Save" onClick={() => setShowModal(false)} />
+                <PrimaryButton label="Save" onClick={() => { setShowModal(false); setNewName(""); setNewEmail(""); }} />
               </div>
             </div>
           </Modal>

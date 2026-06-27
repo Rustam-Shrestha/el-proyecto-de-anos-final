@@ -1,11 +1,12 @@
 import { memo, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Download, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, ExternalLink, XCircle } from "lucide-react";
 import { Modal } from "@shared/components/Modal";
 import { Button } from "@shared/components/Button";
 import { DocumentStatusBadge } from "@shared/components/DocumentStatusBadge";
 import { useToast } from "@shared/hooks/useToast";
 import { env } from "@shared/lib/env";
 import {
+  useGetKYCDetails,
   useApproveKYCMutation,
   useRejectKYCMutation,
 } from "@features/kyc/api/kycApi";
@@ -79,6 +80,15 @@ const isPdf = (mimeType: string | undefined | null): boolean => {
   return mimeType === "application/pdf";
 };
 
+const getFileExtension = (filePath: string, mimeType?: string | null): string => {
+  if (mimeType) {
+    if (mimeType === "application/pdf") return "PDF";
+    if (mimeType.startsWith("image/")) return mimeType.split("/")[1].toUpperCase();
+  }
+  const parts = filePath.split(".");
+  return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : "FILE";
+};
+
 type KYCDetailsModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -93,6 +103,12 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
   const [rejectReason, setRejectReason] = useState("");
   const [approveNotes, setApproveNotes] = useState("");
 
+  const { data: detailedApplication, isLoading: loadingDetails } = useGetKYCDetails(
+    application?.id ?? ""
+  );
+
+  const resolvedApplication = detailedApplication ?? application;
+
   useEffect(() => {
     if (!isOpen) {
       setShowRejectForm(false);
@@ -102,8 +118,8 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
   }, [isOpen]);
 
   const documents = useMemo<KYCDocument[]>(
-    () => application?.documents ?? [],
-    [application?.documents]
+    () => resolvedApplication?.documents ?? [],
+    [resolvedApplication?.documents]
   );
 
   const handleApprove = async () => {
@@ -130,24 +146,26 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
     }
   };
 
-  const isPending = application?.status === "PENDING";
+  const isPending = resolvedApplication?.status === "PENDING";
   const isRejecting = showRejectForm;
   const isMutating = approveMutation.isPending || rejectMutation.isPending;
 
+  const docUrl = resolveDocumentUrl;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="KYC Application Details">
-      {!application ? null : (
+      {!resolvedApplication ? null : (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                statusBadgeClasses[application.status] ?? statusBadgeClasses.PENDING
+                statusBadgeClasses[resolvedApplication.status] ?? statusBadgeClasses.PENDING
               }`}
             >
-              {application.status}
+              {resolvedApplication.status}
             </span>
             <p className="text-sm text-gray-500 ">
-              Applied {formatDate(application.appliedAt ?? application.submittedAt)}
+              Applied {formatDate(resolvedApplication.appliedAt ?? resolvedApplication.submittedAt)}
             </p>
           </div>
 
@@ -159,20 +177,20 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
               <div className="flex justify-between">
                 <dt className="text-gray-500 ">Email</dt>
                 <dd className="font-medium text-gray-900 ">
-                  {application.applicantEmail ?? application.userEmail ?? "--"}
+                  {resolvedApplication.applicantEmail ?? resolvedApplication.userEmail ?? "--"}
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500 ">Submitted</dt>
                 <dd className="font-medium text-gray-900 ">
-                  {formatDate(application.submittedAt)}
+                  {formatDate(resolvedApplication.submittedAt)}
                 </dd>
               </div>
-              {application.reviewedAt ? (
+              {resolvedApplication.reviewedAt ? (
                 <div className="flex justify-between">
                   <dt className="text-gray-500 ">Reviewed</dt>
                   <dd className="font-medium text-gray-900 ">
-                    {formatDate(application.reviewedAt)}
+                    {formatDate(resolvedApplication.reviewedAt)}
                   </dd>
                 </div>
               ) : null}
@@ -183,7 +201,9 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
             <h3 className="text-sm font-semibold text-gray-900 ">
               Documents
             </h3>
-            {documents.length === 0 ? (
+            {loadingDetails ? (
+              <p className="mt-3 text-sm text-gray-500 ">Loading documents...</p>
+            ) : documents.length === 0 ? (
               <p className="mt-3 text-sm text-gray-500 ">
                 No documents available.
               </p>
@@ -204,37 +224,38 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                         <DocumentStatusBadge
                           status={docStatusToBadgeStatus(doc.verificationStatus)}
                         />
-                        {isImage(doc.mimeType) ? (
-                          <a
-                            href={resolveDocumentUrl(doc.filePath)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100   :bg-gray-800"
-                            aria-label={`Preview ${documentTypeLabels[doc.type] ?? doc.type}`}
-                          >
-                            <Download className="h-4 w-4" />
-                          </a>
-                        ) : null}
-                        {isPdf(doc.mimeType) ? (
-                          <a
-                            href={resolveDocumentUrl(doc.filePath)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100   :bg-gray-800"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            PDF
-                          </a>
-                        ) : null}
+                        <a
+                          href={docUrl(doc.filePath)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100   :bg-gray-800"
+                          aria-label={`View ${documentTypeLabels[doc.type] ?? doc.type}`}
+                          title={`Open ${getFileExtension(doc.filePath, doc.mimeType)}`}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
                       </div>
                     </div>
                     {isImage(doc.mimeType) ? (
                       <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 ">
                         <img
-                          src={resolveDocumentUrl(doc.filePath)}
+                          src={docUrl(doc.filePath)}
                           alt={documentTypeLabels[doc.type] ?? doc.type}
                           className="max-h-48 w-full object-contain bg-gray-100 "
                         />
+                      </div>
+                    ) : null}
+                    {isPdf(doc.mimeType) && !isImage(doc.mimeType) ? (
+                      <div className="mt-3">
+                        <a
+                          href={docUrl(doc.filePath)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                        >
+                          <Download className="h-4 w-4" />
+                          Open PDF Document
+                        </a>
                       </div>
                     ) : null}
                   </li>
@@ -243,13 +264,13 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
             )}
           </div>
 
-          {application.rejectionReason ? (
+          {resolvedApplication.rejectionReason ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800   ">
               <p className="flex items-center gap-2 text-sm font-semibold">
                 <AlertCircle className="h-4 w-4" />
                 Rejection Reason
               </p>
-              <p className="mt-2 text-sm">{application.rejectionReason}</p>
+              <p className="mt-2 text-sm">{resolvedApplication.rejectionReason}</p>
             </div>
           ) : null}
 

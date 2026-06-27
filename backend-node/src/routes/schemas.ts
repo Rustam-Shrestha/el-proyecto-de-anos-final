@@ -10,7 +10,7 @@ export const listUsersSchema = z.object({
 
 export const getUserByIdSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid user ID format'),
+    id: z.string().min(1, 'User ID is required'),
   }),
 });
 
@@ -25,7 +25,7 @@ export const updateUserSchema = z.object({
 
 export const updateUserRoleSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid user ID format'),
+    id: z.string().min(1, 'User ID is required'),
   }),
   body: z.object({
     role: z.enum(['USER', 'ADMIN', 'REVIEWER'], {
@@ -36,7 +36,7 @@ export const updateUserRoleSchema = z.object({
 
 export const updateUserProfileSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid user ID format'),
+    id: z.string().min(1, 'User ID is required'),
   }),
   body: z.object({
     firstName: z.string().min(1, 'First name is required').optional(),
@@ -63,7 +63,7 @@ export const createUserSchema = z.object({
 
 export const updateUserAdminSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid user ID format'),
+    id: z.string().min(1, 'User ID is required'),
   }),
   body: z.object({
     email: z.string().email('Invalid email').optional(),
@@ -78,6 +78,6 @@ export const updateUserAdminSchema = z.object({
 
 export const deleteUserSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid user ID format'),
+    id: z.string().min(1, 'User ID is required'),
   }),
 });
