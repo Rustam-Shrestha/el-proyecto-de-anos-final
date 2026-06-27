@@ -173,8 +173,32 @@ model KycApplication {
   reviewerId     String?
   rejectionReason String?
 
+  // OCR extracted data (source: PaddleOCR)
+  ocrCitizenshipNumber String?
+  ocrFullName          String?
+  ocrDateOfBirth       String?
+  ocrGender            String?
+  ocrAddress           String?
+
+  // User confirmed data (source of truth)
+  confirmedCitizenshipNumber String?
+  confirmedFullName          String?
+  confirmedDateOfBirth       String?
+  confirmedGender            String?
+  confirmedAddress           String?
+  confirmedPhoneNumber       String?
+  confirmedEmail             String?
+  confirmedOccupation        String?
+  confirmedEmployer          String?
+  confirmedMonthlyIncome     Decimal? @db.Decimal(12, 2)
+  confirmedMaritalStatus     String?
+  confirmedEducationLevel    String?
+
   // Relations
-  documents Document[]
+  documents          Document[]
+  ocrResults         OCRResult[]
+  faceVerification   FaceVerification?
+  verificationReport VerificationReport?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -182,6 +206,63 @@ model KycApplication {
   @@index([userId])
   @@index([status])
   @@map("kyc_applications")
+  @@schema("auth")
+}
+
+model OCRResult {
+  id                String   @id @default(cuid())
+  kycApplicationId  String
+  kycApplication    KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  documentType      String   // CITIZENSHIP_FRONT, CITIZENSHIP_BACK, SELFIE
+  rawOcrText        String   @db.Text
+  extractedData     Json     // { name: "value", confidence: 0.92, ... }
+  overallConfidence Float    // 0-1
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("ocr_results")
+  @@schema("auth")
+}
+
+model FaceVerification {
+  id                String   @id @default(cuid())
+  kycApplicationId  String   @unique
+  kycApplication    KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  citizenshipPhotoPath String
+  selfiePhotoPath      String
+  similarityScore      Float    // 0-1, displayed as 0-100
+  status               String   @default("PENDING") // PENDING, MATCH, POSSIBLE_MATCH, LOW_CONFIDENCE, MISMATCH
+  recommendation       String?  // "APPROVE", "REVIEW", "REJECT"
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("face_verifications")
+  @@schema("auth")
+}
+
+model VerificationReport {
+  id                String   @id @default(cuid())
+  kycApplicationId  String   @unique
+  kycApplication    KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  faceSimilarity    Float?
+  ocrConfidence     Float?
+  fieldsCorrected   Int      @default(0)
+  possibleMismatches Json?   // array of field names
+  manualReviewSuggested Boolean @default(false)
+  report            String   @db.Text // JSON stringified full report
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("verification_reports")
   @@schema("auth")
 }
 
