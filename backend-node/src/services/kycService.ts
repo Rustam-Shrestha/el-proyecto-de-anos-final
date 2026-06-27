@@ -530,4 +530,27 @@ export const kycService = {
       throw new AppError('Failed to request resubmission', 500);
     }
   },
+
+  async submitKycWithConfirmedData(userId: string, data: {
+    confirmedCitizenshipNumber: string,
+    confirmedFullName: string,
+    confirmedDateOfBirth: string,
+    confirmedGender: string,
+    confirmedAddress: string,
+    confirmedPhoneNumber: string,
+    confirmedEmail: string,
+    confirmedOccupation: string,
+    confirmedEmployer: string,
+    confirmedMonthlyIncome: number,
+    confirmedMaritalStatus: string,
+    confirmedEducationLevel: string
+  }) {
+    return await prisma.kycApplication.update({
+      where: { userId },
+      data: {
+        ...data,
+        status: 'PENDING_REVIEW'
+      }
+    });
+  },
 };
