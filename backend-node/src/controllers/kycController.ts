@@ -2,8 +2,11 @@ import type { Request, Response, NextFunction } from 'express';
 import { kycService } from '@/services/kycService';
 import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
+import { ocrService } from '@/services/ocrService';
+import { faceService } from '@/services/faceService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
+import { prisma } from '@/config/database';
 
 const documentTypeMap: Record<string, string> = {
   selfie: 'SELFIE',
@@ -57,6 +60,16 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
+    // Validate that ALL required file fields were actually uploaded as files
+    const requiredFields = ['selfie', 'idProof', 'addressProof'];
+    for (const field of requiredFields) {
+      const fieldFiles = files[field];
+      if (!fieldFiles || fieldFiles.length === 0 || fieldFiles[0].size === 0) {
+        res.status(400).json(apiResponse.error(`Missing or empty file for '${field}'`, 400));
+        return;
+      }
+    }
+
     const documents = Object.entries(files).flatMap(([fieldname, fileArray]) =>
       fileArray.map((file) => ({
         type: documentTypeMap[fieldname] || 'OTHER',
@@ -71,8 +84,12 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       documents,
     });
 
-    // Update user profile if personal info was provided
+    // Validate and update user profile if personal info was provided
     const { fullName, phone, address } = req.body;
+    if (!fullName || !phone) {
+      res.status(400).json(apiResponse.error('fullName and phone are required', 400));
+      return;
+    }
     if (fullName || phone || address) {
       await userService.updateUser(req.user.id, {
         ...(fullName && { fullName }),
@@ -80,6 +97,111 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
         ...(address && { address }),
       });
     }
+
+    // --- Auto-trigger OCR and Face Verification ---
+    // Fire these asynchronously (non-blocking) so the response is fast
+    setTimeout(async () => {
+      try {
+        const createdDocs = await prisma.document.findMany({
+          where: { kycId: result.id },
+        });
+
+        const selfieDoc = createdDocs.find((d: any) => d.documentType === 'SELFIE');
+        const citizenshipFrontDoc = createdDocs.find((d: any) => d.documentType === 'CITIZENSHIP_FRONT');
+        const citizenshipBackDoc = createdDocs.find((d: any) => d.documentType === 'CITIZENSHIP_BACK');
+
+        // 1. OCR on citizenship front document
+        if (citizenshipFrontDoc) {
+          try {
+            const ocrResult = await ocrService.extractCitizenshipData(
+              citizenshipFrontDoc.filePath,
+              'citizenship_front'
+            );
+
+            await prisma.ocrResult.create({
+              data: {
+                kycApplicationId: result.id,
+                documentType: 'CITIZENSHIP_FRONT',
+                rawOcrText: ocrResult.rawText,
+                extractedData: ocrResult.extractedData,
+                overallConfidence: ocrResult.overallConfidence,
+              },
+            });
+
+            const updateData: Record<string, string> = {};
+            if (ocrResult.extractedData.name) updateData.ocrFullName = ocrResult.extractedData.name;
+            if (ocrResult.extractedData.citizenshipNumber) updateData.ocrCitizenshipNumber = ocrResult.extractedData.citizenshipNumber;
+            if (ocrResult.extractedData.dateOfBirth) updateData.ocrDateOfBirth = ocrResult.extractedData.dateOfBirth;
+            if (ocrResult.extractedData.gender) updateData.ocrGender = ocrResult.extractedData.gender;
+            if (ocrResult.extractedData.address) updateData.ocrAddress = ocrResult.extractedData.address;
+            if (Object.keys(updateData).length > 0) {
+              await prisma.kycApplication.update({
+                where: { id: result.id },
+                data: updateData,
+              });
+            }
+          } catch (_ocrError) {
+            // OCR failure doesn't block the flow
+          }
+        }
+
+        // 2. OCR on citizenship back document
+        if (citizenshipBackDoc) {
+          try {
+            const ocrResult = await ocrService.extractCitizenshipData(
+              citizenshipBackDoc.filePath,
+              'citizenship_back'
+            );
+
+            await prisma.ocrResult.create({
+              data: {
+                kycApplicationId: result.id,
+                documentType: 'CITIZENSHIP_BACK',
+                rawOcrText: ocrResult.rawText,
+                extractedData: ocrResult.extractedData,
+                overallConfidence: ocrResult.overallConfidence,
+              },
+            });
+          } catch (_ocrError) {
+            // OCR failure doesn't block the flow
+          }
+        }
+
+        // 3. Face verification (selfie vs citizenship front)
+        if (selfieDoc && citizenshipFrontDoc) {
+          try {
+            const faceResult = await faceService.verifyFace(
+              citizenshipFrontDoc.filePath,
+              selfieDoc.filePath
+            );
+
+            await prisma.faceVerification.upsert({
+              where: { kycApplicationId: result.id },
+              update: {
+                citizenshipPhotoPath: citizenshipFrontDoc.filePath,
+                selfiePhotoPath: selfieDoc.filePath,
+                similarityScore: faceResult.similarityScore,
+                status: faceResult.status,
+                recommendation: faceResult.recommendation,
+              },
+              create: {
+                kycApplicationId: result.id,
+                citizenshipPhotoPath: citizenshipFrontDoc.filePath,
+                selfiePhotoPath: selfieDoc.filePath,
+                similarityScore: faceResult.similarityScore,
+                status: faceResult.status,
+                recommendation: faceResult.recommendation,
+              },
+            });
+          } catch (_faceError) {
+            // Face verification failure doesn't block the flow
+          }
+        }
+      } catch (_backgroundError) {
+        // Background processing failure doesn't block the response
+      }
+    }, 0);
+    // --- End auto-trigger ---
 
     // Log KYC submission
     await auditService.log({

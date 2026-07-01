@@ -78,6 +78,12 @@ kycRouter.post(
   '/submit',
   authenticate,
   (req, res, next) => {
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+      return res.status(415).json(
+        apiResponse.error('Content-Type must be multipart/form-data (send actual file uploads, not JSON)', 415)
+      );
+    }
     uploadMiddleware.fields([
       { name: 'selfie', maxCount: 1 },
       { name: 'idProof', maxCount: 1 },
@@ -502,7 +508,11 @@ kycRouter.post('/submit-confirmed', authenticate, async (req: Request, res: Resp
   try {
     const { kycApplicationId, confirmedData } = req.body;
 
-    const kyc = await kycService.submitKycWithConfirmedData(req.user!.id, confirmedData);
+    if (!kycApplicationId || !confirmedData) {
+      return res.status(400).json(apiResponse.error('kycApplicationId and confirmedData are required', 400));
+    }
+
+    const kyc = await kycService.submitKycWithConfirmedData(kycApplicationId, confirmedData);
 
     await kycVerificationService.generateVerificationReport(kycApplicationId);
 

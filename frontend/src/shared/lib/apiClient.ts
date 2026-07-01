@@ -27,6 +27,14 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // When sending FormData (multipart), clear the default application/json Content-Type
+  // so the browser can set the correct multipart boundary.
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+    delete config.headers['content-type'];
+  }
+
   return config;
 });
 

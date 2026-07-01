@@ -2,7 +2,7 @@ import axios from 'axios';
 import { AppError } from '@/utils/AppError';
 import { logger } from '@/config/logger';
 
-const FASTAPI_OCR_URL = process.env.FASTAPI_OCR_URL || 'http://localhost:8001';
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 
 export const ocrService = {
   async extractCitizenshipData(imagePath: string, documentType: string): Promise<{
@@ -11,7 +11,7 @@ export const ocrService = {
     rawText: string
   }> {
     try {
-      const response = await axios.post(`${FASTAPI_OCR_URL}/ocr/citizenship`, {
+      const response = await axios.post(`${FASTAPI_URL}/api/v1/kyc/ocr/citizenship`, {
         image_path: imagePath,
         document_type: documentType
       });

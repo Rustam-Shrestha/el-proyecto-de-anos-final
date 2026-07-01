@@ -2,7 +2,7 @@ import axios from 'axios';
 import { AppError } from '@/utils/AppError';
 import { logger } from '@/config/logger';
 
-const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8001';
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 
 export const faceService = {
   async verifyFace(citizenshipPhotoPath: string, selfiePhotoPath: string): Promise<{
@@ -11,7 +11,7 @@ export const faceService = {
     recommendation: string
   }> {
     try {
-      const response = await axios.post(`${FASTAPI_URL}/face/verify`, {
+      const response = await axios.post(`${FASTAPI_URL}/api/v1/kyc/face/verify`, {
         citizenship_photo: citizenshipPhotoPath,
         selfie_photo: selfiePhotoPath
       });

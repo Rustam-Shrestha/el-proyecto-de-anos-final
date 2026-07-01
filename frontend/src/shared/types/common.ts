@@ -105,6 +105,44 @@ export type KYCApplication = {
   approvedAt?: string | null;
   rejectedAt?: string | null;
   approvalMessage?: string | null;
+  // OCR extracted data
+  ocrFullName?: string | null;
+  ocrCitizenshipNumber?: string | null;
+  ocrDateOfBirth?: string | null;
+  ocrGender?: string | null;
+  ocrAddress?: string | null;
+  ocrResults?: OCRResultType[];
+  // User confirmed data
+  confirmedFullName?: string | null;
+  confirmedCitizenshipNumber?: string | null;
+  confirmedDateOfBirth?: string | null;
+  confirmedGender?: string | null;
+  confirmedAddress?: string | null;
+  confirmedPhoneNumber?: string | null;
+  confirmedEmail?: string | null;
+  // Face verification
+  faceVerification?: FaceVerificationType | null;
+};
+
+export type OCRResultType = {
+  id: string;
+  kycApplicationId: string;
+  documentType: string;
+  rawOcrText: string;
+  extractedData: Record<string, unknown>;
+  overallConfidence: number;
+  createdAt: string;
+};
+
+export type FaceVerificationType = {
+  id: string;
+  kycApplicationId: string;
+  citizenshipPhotoPath: string;
+  selfiePhotoPath: string;
+  similarityScore: number;
+  status: string;
+  recommendation: string | null;
+  createdAt: string;
 };
 
 export type KYCDocument = {

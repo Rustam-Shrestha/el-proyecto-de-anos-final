@@ -86,6 +86,16 @@ const KYCStatusPage = () => {
     [application?.documents]
   );
 
+  const ocrResults = useMemo(
+    () => application?.ocrResults ?? [],
+    [application?.ocrResults]
+  );
+
+  const faceVerification = useMemo(
+    () => application?.faceVerification ?? null,
+    [application?.faceVerification]
+  );
+
   if (isLoading) {
     return (
       <section className="space-y-6">
@@ -163,6 +173,137 @@ const KYCStatusPage = () => {
             rejectionReason={application.rejectionReason}
             kycId={application.id}
           />
+        ) : null}
+
+        {/* OCR Extracted Data */}
+        {application.ocrFullName || application.ocrCitizenshipNumber || application.ocrDateOfBirth ? (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold text-gray-900">OCR Extracted Data</h2>
+            <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <dl className="space-y-2 text-sm">
+                {application.ocrFullName ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Full Name</dt>
+                    <dd className="font-medium text-gray-900">{application.ocrFullName}</dd>
+                  </div>
+                ) : null}
+                {application.ocrCitizenshipNumber ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Citizenship Number</dt>
+                    <dd className="font-medium text-gray-900">{application.ocrCitizenshipNumber}</dd>
+                  </div>
+                ) : null}
+                {application.ocrDateOfBirth ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Date of Birth</dt>
+                    <dd className="font-medium text-gray-900">{application.ocrDateOfBirth}</dd>
+                  </div>
+                ) : null}
+                {application.ocrGender ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Gender</dt>
+                    <dd className="font-medium text-gray-900">{application.ocrGender}</dd>
+                  </div>
+                ) : null}
+                {application.ocrAddress ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Address</dt>
+                    <dd className="font-medium text-gray-900">{application.ocrAddress}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </div>
+          </div>
+        ) : null}
+
+        {/* OCR Results Details */}
+        {ocrResults.length > 0 ? (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold text-gray-900">OCR Processing Details</h2>
+            {ocrResults.map((ocr) => (
+              <div key={ocr.id} className="mt-3 rounded-2xl border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900">{ocr.documentType}</span>
+                  <span className="text-xs text-gray-500">
+                    Confidence: {(ocr.overallConfidence * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 line-clamp-3">{ocr.rawOcrText}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Face Verification Results */}
+        {faceVerification ? (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold text-gray-900">Face Verification</h2>
+            <div className="mt-3 rounded-2xl border p-4" style={{
+              borderColor: faceVerification.status === "MATCH" ? "var(--green-200, #bbf7d0)" : "var(--amber-200, #fde68a)",
+              backgroundColor: faceVerification.status === "MATCH" ? "var(--green-50, #f0fdf4)" : "var(--amber-50, #fffbeb)",
+            }}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-900">Status</span>
+                <span className={`text-sm font-semibold ${
+                  faceVerification.status === "MATCH" ? "text-green-700" : "text-amber-700"
+                }`}>
+                  {faceVerification.status === "MATCH" ? "Face Matched" : faceVerification.status}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-sm text-gray-500">Similarity Score</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {(faceVerification.similarityScore * 100).toFixed(1)}%
+                </span>
+              </div>
+              {faceVerification.recommendation ? (
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Recommendation</span>
+                  <span className="text-sm font-medium text-gray-900">{faceVerification.recommendation}</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {application.confirmedFullName || application.confirmedCitizenshipNumber ? (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold text-gray-900">Confirmed Information</h2>
+            <div className="mt-3 rounded-2xl border border-green-200 bg-green-50 p-4">
+              <dl className="space-y-2 text-sm">
+                {application.confirmedFullName ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Full Name</dt>
+                    <dd className="font-medium text-gray-900">{application.confirmedFullName}</dd>
+                  </div>
+                ) : null}
+                {application.confirmedCitizenshipNumber ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Citizenship Number</dt>
+                    <dd className="font-medium text-gray-900">{application.confirmedCitizenshipNumber}</dd>
+                  </div>
+                ) : null}
+                {application.confirmedDateOfBirth ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Date of Birth</dt>
+                    <dd className="font-medium text-gray-900">{application.confirmedDateOfBirth}</dd>
+                  </div>
+                ) : null}
+                {application.confirmedPhoneNumber ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Phone</dt>
+                    <dd className="font-medium text-gray-900">{application.confirmedPhoneNumber}</dd>
+                  </div>
+                ) : null}
+                {application.confirmedEmail ? (
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Email</dt>
+                    <dd className="font-medium text-gray-900">{application.confirmedEmail}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </div>
+          </div>
         ) : null}
 
         <div className="mt-6">

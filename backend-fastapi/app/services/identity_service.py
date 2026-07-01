@@ -59,7 +59,7 @@ class FaceVerificationService:
         selfie_path: str,
         id_document_path: str,
         kyc_application_id: str,
-        session: AsyncSession,
+        session: Optional[AsyncSession] = None,
     ) -> FaceVerification:
         """
         Asynchronously verify face match between selfie and ID document.
@@ -98,7 +98,7 @@ class FaceVerificationService:
             id_document_path,
         )
 
-        # Save result to database
+        # Save result to database (only if session is provided)
         verification = FaceVerification(
             id=uuid.uuid4(),
             kyc_application_id=kyc_application_id,
@@ -109,9 +109,11 @@ class FaceVerificationService:
             model_used=self.MODEL,
         )
 
-        session.add(verification)
-        await session.flush()
-        logger.info("Face verification saved: %s (is_match=%s, distance=%.4f)", verification.id, is_match, distance)
+        if session is not None:
+            session.add(verification)
+            await session.flush()
+
+        logger.info("Face verification complete: is_match=%s, distance=%.4f", is_match, distance)
 
         return verification
 

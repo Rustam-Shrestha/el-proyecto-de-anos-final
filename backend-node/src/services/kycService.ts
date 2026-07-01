@@ -151,12 +151,30 @@ export const kycService = {
           user: {
             select: { email: true },
           },
+          ocrResults: true,
+          faceVerification: true,
         },
       });
 
       if (!kyc) return null;
 
-      return formatKycApplication(kyc);
+      return {
+        ...formatKycApplication(kyc)!,
+        ocrResults: kyc.ocrResults || [],
+        faceVerification: kyc.faceVerification || null,
+        ocrFullName: kyc.ocrFullName,
+        ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
+        ocrDateOfBirth: kyc.ocrDateOfBirth,
+        ocrGender: kyc.ocrGender,
+        ocrAddress: kyc.ocrAddress,
+        confirmedFullName: kyc.confirmedFullName,
+        confirmedCitizenshipNumber: kyc.confirmedCitizenshipNumber,
+        confirmedDateOfBirth: kyc.confirmedDateOfBirth,
+        confirmedGender: kyc.confirmedGender,
+        confirmedAddress: kyc.confirmedAddress,
+        confirmedPhoneNumber: kyc.confirmedPhoneNumber,
+        confirmedEmail: kyc.confirmedEmail,
+      } as any;
     } catch (error) {
       logger.error({ err: error, userId }, 'Failed to get KYC status');
       throw new AppError('Failed to fetch KYC status', 500);
@@ -166,7 +184,7 @@ export const kycService = {
   /**
    * Get single KYC application by ID
    */
-  async getKycById(kycId: string): Promise<KycApplicationDetail> {
+  async getKycById(kycId: string): Promise<any> {
     try {
       const kyc = await prisma.kycApplication.findUnique({
         where: { id: kycId },
@@ -193,6 +211,9 @@ export const kycService = {
               },
             },
           },
+          ocrResults: true,
+          faceVerification: true,
+          verificationReport: true,
         },
       });
 
@@ -200,7 +221,24 @@ export const kycService = {
         throw new AppError('KYC application not found', 404);
       }
 
-      return formatKycApplication(kyc) as KycApplicationDetail;
+      return {
+        ...formatKycApplication(kyc),
+        ocrResults: kyc.ocrResults || [],
+        faceVerification: kyc.faceVerification || null,
+        verificationReport: kyc.verificationReport || null,
+        ocrFullName: kyc.ocrFullName,
+        ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
+        ocrDateOfBirth: kyc.ocrDateOfBirth,
+        ocrGender: kyc.ocrGender,
+        ocrAddress: kyc.ocrAddress,
+        confirmedFullName: kyc.confirmedFullName,
+        confirmedCitizenshipNumber: kyc.confirmedCitizenshipNumber,
+        confirmedDateOfBirth: kyc.confirmedDateOfBirth,
+        confirmedGender: kyc.confirmedGender,
+        confirmedAddress: kyc.confirmedAddress,
+        confirmedPhoneNumber: kyc.confirmedPhoneNumber,
+        confirmedEmail: kyc.confirmedEmail,
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to get KYC by ID');
@@ -531,22 +569,22 @@ export const kycService = {
     }
   },
 
-  async submitKycWithConfirmedData(userId: string, data: {
-    confirmedCitizenshipNumber: string,
-    confirmedFullName: string,
-    confirmedDateOfBirth: string,
-    confirmedGender: string,
-    confirmedAddress: string,
-    confirmedPhoneNumber: string,
-    confirmedEmail: string,
-    confirmedOccupation: string,
-    confirmedEmployer: string,
-    confirmedMonthlyIncome: number,
-    confirmedMaritalStatus: string,
-    confirmedEducationLevel: string
+  async submitKycWithConfirmedData(kycApplicationId: string, data: {
+    confirmedCitizenshipNumber?: string,
+    confirmedFullName?: string,
+    confirmedDateOfBirth?: string,
+    confirmedGender?: string,
+    confirmedAddress?: string,
+    confirmedPhoneNumber?: string,
+    confirmedEmail?: string,
+    confirmedOccupation?: string,
+    confirmedEmployer?: string,
+    confirmedMonthlyIncome?: number,
+    confirmedMaritalStatus?: string,
+    confirmedEducationLevel?: string
   }) {
     return await prisma.kycApplication.update({
-      where: { userId },
+      where: { id: kycApplicationId },
       data: {
         ...data,
         status: 'PENDING_REVIEW'
