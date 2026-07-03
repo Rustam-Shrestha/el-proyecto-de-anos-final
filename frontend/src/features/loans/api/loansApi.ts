@@ -73,7 +73,7 @@ export const useLoansList = (page: number, limit: number, status?: string) => {
       };
     },
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 3,
   });
 };
 

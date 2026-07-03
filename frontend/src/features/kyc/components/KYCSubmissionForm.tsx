@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { XCircle } from "lucide-react";
 import { Button } from "@components/Button";
 import Input from "@components/Input";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
@@ -10,6 +11,7 @@ import { apiClient } from "@shared/lib/apiClient";
 import { useSubmitKYCMutation } from "@features/kyc/api/kycApi";
 import type { KYCApplication } from "@shared/types/common";
 import { DocumentType, FILE_VALIDATION } from "@shared/types/common";
+import CustomDatePicker from "@components/common/CutomDatePicker";
 
 type CurrentUser = {
   id?: string;
@@ -72,6 +74,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   });
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pollingAttempts, setPollingAttempts] = useState(0);
+  const [pollingError, setPollingError] = useState<string | null>(null);
   const [isSubmittingConfirmed, setIsSubmittingConfirmed] = useState(false);
 
   const authQuery = useQuery({
@@ -154,8 +157,19 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
     }
   };
 
+  const MAX_POLLING_ATTEMPTS = 90;
+
+  const skipToManualEntry = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    setStep(5);
+  }, []);
+
   const startPolling = useCallback((_id: string) => {
     setPollingAttempts(0);
+    setPollingError(null);
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
     }
@@ -191,21 +205,29 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
             pollingRef.current = null;
           }
           setStep(5);
+          return;
         }
         setPollingAttempts((prev) => prev + 1);
-      } catch {
+      } catch (err) {
+        const apiError = err as { response?: { data?: { message?: string } } };
+        const msg = apiError.response?.data?.message || "Failed to check processing status";
+        setPollingError(msg);
         setPollingAttempts((prev) => prev + 1);
       }
     }, 2000);
   }, []);
 
   useEffect(() => {
-    if (pollingAttempts > 30 && pollingRef.current) {
+    if (pollingAttempts >= MAX_POLLING_ATTEMPTS && pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
-      toast.error("OCR processing timed out. Please check your KYC status later.");
+      const msg = pollingError
+        ? `Processing timed out: ${pollingError}. You can enter the details manually.`
+        : "OCR processing is taking longer than expected. You can enter the details manually.";
+      toast.error(msg);
+      setStep(5);
     }
-  }, [pollingAttempts, toast]);
+  }, [pollingAttempts, pollingError, toast]);
 
   const handleConfirmSubmit = async () => {
     if (!kycId) {
@@ -345,45 +367,82 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
 
       {step === 4 ? (
         <div className="space-y-5 py-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-            <svg className="h-8 w-8 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          </div>
+          {pollingError ? (
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <XCircle className="h-8 w-8 text-red-600" />
+            </div>
+          ) : (
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+              <svg className="h-8 w-8 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </div>
+          )}
           <h3 className="text-lg font-semibold text-gray-900">Processing your documents</h3>
-          <p className="text-sm text-gray-500">
-            We are extracting data from your documents using OCR and verifying your face match.
-            This may take a few seconds...
-          </p>
-          <p className="text-xs text-gray-400">Attempt {pollingAttempts}/30</p>
+          {pollingError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-medium text-red-800">{pollingError}</p>
+              <p className="mt-1 text-xs text-red-600">
+                Retrying automatically ({pollingAttempts}/{MAX_POLLING_ATTEMPTS})...
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              We are extracting data from your documents using OCR and verifying your face match.
+              This may take a few seconds...
+            </p>
+          )}
+          <p className="text-xs text-gray-400">Attempt {pollingAttempts}/{MAX_POLLING_ATTEMPTS}</p>
+          <div className="pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={skipToManualEntry}
+            >
+              Enter details manually
+            </Button>
+          </div>
         </div>
       ) : null}
 
-      {step === 5 && ocrData ? (
+      {step === 5 ? (
         <div className="space-y-5">
-          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-            <p className="text-sm font-semibold text-green-800">
-              Documents processed successfully!
-            </p>
-            {ocrData.faceStatus !== "PENDING" ? (
-              <div className="mt-2 flex items-center gap-2 text-sm">
-                <span className="text-green-700">Face Match:</span>
-                <span className={`font-semibold ${ocrData.faceStatus === "MATCH" ? "text-green-700" : "text-amber-700"}`}>
-                  {ocrData.faceStatus === "MATCH" ? "Verified" : ocrData.faceStatus}
-                </span>
-                <span className="text-gray-500">
-                  ({(ocrData.faceSimilarity * 100).toFixed(1)}% similarity)
-                </span>
-              </div>
-            ) : null}
-          </div>
+          {ocrData ? (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+              <p className="text-sm font-semibold text-green-800">
+                Documents processed successfully!
+              </p>
+              {ocrData.faceStatus !== "PENDING" ? (
+                <div className="mt-2 flex items-center gap-2 text-sm">
+                  <span className="text-green-700">Face Match:</span>
+                  <span className={`font-semibold ${ocrData.faceStatus === "MATCH" ? "text-green-700" : "text-amber-700"}`}>
+                    {ocrData.faceStatus === "MATCH" ? "Verified" : ocrData.faceStatus}
+                  </span>
+                  <span className="text-gray-500">
+                    ({(ocrData.faceSimilarity * 100).toFixed(1)}% similarity)
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">
+                Automatic data extraction timed out
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                Please enter your details manually below. Your files have been received successfully.
+              </p>
+            </div>
+          )}
 
           <h3 className="text-lg font-semibold text-gray-900">
-            Confirm Extracted Information
+            Confirm Information
           </h3>
           <p className="text-sm text-gray-500">
-            Please review the information extracted from your documents. Edit any fields that need correction.
+            {ocrData
+              ? "Please review the information extracted from your documents. Edit any fields that need correction."
+              : "Enter your details manually. All fields are editable."}
           </p>
 
           <div className="space-y-4">
@@ -395,7 +454,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 onChange={(e) => handleFieldChange("confirmedFullName", e.target.value)}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
-              {ocrData.ocrFullName ? (
+              {ocrData?.ocrFullName ? (
                 <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrFullName}</p>
               ) : null}
             </div>
@@ -408,21 +467,19 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 onChange={(e) => handleFieldChange("confirmedCitizenshipNumber", e.target.value)}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
-              {ocrData.ocrCitizenshipNumber ? (
+              {ocrData?.ocrCitizenshipNumber ? (
                 <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrCitizenshipNumber}</p>
               ) : null}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
-              <input
-                type="text"
+              <CustomDatePicker
+                name="confirmedDateOfBirth"
                 value={confirmedData.confirmedDateOfBirth}
-                onChange={(e) => handleFieldChange("confirmedDateOfBirth", e.target.value)}
-                placeholder="YYYY-MM-DD"
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                onChange={(val: string) => handleFieldChange("confirmedDateOfBirth", val)}
               />
-              {ocrData.ocrDateOfBirth ? (
+              {ocrData?.ocrDateOfBirth ? (
                 <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrDateOfBirth}</p>
               ) : null}
             </div>
@@ -435,7 +492,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 onChange={(e) => handleFieldChange("confirmedGender", e.target.value)}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
-              {ocrData.ocrGender ? (
+              {ocrData?.ocrGender ? (
                 <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrGender}</p>
               ) : null}
             </div>
@@ -448,7 +505,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 onChange={(e) => handleFieldChange("confirmedAddress", e.target.value)}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
-              {ocrData.ocrAddress ? (
+              {ocrData?.ocrAddress ? (
                 <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrAddress}</p>
               ) : null}
             </div>

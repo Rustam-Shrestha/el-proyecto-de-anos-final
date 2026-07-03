@@ -191,7 +191,7 @@ export const useKYCList = (page: number, limit: number, status?: string) => {
       };
     },
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 3,
   });
 };
 
@@ -209,7 +209,7 @@ export const useGetKYCDetails = (id: string) => {
     },
     enabled: Boolean(id),
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 3,
   });
 };
 

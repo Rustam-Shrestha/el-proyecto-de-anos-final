@@ -15,7 +15,7 @@ import os
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -24,7 +24,7 @@ from app.models import KYCApplication, Document, OCRResult, FaceVerification, Us
 from app.db import get_async_session
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/kyc", tags=["kyc"])
+router = APIRouter(prefix="/kyc", tags=["kyc"])
 
 # Lazy-load ML services to avoid startup dependency conflicts
 ocr_service = None
@@ -231,8 +231,8 @@ async def verify_face(
 
 @router.post("/ocr/citizenship")
 async def ocr_citizenship(
-    image_path: str,
-    document_type: str,
+    image_path: str = Body(...),
+    document_type: str = Body(...),
 ) -> dict:
     """
     Extract OCR data from a citizenship document image (stateless).
@@ -274,8 +274,8 @@ async def ocr_citizenship(
 
 @router.post("/face/verify")
 async def verify_face_stateless(
-    citizenship_photo: str,
-    selfie_photo: str,
+    citizenship_photo: str = Body(...),
+    selfie_photo: str = Body(...),
 ) -> dict:
     """
     Verify face match between selfie and ID document photo (stateless).

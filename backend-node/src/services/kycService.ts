@@ -124,7 +124,10 @@ export const kycService = {
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId: input.userId }, 'Failed to submit KYC');
-      throw new AppError('Failed to submit KYC application', 500);
+      throw new AppError(
+        `Failed to submit KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -176,8 +179,12 @@ export const kycService = {
         confirmedEmail: kyc.confirmedEmail,
       } as any;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to get KYC status');
-      throw new AppError('Failed to fetch KYC status', 500);
+      throw new AppError(
+        `Failed to fetch KYC status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -242,7 +249,10 @@ export const kycService = {
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to get KYC by ID');
-      throw new AppError('Failed to fetch KYC application', 500);
+      throw new AppError(
+        `Failed to fetch KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -310,8 +320,12 @@ export const kycService = {
         total,
       };
     } catch (error) {
+      if (error instanceof AppError) throw error;
       logger.error({ err: error }, 'Failed to list KYC applications');
-      throw new AppError('Failed to fetch KYC applications', 500);
+      throw new AppError(
+        `Failed to fetch KYC applications: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -393,7 +407,10 @@ export const kycService = {
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to approve KYC');
-      throw new AppError('Failed to approve KYC application', 500);
+      throw new AppError(
+        `Failed to approve KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -481,7 +498,10 @@ export const kycService = {
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to reject KYC');
-      throw new AppError('Failed to reject KYC application', 500);
+      throw new AppError(
+        `Failed to reject KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 

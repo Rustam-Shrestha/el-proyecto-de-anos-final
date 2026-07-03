@@ -7,6 +7,7 @@ import { faceService } from '@/services/faceService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
 import { prisma } from '@/config/database';
+import { logger } from '@/config/logger';
 
 const documentTypeMap: Record<string, string> = {
   selfie: 'SELFIE',
@@ -70,6 +71,13 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       }
     }
 
+    // Validate required text fields before creating KYC
+    const { fullName, phone, address } = req.body;
+    if (!fullName || !phone) {
+      res.status(400).json(apiResponse.error('fullName and phone are required', 400));
+      return;
+    }
+
     const documents = Object.entries(files).flatMap(([fieldname, fileArray]) =>
       fileArray.map((file) => ({
         type: documentTypeMap[fieldname] || 'OTHER',
@@ -84,19 +92,12 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       documents,
     });
 
-    // Validate and update user profile if personal info was provided
-    const { fullName, phone, address } = req.body;
-    if (!fullName || !phone) {
-      res.status(400).json(apiResponse.error('fullName and phone are required', 400));
-      return;
-    }
-    if (fullName || phone || address) {
-      await userService.updateUser(req.user.id, {
-        ...(fullName && { fullName }),
-        ...(phone && { phone }),
-        ...(address && { address }),
-      });
-    }
+    // Update user profile with submitted info
+    await userService.updateUser(req.user.id, {
+      ...(fullName && { fullName }),
+      ...(phone && { phone }),
+      ...(address && { address }),
+    });
 
     // --- Auto-trigger OCR and Face Verification ---
     // Fire these asynchronously (non-blocking) so the response is fast
@@ -140,8 +141,8 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
                 data: updateData,
               });
             }
-          } catch (_ocrError) {
-            // OCR failure doesn't block the flow
+          } catch (error) {
+            logger.error({ err: error, kycId: result.id }, 'OCR processing failed for citizenship front');
           }
         }
 
@@ -162,8 +163,8 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
                 overallConfidence: ocrResult.overallConfidence,
               },
             });
-          } catch (_ocrError) {
-            // OCR failure doesn't block the flow
+          } catch (error) {
+            logger.error({ err: error, kycId: result.id }, 'OCR processing failed for citizenship back');
           }
         }
 
@@ -193,12 +194,12 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
                 recommendation: faceResult.recommendation,
               },
             });
-          } catch (_faceError) {
-            // Face verification failure doesn't block the flow
+          } catch (error) {
+            logger.error({ err: error, kycId: result.id }, 'Face verification failed');
           }
         }
-      } catch (_backgroundError) {
-        // Background processing failure doesn't block the response
+      } catch (error) {
+        logger.error({ err: error, kycId: result.id }, 'Background KYC processing failed');
       }
     }, 0);
     // --- End auto-trigger ---
