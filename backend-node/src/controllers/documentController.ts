@@ -2,14 +2,8 @@ import type { Request, Response, NextFunction } from 'express';
 import { documentService } from '@/services/documentService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
+import { getRelativePath } from '@/utils/pathUtils';
 import { DocumentType, DocumentVerificationStatus } from '@prisma/client';
-
-function getRelativePath(filePath: string): string {
-  return filePath
-    .replace(process.cwd(), '')
-    .replace(/\\/g, '/')
-    .replace(/^\//, '');
-}
 
 export const uploadDocument = async (
   req: Request,

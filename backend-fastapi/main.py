@@ -1,9 +1,9 @@
 """
 FastAPI Application Entry Point - KYC Module
-
-Main application factory for the KYC service.
-Initializes FastAPI, database, and API routers.
 """
+import os
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['TF_USE_LEGACY_KERAS'] = '1'
 
 import logging
 from contextlib import asynccontextmanager

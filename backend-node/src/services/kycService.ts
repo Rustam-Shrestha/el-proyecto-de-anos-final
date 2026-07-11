@@ -607,7 +607,7 @@ export const kycService = {
       where: { id: kycApplicationId },
       data: {
         ...data,
-        status: 'PENDING_REVIEW'
+        status: 'UNDER_REVIEW'
       }
     });
   },

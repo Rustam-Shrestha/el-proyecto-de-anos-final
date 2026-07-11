@@ -13,6 +13,7 @@ All endpoints are async and use the SQLAlchemy async session.
 import logging
 import os
 import uuid
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status, Body
@@ -22,6 +23,23 @@ from sqlalchemy import select
 from app.config import settings
 from app.models import KYCApplication, Document, OCRResult, FaceVerification, User
 from app.db import get_async_session
+
+
+def resolve_image_path(image_path: str) -> str:
+    p = Path(image_path)
+    if p.exists():
+        return image_path
+    candidates = [
+        p,
+        Path(settings.UPLOAD_DIR) / p,
+        Path("backend-node") / p,
+        Path("..") / "backend-node" / p,
+        Path("..") / p,
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c.resolve())
+    return image_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/kyc", tags=["kyc"])
@@ -256,7 +274,8 @@ async def ocr_citizenship(
         HTTPException 500: OCR processing failed.
     """
     try:
-        result = await get_ocr_service().processor.process_image_async(image_path)
+        resolved = resolve_image_path(image_path)
+        result = await get_ocr_service().processor.process_image_async(resolved)
         return {
             "extracted_data": result["structured_data"],
             "overall_confidence": result["confidence_score"],
@@ -299,9 +318,11 @@ async def verify_face_stateless(
     """
     try:
         face_svc = get_face_service()
+        resolved_selfie = resolve_image_path(selfie_photo)
+        resolved_citizen = resolve_image_path(citizenship_photo)
         verification = await face_svc.verify_face_match_async(
-            selfie_path=selfie_photo,
-            id_document_path=citizenship_photo,
+            selfie_path=resolved_selfie,
+            id_document_path=resolved_citizen,
             kyc_application_id="stateless",
             session=None,
         )

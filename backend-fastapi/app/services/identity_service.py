@@ -1,28 +1,14 @@
 """
 Identity Service - Face Verification and Matching.
-
-This module provides face detection, cropping, and matching functionality
-using the DeepFace library with the VGG-Face model.
-
-Core Components:
-1. Face Detection: Detect face region within ID documents.
-2. Face Cropping: Extract and align face for comparison.
-3. Face Matching: Compare embeddings using DeepFace.verify().
-4. Scoring & Threshold: Distance-based matching with configurable threshold.
-5. Persistence: Save verification results to database.
-
-Matching Threshold (VGG-Face Model):
-- distance < 0.4: Strong match (is_match = True)
-- distance >= 0.4: No match (is_match = False)
-
-Note: Threshold is tuned for VGG-Face and may need adjustment for other models.
 """
-
 import asyncio
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+os.environ['TF_USE_LEGACY_KERAS'] = '1'
 
 import cv2
 import numpy as np
@@ -39,8 +25,8 @@ class FaceVerificationService:
     Manages face detection, cropping, and matching for identity verification.
     """
 
-    MATCH_THRESHOLD = 0.4  # VGG-Face model threshold
-    MODEL = "VGG-Face"  # DeepFace model to use
+    MATCH_THRESHOLD = 0.4  # Facenet model threshold (typical range: 0.3-0.5)
+    MODEL = "Facenet"  # Faster than VGG-Face (~5-10s vs ~34s on CPU)
     DETECTOR = "opencv"  # Face detector backend
 
     def __init__(self, match_threshold: float = 0.4):
@@ -118,32 +104,16 @@ class FaceVerificationService:
         return verification
 
     def _verify_face_match_sync(self, selfie_path: str, id_document_path: str) -> Tuple[float, bool]:
-        """
-        Synchronous face matching (executed in thread pool).
-
-        Steps:
-        1. Crop face from ID document.
-        2. Detect face in selfie.
-        3. Compare embeddings using DeepFace.
-        4. Return distance and match verdict.
-        """
         try:
-            # Step 1: Crop face from ID document
             id_face_crop = self._detect_and_crop_face(id_document_path, label="ID document")
             logger.debug("Face detected and cropped from ID document")
 
-            # Step 2: Verify selfie has a detectable face (but use it as-is for comparison)
-            self._detect_and_crop_face(selfie_path, label="Selfie")  # Just validation
+            self._detect_and_crop_face(selfie_path, label="Selfie")
             logger.debug("Face detected in selfie")
-
-            # Step 3: Compare using DeepFace
-            # Save cropped face temporarily for comparison
-            temp_crop_path = "/tmp/id_face_crop.png"
-            cv2.imwrite(temp_crop_path, id_face_crop)
 
             result = DeepFace.verify(
                 img1_path=selfie_path,
-                img2_path=temp_crop_path,
+                img2_path=id_face_crop,
                 model_name=self.MODEL,
                 detector_backend=self.DETECTOR,
                 enforce_detection=True,
@@ -160,48 +130,22 @@ class FaceVerificationService:
             raise ValueError(f"Face verification error: {str(e)}")
 
     def _detect_and_crop_face(self, image_path: str, label: str = "Image") -> np.ndarray:
-        """
-        Detect face in image and return cropped face region.
-
-        Uses OpenCV's cascade classifier for face detection.
-
-        Args:
-            image_path (str): Path to the image.
-            label (str): Label for logging.
-
-        Returns:
-            np.ndarray: Cropped face image.
-
-        Raises:
-            ValueError: If no face is detected.
-        """
         image = cv2.imread(image_path)
         if image is None:
             raise ValueError(f"Cannot load image: {image_path}")
 
-        # Use DeepFace's face detection
         try:
-            faces = DeepFace.extract_faces(
+            face_crop = DeepFace.detectFace(
                 img_path=image_path,
                 enforce_detection=True,
                 detector_backend=self.DETECTOR,
             )
-            if not faces:
+            if face_crop is None:
                 raise ValueError(f"No face detected in {label}: {image_path}")
 
-            # Use the first (largest) detected face
-            face_obj = faces[0]
-            x, y, w, h = int(face_obj["x"]), int(face_obj["y"]), int(face_obj["w"]), int(face_obj["h"])
+            face_crop = (face_crop * 255).astype(np.uint8)
 
-            # Add small padding for better comparison
-            padding = 10
-            x = max(0, x - padding)
-            y = max(0, y - padding)
-            w = min(image.shape[1] - x, w + 2 * padding)
-            h = min(image.shape[0] - y, h + 2 * padding)
-
-            face_crop = image[y : y + h, x : x + w]
-            logger.debug("Face cropped from %s. Shape: %s", label, face_crop.shape)
+            logger.debug("Face detected from %s. Shape: %s", label, face_crop.shape)
             return face_crop
 
         except Exception as e:

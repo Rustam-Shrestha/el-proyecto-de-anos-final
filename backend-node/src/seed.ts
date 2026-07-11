@@ -5,58 +5,62 @@ import process from 'node:process';
 
 async function main() {
   try {
-    logger.info('🌱 Seeding database...');
+    logger.info('Seeding database...');
 
-    // Seed roles
-    await prisma.role.upsert({
-      where: { name: 'USER' },
-      update: {},
-      create: { name: 'USER' },
-    });
+    const roles = await Promise.all([
+      prisma.role.upsert({ where: { name: 'USER' }, update: {}, create: { name: 'USER' } }),
+      prisma.role.upsert({ where: { name: 'REVIEWER' }, update: {}, create: { name: 'REVIEWER' } }),
+      prisma.role.upsert({ where: { name: 'ADMIN' }, update: {}, create: { name: 'ADMIN' } }),
+    ]);
 
-    await prisma.role.upsert({
-      where: { name: 'REVIEWER' },
-      update: {},
-      create: { name: 'REVIEWER' },
-    });
+    const [userRole, reviewerRole, adminRole] = roles;
+    logger.info('Roles created');
 
-    const adminRole = await prisma.role.upsert({
-      where: { name: 'ADMIN' },
-      update: {},
-      create: { name: 'ADMIN' },
-    });
+    const hash = (pw: string) => bcryptjs.hash(pw, 12);
+    const now = new Date();
 
-    logger.info('✅ Roles created/updated');
+    const users = [
+      {
+        email: 'admin@finguard.local',
+        password: await hash('Admin@123456'),
+        roleId: adminRole.id,
+        profile: { fullName: 'System Admin', phone: '+1-555-0100' },
+      },
+      {
+        email: 'reviewer@finguard.local',
+        password: await hash('Reviewer@123456'),
+        roleId: reviewerRole.id,
+        profile: { fullName: 'KYC Reviewer', phone: '+1-555-0101' },
+      },
+      {
+        email: 'user@finguard.local',
+        password: await hash('User@123456'),
+        roleId: userRole.id,
+        profile: { fullName: 'John Doe', phone: '+1-555-0102', address: '123 Main St, Springfield' },
+      },
+    ];
 
-    // Seed default admin user
-    const adminEmail = 'admin@finguard.local';
-    const adminPassword = 'Admin@123456';
-
-    const existingAdmin = await prisma.user.findUnique({
-      where: { email: adminEmail },
-    });
-
-    if (!existingAdmin) {
-      const passwordHash = await bcryptjs.hash(adminPassword, 12);
-
-      await prisma.user.create({
-        data: {
-          email: adminEmail,
-          passwordHash,
-          isVerified: true,
-          roleId: adminRole.id,
-        },
-      });
-
-      logger.info({ email: adminEmail }, '✅ Default admin user created');
-      logger.warn('⚠️  Change the default admin password immediately in production!');
-    } else {
-      logger.info({ email: adminEmail }, '✅ Admin user already exists');
+    for (const u of users) {
+      const existing = await prisma.user.findUnique({ where: { email: u.email } });
+      if (!existing) {
+        const user = await prisma.user.create({
+          data: {
+            email: u.email,
+            passwordHash: u.password,
+            isVerified: true,
+            roleId: u.roleId,
+            profile: { create: u.profile },
+          },
+        });
+        logger.info({ email: u.email }, 'User created');
+      } else {
+        logger.info({ email: u.email }, 'User already exists');
+      }
     }
 
-    logger.info('✅ Database seeding completed');
+    logger.info('Seeding complete');
   } catch (error) {
-    logger.error({ err: error }, '❌ Seeding failed');
+    logger.error({ err: error }, 'Seeding failed');
     process.exit(1);
   } finally {
     await prisma.$disconnect();

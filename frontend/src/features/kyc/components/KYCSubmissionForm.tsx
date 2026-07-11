@@ -48,6 +48,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [email, setEmail] = useState("");
   const [files, setFiles] = useState<Record<FileField, File | null>>({
     selfie: null,
     idProof: null,
@@ -92,6 +93,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
       setFullName(authQuery.data.fullName ?? "");
       setPhone(authQuery.data.phone ?? "");
       setAddress(authQuery.data.address ?? "");
+      setEmail(authQuery.data.email ?? "");
     }
   }, [authQuery.data]);
 
@@ -130,6 +132,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
     formData.append("fullName", fullName);
     formData.append("phone", phone);
     formData.append("address", address);
+    formData.append("email", email);
 
     try {
       const result = await submitMutation.mutateAsync(formData);
@@ -146,7 +149,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
         confirmedGender: "",
         confirmedAddress: address,
         confirmedPhoneNumber: phone,
-        confirmedEmail: currentUser?.email ?? "",
+        confirmedEmail: email,
       });
 
       setStep(4);
@@ -295,7 +298,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
       {step === 1 ? (
         <div className="space-y-4">
           <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          <Input label="Email" value={currentUser?.email ?? ""} readOnly />
+          <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           <Input label="Address" value={address} onChange={(e) => setAddress(e.target.value)} />
           <div className="flex justify-end">
