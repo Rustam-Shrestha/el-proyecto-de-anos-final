@@ -100,147 +100,6 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       ...(address && { address }),
     });
 
-    // --- Auto-trigger OCR and Face Verification (parallel, non-blocking) ---
-    setTimeout(async () => {
-      try {
-        console.log(`[KYC-BG] Starting background processing for ${result.id}`);
-        const createdDocs = await prisma.document.findMany({
-          where: { kycId: result.id },
-        });
-        console.log(`[KYC-BG] Found ${createdDocs.length} documents`);
-
-        const selfieDoc = createdDocs.find((d: any) => d.documentType === 'SELFIE');
-        const citizenshipFrontDoc = createdDocs.find((d: any) => d.documentType === 'CITIZENSHIP_FRONT');
-        const citizenshipBackDoc = createdDocs.find((d: any) => d.documentType === 'CITIZENSHIP_BACK');
-
-        console.log(`[KYC-BG] selfie=${!!selfieDoc} front=${!!citizenshipFrontDoc} back=${!!citizenshipBackDoc}`);
-
-        const tasks: Promise<void>[] = [];
-
-        // 1. OCR on citizenship front document
-        if (citizenshipFrontDoc) {
-          tasks.push(
-            (async () => {
-              try {
-                const frontDocPath = resolveAbsolutePath(citizenshipFrontDoc.filePath);
-                console.log(`[KYC-BG] OCR front starting: ${frontDocPath}`);
-                const ocrResult = await ocrService.extractCitizenshipData(
-                  frontDocPath,
-                  'citizenship_front'
-                );
-                console.log(`[KYC-BG] OCR front complete: confidence=${ocrResult.overallConfidence}, text=${ocrResult.rawText?.slice(0,50)}`);
-                await prisma.ocrResult.create({
-                  data: {
-                    kycApplicationId: result.id,
-                    documentType: 'CITIZENSHIP_FRONT',
-                    rawOcrText: ocrResult.rawText,
-                    extractedData: ocrResult.extractedData,
-                    overallConfidence: ocrResult.overallConfidence,
-                  },
-                });
-                console.log(`[KYC-BG] OCR front saved to DB`);
-                const ed = ocrResult.extractedData as Record<string, string>;
-                const updateData: Record<string, string> = {};
-                if (ed.name) updateData.ocrFullName = ed.name;
-                if (ed.citizenship_number || ed.citizenshipNumber) updateData.ocrCitizenshipNumber = ed.citizenship_number || ed.citizenshipNumber;
-                if (ed.dob || ed.dateOfBirth) updateData.ocrDateOfBirth = ed.dob || ed.dateOfBirth;
-                if (ed.gender) updateData.ocrGender = ed.gender;
-                if (ed.address) updateData.ocrAddress = ed.address;
-                if (Object.keys(updateData).length > 0) {
-                  await prisma.kycApplication.update({
-                    where: { id: result.id },
-                    data: updateData,
-                  });
-                  console.log(`[KYC-BG] KYC updated with OCR fields`);
-                }
-              } catch (error: any) {
-                console.log(`[KYC-BG] OCR front FAILED: ${error?.message || error}`);
-                logger.warn({ err: error, kycId: result.id }, 'OCR front skipped - continuing');
-              }
-            })()
-          );
-        }
-
-        // 2. OCR on citizenship back document
-        if (citizenshipBackDoc) {
-          tasks.push(
-            (async () => {
-              try {
-                const backDocPath = resolveAbsolutePath(citizenshipBackDoc.filePath);
-                console.log(`[KYC-BG] OCR back starting: ${backDocPath}`);
-                const ocrResult = await ocrService.extractCitizenshipData(
-                  backDocPath,
-                  'citizenship_back'
-                );
-                console.log(`[KYC-BG] OCR back complete: confidence=${ocrResult.overallConfidence}`);
-                await prisma.ocrResult.create({
-                  data: {
-                    kycApplicationId: result.id,
-                    documentType: 'CITIZENSHIP_BACK',
-                    rawOcrText: ocrResult.rawText,
-                    extractedData: ocrResult.extractedData,
-                    overallConfidence: ocrResult.overallConfidence,
-                  },
-                });
-                console.log(`[KYC-BG] OCR back saved to DB`);
-              } catch (error: any) {
-                console.log(`[KYC-BG] OCR back FAILED: ${error?.message || error}`);
-                logger.warn({ err: error, kycId: result.id }, 'OCR back skipped - continuing');
-              }
-            })()
-          );
-        }
-
-        // 3. Face verification (selfie vs citizenship front)
-        if (selfieDoc && citizenshipFrontDoc) {
-          tasks.push(
-            (async () => {
-              try {
-                const faceCitPath = resolveAbsolutePath(citizenshipFrontDoc.filePath);
-                const faceSelfiePath = resolveAbsolutePath(selfieDoc.filePath);
-                console.log(`[KYC-BG] Face verify starting`);
-                const faceResult = await faceService.verifyFace(
-                  faceCitPath,
-                  faceSelfiePath
-                );
-                console.log(`[KYC-BG] Face verify complete: score=${faceResult.similarityScore}, status=${faceResult.status}`);
-                await prisma.faceVerification.upsert({
-                  where: { kycApplicationId: result.id },
-                  update: {
-                    citizenshipPhotoPath: citizenshipFrontDoc.filePath,
-                    selfiePhotoPath: selfieDoc.filePath,
-                    similarityScore: faceResult.similarityScore,
-                    status: faceResult.status,
-                    recommendation: faceResult.recommendation,
-                  },
-                  create: {
-                    kycApplicationId: result.id,
-                    citizenshipPhotoPath: citizenshipFrontDoc.filePath,
-                    selfiePhotoPath: selfieDoc.filePath,
-                    similarityScore: faceResult.similarityScore,
-                    status: faceResult.status,
-                    recommendation: faceResult.recommendation,
-                  },
-                });
-                console.log(`[KYC-BG] Face verification saved to DB`);
-              } catch (error: any) {
-                console.log(`[KYC-BG] Face verify FAILED: ${error?.message || error}`);
-                logger.warn({ err: error, kycId: result.id }, 'Face verification skipped - continuing');
-              }
-            })()
-          );
-        }
-
-        console.log(`[KYC-BG] Awaiting ${tasks.length} background tasks...`);
-        await Promise.allSettled(tasks);
-        console.log(`[KYC-BG] All background tasks completed for ${result.id}`);
-      } catch (error: any) {
-        console.log(`[KYC-BG] FATAL: ${error?.message || error}`);
-        logger.error({ err: error, kycId: result.id }, 'Background KYC processing failed');
-      }
-    }, 0);
-    // --- End auto-trigger ---
-
     // Log KYC submission
     await auditService.log({
       userId: req.user.id,
@@ -256,6 +115,67 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
     res.status(201).json(
       apiResponse.success('KYC application submitted successfully', result)
     );
+
+    // Background auto-trigger OCR & face verification (non-blocking, after response sent)
+    setImmediate(async () => {
+      try {
+        const frontDoc = result.documents.find((d: any) => d.type === 'CITIZENSHIP_FRONT');
+        const backDoc = result.documents.find((d: any) => d.type === 'CITIZENSHIP_BACK');
+        const selfieDoc = result.documents.find((d: any) => d.type === 'SELFIE');
+
+        if (frontDoc && process.env.OCR_ENABLED !== 'false') {
+          const frontPath = resolveAbsolutePath(frontDoc.filePath);
+          const ocrFront = await ocrService.extractCitizenshipData(frontPath, 'CITIZENSHIP_FRONT');
+          await prisma.ocrResult.create({
+            data: {
+              kycApplicationId: result.id,
+              documentType: 'CITIZENSHIP_FRONT',
+              rawOcrText: ocrFront.rawText,
+              extractedData: ocrFront.extractedData,
+              overallConfidence: ocrFront.overallConfidence,
+            },
+          });
+          const prefill: any = {};
+          if (ocrFront.extractedData.name) prefill.ocrFullName = ocrFront.extractedData.name;
+          if (ocrFront.extractedData.citizenshipNumber) prefill.ocrCitizenshipNumber = ocrFront.extractedData.citizenshipNumber;
+          if (ocrFront.extractedData.dateOfBirth) prefill.ocrDateOfBirth = ocrFront.extractedData.dateOfBirth;
+          if (ocrFront.extractedData.gender) prefill.ocrGender = ocrFront.extractedData.gender;
+          if (ocrFront.extractedData.address) prefill.ocrAddress = ocrFront.extractedData.address;
+          if (Object.keys(prefill).length > 0) {
+            await prisma.kycApplication.update({ where: { id: result.id }, data: prefill });
+          }
+        }
+
+        if (backDoc && process.env.OCR_ENABLED !== 'false') {
+          const backPath = resolveAbsolutePath(backDoc.filePath);
+          const ocrBack = await ocrService.extractCitizenshipData(backPath, 'CITIZENSHIP_BACK');
+          await prisma.ocrResult.create({
+            data: {
+              kycApplicationId: result.id,
+              documentType: 'CITIZENSHIP_BACK',
+              rawOcrText: ocrBack.rawText,
+              extractedData: ocrBack.extractedData,
+              overallConfidence: ocrBack.overallConfidence,
+            },
+          });
+        }
+
+        if (frontDoc && selfieDoc && process.env.FACE_MATCH_ENABLED !== 'false') {
+          const frontPath = resolveAbsolutePath(frontDoc.filePath);
+          const selfiePath = resolveAbsolutePath(selfieDoc.filePath);
+          const faceResult = await faceService.verifyFace(frontPath, selfiePath);
+          await prisma.faceVerification.upsert({
+            where: { kycApplicationId: result.id },
+            update: { similarityScore: faceResult.similarityScore, status: faceResult.status, recommendation: faceResult.recommendation },
+            create: { kycApplicationId: result.id, citizenshipPhotoPath: frontDoc.filePath, selfiePhotoPath: selfieDoc.filePath, similarityScore: faceResult.similarityScore, status: faceResult.status, recommendation: faceResult.recommendation },
+          });
+        }
+
+        logger.info({ kycId: result.id }, 'Background OCR/face processing complete');
+      } catch (bgError) {
+        logger.error({ err: bgError, kycId: result.id }, 'Background OCR/face processing failed');
+      }
+    });
   } catch (error) {
     next(error);
   }

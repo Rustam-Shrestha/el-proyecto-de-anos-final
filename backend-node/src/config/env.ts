@@ -17,6 +17,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   UPLOAD_DIR: z.string().default('uploads/kyc'),
+  FASTAPI_URL: z.string().default('http://localhost:8000'),
+  OCR_ENABLED: z.string().default('true').transform((v) => v === 'true'),
+  FACE_MATCH_ENABLED: z.string().default('true').transform((v) => v === 'true'),
 });
 
 export const env = envSchema.parse(process.env);

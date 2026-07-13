@@ -31,6 +31,7 @@ import { faceService } from '@/services/faceService';
 import { kycVerificationService } from '@/services/kycVerificationService';
 import { kycService } from '@/services/kycService';
 import { auditService } from '@/services/auditService';
+import { resolveAbsolutePath } from '@/utils/pathUtils';
 
 const kycRouter = Router();
 
@@ -375,12 +376,20 @@ kycRouter.use('/documents', documentRoutes);
  */
 kycRouter.post('/extract-ocr', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { documentPath, documentType } = req.body;
+    const { kycApplicationId, documentType } = req.body;
 
-    if (!documentPath || !documentType) {
-      return res.status(400).json(apiResponse.error('documentPath and documentType required', 400));
+    if (!kycApplicationId || !documentType) {
+      return res.status(400).json(apiResponse.error('kycApplicationId and documentType required', 400));
     }
 
+    const doc = await prisma.document.findFirst({
+      where: { kycId: kycApplicationId, documentType: documentType as any },
+    });
+    if (!doc) {
+      return res.status(404).json(apiResponse.error(`Document not found for type: ${documentType}`, 404));
+    }
+
+    const documentPath = resolveAbsolutePath(doc.filePath);
     const result = await ocrService.extractCitizenshipData(documentPath, documentType);
 
     await prisma.ocrResult.create({
@@ -400,12 +409,19 @@ kycRouter.post('/extract-ocr', authenticate, async (req: Request, res: Response,
     if (result.extractedData.gender) prefillData.ocrGender = result.extractedData.gender;
     if (result.extractedData.address) prefillData.ocrAddress = result.extractedData.address;
 
-    await prisma.kycApplication.update({
-      where: { id: req.body.kycApplicationId },
-      data: prefillData
-    });
+    if (Object.keys(prefillData).length > 0) {
+      await prisma.kycApplication.update({
+        where: { id: req.body.kycApplicationId },
+        data: prefillData
+      });
+    }
 
-    res.json(apiResponse.success('OCR extraction completed', result));
+    res.json(apiResponse.success('OCR extraction completed', {
+      extractedData: result.extractedData,
+      overallConfidence: result.overallConfidence,
+      rawText: result.rawText,
+      ocrSkipped: !result.overallConfidence && !result.rawText,
+    }));
   } catch (error) {
     next(error);
   }
@@ -443,13 +459,35 @@ kycRouter.post('/extract-ocr', authenticate, async (req: Request, res: Response,
  */
 kycRouter.post('/verify-face', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { citizenshipPhotoPath, selfiePhotoPath, kycApplicationId } = req.body;
+    const { kycApplicationId } = req.body;
 
-    if (!citizenshipPhotoPath || !selfiePhotoPath) {
-      return res.status(400).json(apiResponse.error('Both photo paths required', 400));
+    if (!kycApplicationId) {
+      return res.status(400).json(apiResponse.error('kycApplicationId required', 400));
     }
 
-    const faceResult = await faceService.verifyFace(citizenshipPhotoPath, selfiePhotoPath);
+    const faceDisabled = process.env.FACE_MATCH_ENABLED === 'false';
+
+    let faceResult = { similarityScore: 0, status: 'SKIPPED', recommendation: 'REVIEW' };
+
+    if (!faceDisabled) {
+      const frontDoc = await prisma.document.findFirst({
+        where: { kycId: kycApplicationId, documentType: 'CITIZENSHIP_FRONT' as any },
+      });
+      const selfieDoc = await prisma.document.findFirst({
+        where: { kycId: kycApplicationId, documentType: 'SELFIE' as any },
+      });
+
+      if (!frontDoc || !selfieDoc) {
+        return res.status(404).json(apiResponse.error('Citizenship front or selfie document not found', 404));
+      }
+
+      const citizenshipPhotoPath = resolveAbsolutePath(frontDoc.filePath);
+      const selfiePhotoPath = resolveAbsolutePath(selfieDoc.filePath);
+
+      faceResult = await faceService.verifyFace(citizenshipPhotoPath, selfiePhotoPath);
+    } else {
+      logger.info('Face matching disabled via FACE_MATCH_ENABLED=false');
+    }
 
     await prisma.faceVerification.upsert({
       where: { kycApplicationId },
@@ -460,8 +498,8 @@ kycRouter.post('/verify-face', authenticate, async (req: Request, res: Response,
       },
       create: {
         kycApplicationId,
-        citizenshipPhotoPath,
-        selfiePhotoPath,
+        citizenshipPhotoPath: '',
+        selfiePhotoPath: '',
         similarityScore: faceResult.similarityScore,
         status: faceResult.status,
         recommendation: faceResult.recommendation
@@ -471,7 +509,8 @@ kycRouter.post('/verify-face', authenticate, async (req: Request, res: Response,
     res.json(apiResponse.success('Face verification completed', {
       similarityScore: (faceResult.similarityScore * 100).toFixed(2),
       status: faceResult.status,
-      recommendation: faceResult.recommendation
+      recommendation: faceResult.recommendation,
+      faceSkipped: faceDisabled || faceResult.status === 'SKIPPED',
     }));
   } catch (error) {
     next(error);

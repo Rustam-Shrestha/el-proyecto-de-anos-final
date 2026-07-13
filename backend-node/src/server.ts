@@ -6,6 +6,9 @@ import { prisma } from '@/config/database';
 const PORT = env.PORT;
 
 const server = app.listen(PORT, async () => {
+  server.timeout = 120000;
+  server.keepAliveTimeout = 120000;
+  server.headersTimeout = 120000;
   logger.info(`Server running on http://localhost:${PORT}`);
   logger.info(`API docs available at http://localhost:${PORT}/docs`);
   logger.info(`Environment: ${env.NODE_ENV}`);

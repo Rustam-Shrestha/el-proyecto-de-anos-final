@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@components/common/Button";
@@ -135,6 +135,13 @@ const Auth = () => {
               </Button>
             </div>
           </form>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-gray-500">Don't have an account? </span>
+            <Link to="/register" className="text-blue-600 hover:underline font-medium">
+              Register
+            </Link>
+          </div>
         </div>
       </div>
     </div>

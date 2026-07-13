@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAppSelector } from "@hooks/reduxHooks";
 import { selectIsAuthenticated, selectUser } from "@store/slices/authSlice";
 import RegisterForm from "@features/auth/components/RegisterForm";
@@ -26,6 +26,13 @@ const RegisterPage = () => {
           </div>
 
           <RegisterForm />
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-gray-500">Already have an account? </span>
+            <Link to="/login" className="text-blue-600 hover:underline font-medium">
+              Login
+            </Link>
+          </div>
         </div>
       </div>
     </div>
