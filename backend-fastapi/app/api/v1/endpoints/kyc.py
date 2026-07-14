@@ -276,12 +276,15 @@ async def ocr_citizenship(
     try:
         resolved = resolve_image_path(image_path)
         result = await get_ocr_service().processor.process_image_async(resolved)
-        return {
+        response = {
             "extracted_data": result["structured_data"],
             "overall_confidence": result["confidence_score"],
             "raw_text": result["raw_text"],
             "language_detected": result["language_detected"],
         }
+        if result.get("error"):
+            response["error"] = result["error"]
+        return response
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Image file not found")
     except ValueError as e:

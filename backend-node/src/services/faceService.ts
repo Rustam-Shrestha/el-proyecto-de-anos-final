@@ -4,11 +4,24 @@ import { logger } from '@/config/logger';
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 const FACE_MATCH_ENABLED = process.env.FACE_MATCH_ENABLED !== 'false';
-const FACE_TIMEOUT_MS = 30000;
+const FACE_TIMEOUT_MS = parseInt(process.env.FACE_TIMEOUT_MS || '45000', 10);
 const READY_CHECK_INTERVAL_MS = 2000;
-const READY_MAX_WAIT_MS = 15000;
+const READY_MAX_WAIT_MS = parseInt(process.env.READY_MAX_WAIT_MS || '30000', 10);
+const RETRY_MAX = 2;
+const RETRY_DELAY_MS = 5000;
 
 let _readyChecked = false;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isRetryable(err: any): boolean {
+  if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') return true;
+  if (err.response?.status && err.response.status >= 500) return true;
+  if (err.code === 'ETIMEDOUT' || err.message?.includes('timeout')) return true;
+  return false;
+}
 
 async function waitForFastAPIReady(): Promise<void> {
   if (_readyChecked) return;
@@ -29,9 +42,25 @@ async function waitForFastAPIReady(): Promise<void> {
         logger.warn('FastAPI ready check failed, retrying', { error: err.message });
       }
     }
-    await new Promise((r) => setTimeout(r, READY_CHECK_INTERVAL_MS));
+    await delay(READY_CHECK_INTERVAL_MS);
   }
   logger.warn('FastAPI models did not become ready in time — face matching will be degraded');
+}
+
+async function callFaceWithRetry(citizenshipPhotoPath: string, selfiePhotoPath: string, retryCount = 0): Promise<any> {
+  try {
+    return await axios.post(`${FASTAPI_URL}/api/v1/kyc/face/verify`, {
+      citizenship_photo: citizenshipPhotoPath,
+      selfie_photo: selfiePhotoPath,
+    }, { timeout: FACE_TIMEOUT_MS });
+  } catch (error: any) {
+    if (retryCount < RETRY_MAX && isRetryable(error)) {
+      logger.warn({ err: error.message, retryCount }, 'Face call failed, retrying with backoff');
+      await delay(RETRY_DELAY_MS * (retryCount + 1));
+      return callFaceWithRetry(citizenshipPhotoPath, selfiePhotoPath, retryCount + 1);
+    }
+    throw error;
+  }
 }
 
 export const faceService = {
@@ -39,21 +68,19 @@ export const faceService = {
     similarityScore: number;
     status: string;
     recommendation: string;
+    error?: string;
+    retryable?: boolean;
+    timestamp?: number;
   }> {
     if (!FACE_MATCH_ENABLED) {
       logger.info('Face matching is disabled (FACE_MATCH_ENABLED=false), returning skip result');
-      return { similarityScore: 0, status: 'SKIPPED', recommendation: 'REVIEW' };
+      return { similarityScore: 0, status: 'SKIPPED', recommendation: 'REVIEW', error: 'Face matching is disabled' };
     }
 
     await waitForFastAPIReady();
 
     try {
-      const response = await axios.post(`${FASTAPI_URL}/api/v1/kyc/face/verify`, {
-        citizenship_photo: citizenshipPhotoPath,
-        selfie_photo: selfiePhotoPath,
-      }, {
-        timeout: FACE_TIMEOUT_MS,
-      });
+      const response = await callFaceWithRetry(citizenshipPhotoPath, selfiePhotoPath);
 
       return {
         similarityScore: response.data.similarity_score ?? 0,
@@ -62,7 +89,14 @@ export const faceService = {
       };
     } catch (error: any) {
       logger.error({ err: error?.message }, 'Face verification failed, returning review recommendation');
-      return { similarityScore: 0, status: 'FAILED', recommendation: 'REVIEW' };
+      return {
+        similarityScore: 0,
+        status: 'FAILED',
+        recommendation: 'REVIEW',
+        error: `Face verification failed: ${error?.message || 'Unknown error'}`,
+        retryable: isRetryable(error),
+        timestamp: Date.now(),
+      };
     }
   }
 };

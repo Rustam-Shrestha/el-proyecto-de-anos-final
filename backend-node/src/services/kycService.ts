@@ -177,6 +177,12 @@ export const kycService = {
         confirmedAddress: kyc.confirmedAddress,
         confirmedPhoneNumber: kyc.confirmedPhoneNumber,
         confirmedEmail: kyc.confirmedEmail,
+        processingStatus: kyc.processingStatus,
+        ocrFrontStatus: kyc.ocrFrontStatus,
+        ocrBackStatus: kyc.ocrBackStatus,
+        faceStatus: kyc.faceStatus,
+        ocrProcessingError: kyc.ocrProcessingError,
+        faceProcessingError: kyc.faceProcessingError,
       } as any;
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -245,6 +251,12 @@ export const kycService = {
         confirmedAddress: kyc.confirmedAddress,
         confirmedPhoneNumber: kyc.confirmedPhoneNumber,
         confirmedEmail: kyc.confirmedEmail,
+        processingStatus: kyc.processingStatus,
+        ocrFrontStatus: kyc.ocrFrontStatus,
+        ocrBackStatus: kyc.ocrBackStatus,
+        faceStatus: kyc.faceStatus,
+        ocrProcessingError: kyc.ocrProcessingError,
+        faceProcessingError: kyc.faceProcessingError,
       };
     } catch (error) {
       if (error instanceof AppError) throw error;

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
@@ -33,6 +34,7 @@ class OCRProcessor:
 
     CONFIDENCE_THRESHOLD = 0.3
     FUZZY_MATCH_THRESHOLD = 50
+    FUZZY_MATCH_THRESHOLD_STRICT = 70  # For longer keywords (>5 chars)
 
     def __init__(self, use_gpu: bool = False, lang: str = "hi"):
         logger.info("Initializing EasyOCR with gpu=%s, lang=%s", use_gpu, lang)
@@ -62,6 +64,12 @@ class OCRProcessor:
             language = self._detect_language(raw_text)
 
             structured_data, confidence = self._structure_data(raw_lines, confs)
+
+            if "citizenship_number" not in structured_data or not structured_data["citizenship_number"]:
+                civ = self._extract_citizenship_number(raw_lines)
+                if civ:
+                    structured_data["citizenship_number"] = civ
+
             logger.info("Data structured. Confidence: %.2f", confidence)
 
             return {
@@ -138,7 +146,10 @@ class OCRProcessor:
 
             for i, line in enumerate(raw_lines):
                 for keyword in keywords:
-                    score = fuzz.token_set_ratio(keyword.lower(), line.lower())
+                    if self._find_field_in_text(keyword, line):
+                        score = 100
+                    else:
+                        score = 0
                     if score > best_score and score > self.FUZZY_MATCH_THRESHOLD:
                         best_score = score
                         best_match = i
@@ -146,14 +157,33 @@ class OCRProcessor:
 
             if best_match is not None:
                 value = self._extract_field_value(raw_lines, best_match)
-                structured[field_name] = value
-                matched_confidences.append(best_confidence)
+                if field_name in ("citizenship_number", "citizenship_number_alt") and value:
+                    digits = re.sub(r'\D', '', value)
+                    if re.match(r'^\d{11}$', digits):
+                        value = digits
+                    else:
+                        logger.warning("Invalid citizenship number format: %s", value)
+                        value = None
+                if value is not None:
+                    structured[field_name] = value
+                    matched_confidences.append(best_confidence)
+
+        if "citizenship_number_alt" in structured and "citizenship_number" not in structured:
+            structured["citizenship_number"] = structured.pop("citizenship_number_alt")
+        elif "citizenship_number_alt" in structured:
+            del structured["citizenship_number_alt"]
 
         overall_confidence = sum(matched_confidences) / len(matched_confidences) if matched_confidences else 0.0
         overall_confidence = min(overall_confidence, 1.0)
 
         logger.debug("Structured data: %s fields. Overall confidence: %.2f", len(structured), overall_confidence)
         return structured, overall_confidence
+
+    def _find_field_in_text(self, keyword: str, line: str) -> bool:
+        if len(keyword) <= 5:
+            return keyword.lower() in line.lower()
+        score = fuzz.token_set_ratio(keyword.lower(), line.lower())
+        return score > self.FUZZY_MATCH_THRESHOLD_STRICT
 
     def _extract_field_value(self, lines: List[str], line_index: int) -> str:
         line = lines[line_index]
@@ -188,6 +218,13 @@ class OCRProcessor:
                     return after
 
         return line.strip()
+
+    def _extract_citizenship_number(self, raw_lines: List[str]) -> Optional[str]:
+        for line in raw_lines:
+            digits = re.sub(r'\D', '', line)
+            if re.match(r'^\d{11}$', digits):
+                return digits
+        return None
 
 
 class OCRService:

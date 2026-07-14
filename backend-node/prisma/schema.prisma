@@ -180,6 +180,14 @@ model KycApplication {
   ocrGender            String?
   ocrAddress           String?
 
+  // Processing progress & error tracking
+  processingStatus     String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  ocrFrontStatus       String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  ocrBackStatus        String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  faceStatus           String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED | SKIPPED
+  ocrProcessingError   String?
+  faceProcessingError  String?
+
   // User confirmed data (source of truth)
   confirmedCitizenshipNumber String?
   confirmedFullName          String?

@@ -27,7 +27,9 @@ class FaceVerificationService:
 
     MATCH_THRESHOLD = 0.4  # Facenet model threshold (typical range: 0.3-0.5)
     MODEL = "Facenet"  # Faster than VGG-Face (~5-10s vs ~34s on CPU)
+    FALLBACK_MODEL = "VGG-Face"  # Slower but more robust
     DETECTOR = "opencv"  # Face detector backend
+    QUALITY_THRESHOLD = 0.3  # Minimum image quality score
 
     def __init__(self, match_threshold: float = 0.4):
         """
@@ -104,6 +106,14 @@ class FaceVerificationService:
         return verification
 
     def _verify_face_match_sync(self, selfie_path: str, id_document_path: str) -> Tuple[float, bool]:
+        selfie_quality = self._estimate_image_quality(selfie_path)
+        id_quality = self._estimate_image_quality(id_document_path)
+        logger.info("Image quality - selfie: %.2f, id: %.2f", selfie_quality, id_quality)
+
+        if selfie_quality < self.QUALITY_THRESHOLD or id_quality < self.QUALITY_THRESHOLD:
+            logger.warning("Image quality below threshold, cannot match reliably")
+            return (0.0, False)
+
         try:
             id_face_crop = self._detect_and_crop_face(id_document_path, label="ID document")
             logger.debug("Face detected and cropped from ID document")
@@ -111,13 +121,7 @@ class FaceVerificationService:
             self._detect_and_crop_face(selfie_path, label="Selfie")
             logger.debug("Face detected in selfie")
 
-            result = DeepFace.verify(
-                img1_path=selfie_path,
-                img2_path=id_face_crop,
-                model_name=self.MODEL,
-                detector_backend=self.DETECTOR,
-                enforce_detection=True,
-            )
+            result = self._deepface_verify_with_fallback(selfie_path, id_face_crop)
 
             distance = result["distance"]
             is_match = distance < self.match_threshold
@@ -128,6 +132,39 @@ class FaceVerificationService:
         except Exception as e:
             logger.error("Face verification failed: %s", str(e), exc_info=True)
             raise ValueError(f"Face verification error: {str(e)}")
+
+    def _deepface_verify_with_fallback(self, img1_path: str, img2_crop: np.ndarray) -> dict:
+        try:
+            return DeepFace.verify(
+                img1_path=img1_path,
+                img2_path=img2_crop,
+                model_name=self.MODEL,
+                detector_backend=self.DETECTOR,
+                enforce_detection=True,
+            )
+        except Exception as e:
+            logger.warning("Facenet verification failed (%s), falling back to VGG-Face", str(e))
+            return DeepFace.verify(
+                img1_path=img1_path,
+                img2_path=img2_crop,
+                model_name=self.FALLBACK_MODEL,
+                detector_backend=self.DETECTOR,
+                enforce_detection=True,
+            )
+
+    def _estimate_image_quality(self, image_path: str) -> float:
+        image = cv2.imread(image_path)
+        if image is None:
+            return 0.0
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+        blur_score = min(laplacian_var / 500.0, 1.0)
+        brightness = gray.mean() / 255.0
+        brightness_score = 1.0 - abs(brightness - 0.5) * 2
+        h, w = gray.shape
+        size_score = min((w * h) / (400 * 400), 1.0)
+        quality = blur_score * 0.5 + brightness_score * 0.3 + size_score * 0.2
+        return max(0.0, min(quality, 1.0))
 
     def _detect_and_crop_face(self, image_path: str, label: str = "Image") -> np.ndarray:
         image = cv2.imread(image_path)
