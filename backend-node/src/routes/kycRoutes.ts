@@ -29,6 +29,7 @@ import { prisma } from '@/config/database';
 import { ocrService } from '@/services/ocrService';
 import { faceService } from '@/services/faceService';
 import { kycVerificationService } from '@/services/kycVerificationService';
+import { kycSubmissionFileService } from '@/services/kycSubmissionFileService';
 import { kycService } from '@/services/kycService';
 import { auditService } from '@/services/auditService';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
@@ -114,6 +115,48 @@ kycRouter.post(
 kycRouter.get('/my-status', authenticate, getMyStatus);
 
 kycRouter.get('/status', authenticate, validate(getKycStatusSchema), getKycStatus);
+
+/**
+ * GET /api/v1/kyc/status/:kycId
+ * Poll detailed processing status with face/OCR progress, submission file, manual review info
+ */
+kycRouter.get('/status/:kycId', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { kycId } = req.params;
+    const kyc = await prisma.kycApplication.findUnique({
+      where: { id: kycId },
+      include: {
+        faceVerification: true,
+        ocrResults: { orderBy: { createdAt: 'desc' }, take: 1 },
+        submissionFile: true,
+        manualReviewQueue: { where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' } },
+        documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true } },
+      },
+    });
+
+    if (!kyc) return res.status(404).json(apiResponse.error('KYC not found', 404));
+
+    res.json(apiResponse.success('KYC processing status', {
+      id: kyc.id,
+      status: kyc.status,
+      workflowStage: kyc.workflowStage,
+      processingStatus: kyc.processingStatus,
+      faceVerification: kyc.faceVerification,
+      faceVerificationStatus: kyc.faceVerificationStatus,
+      ocrProcessingStatus: kyc.ocrProcessingStatus,
+      ocrFrontStatus: kyc.ocrFrontStatus,
+      ocrBackStatus: kyc.ocrBackStatus,
+      latestOcrResult: kyc.ocrResults[0] || null,
+      submissionFile: kyc.submissionFile,
+      pendingReviewQueue: kyc.manualReviewQueue,
+      queuedForManualReview: kyc.queuedForManualReview,
+      processingError: kyc.ocrProcessingError,
+      faceError: kyc.faceProcessingError,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * @swagger
@@ -404,8 +447,8 @@ kycRouter.post('/extract-ocr', authenticate, async (req: Request, res: Response,
 
     const prefillData: any = {};
     if (result.extractedData.name) prefillData.ocrFullName = result.extractedData.name;
-    if (result.extractedData.citizenshipNumber) prefillData.ocrCitizenshipNumber = result.extractedData.citizenshipNumber;
-    if (result.extractedData.dateOfBirth) prefillData.ocrDateOfBirth = result.extractedData.dateOfBirth;
+    if (result.extractedData.citizenship_number) prefillData.ocrCitizenshipNumber = result.extractedData.citizenship_number;
+    if (result.extractedData.dob) prefillData.ocrDateOfBirth = result.extractedData.dob;
     if (result.extractedData.gender) prefillData.ocrGender = result.extractedData.gender;
     if (result.extractedData.address) prefillData.ocrAddress = result.extractedData.address;
 

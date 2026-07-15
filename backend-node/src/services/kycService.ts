@@ -139,24 +139,25 @@ export const kycService = {
       const kyc = await prisma.kycApplication.findFirst({
         where: { userId },
         orderBy: { createdAt: 'desc' },
-        include: {
-          documents: {
-            select: {
-              id: true,
-              documentType: true,
-              filePath: true,
-              fileMimeType: true,
-              fileSize: true,
-              verificationStatus: true,
-              createdAt: true,
+          include: {
+            documents: {
+              select: {
+                id: true,
+                documentType: true,
+                filePath: true,
+                fileMimeType: true,
+                fileSize: true,
+                verificationStatus: true,
+                createdAt: true,
+              },
             },
+            user: {
+              select: { email: true },
+            },
+            ocrResults: true,
+            faceVerification: true,
+            submissionFile: true,
           },
-          user: {
-            select: { email: true },
-          },
-          ocrResults: true,
-          faceVerification: true,
-        },
       });
 
       if (!kyc) return null;
@@ -183,6 +184,10 @@ export const kycService = {
         faceStatus: kyc.faceStatus,
         ocrProcessingError: kyc.ocrProcessingError,
         faceProcessingError: kyc.faceProcessingError,
+        workflowStage: kyc.workflowStage,
+        faceVerificationStatus: kyc.faceVerificationStatus,
+        ocrProcessingStatus: kyc.ocrProcessingStatus,
+        queuedForManualReview: kyc.queuedForManualReview,
       } as any;
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -227,6 +232,7 @@ export const kycService = {
           ocrResults: true,
           faceVerification: true,
           verificationReport: true,
+          submissionFile: true,
         },
       });
 
@@ -239,6 +245,7 @@ export const kycService = {
         ocrResults: kyc.ocrResults || [],
         faceVerification: kyc.faceVerification || null,
         verificationReport: kyc.verificationReport || null,
+        submissionFile: kyc.submissionFile || null,
         ocrFullName: kyc.ocrFullName,
         ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
         ocrDateOfBirth: kyc.ocrDateOfBirth,
@@ -257,6 +264,10 @@ export const kycService = {
         faceStatus: kyc.faceStatus,
         ocrProcessingError: kyc.ocrProcessingError,
         faceProcessingError: kyc.faceProcessingError,
+        workflowStage: kyc.workflowStage,
+        faceVerificationStatus: kyc.faceVerificationStatus,
+        ocrProcessingStatus: kyc.ocrProcessingStatus,
+        queuedForManualReview: kyc.queuedForManualReview,
       };
     } catch (error) {
       if (error instanceof AppError) throw error;

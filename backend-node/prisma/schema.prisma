@@ -65,8 +65,8 @@ enum RiskLevel {
 
 // Roles for RBAC
 model Role {
-  id    String @id @default(cuid())
-  name  String @unique
+  id   String @id @default(cuid())
+  name String @unique
 
   users User[]
 
@@ -88,16 +88,16 @@ model User {
   role   Role   @relation(fields: [roleId], references: [id])
 
   // Relations
-  profile          Profile?
-  sessions         Session[]
-  auditLogs        AuditLog[]
-  kycApplications  KycApplication[]
-  documents        Document[]
-  employmentInfo   EmploymentInfo?
-  borrowerFeatures BorrowerFeatures?
-  loanApplications LoanApplication[]
-  reviewedLoans    LoanApplication[] @relation("LoanReviewer")
-  verifiedDocuments Document[]       @relation("DocumentVerifier")
+  profile           Profile?
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  kycApplications   KycApplication[]
+  documents         Document[]
+  employmentInfo    EmploymentInfo?
+  borrowerFeatures  BorrowerFeatures?
+  loanApplications  LoanApplication[]
+  reviewedLoans     LoanApplication[] @relation("LoanReviewer")
+  verifiedDocuments Document[]        @relation("DocumentVerifier")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -110,14 +110,14 @@ model User {
 
 // User profile / extended information
 model Profile {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName      String?
-  phone         String?
-  address       String?
-  dateOfBirth   DateTime?
-  avatarUrl     String?
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String?
+  phone       String?
+  address     String?
+  dateOfBirth DateTime?
+  avatarUrl   String?
 
   updatedAt DateTime @updatedAt
 
@@ -128,12 +128,12 @@ model Profile {
 
 // Session management (refresh tokens)
 model Session {
-  id                String  @id @default(cuid())
-  userId            String
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshTokenHash  String
-  isRevoked         Boolean @default(false)
-  expiresAt         DateTime
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  isRevoked        Boolean  @default(false)
+  expiresAt        DateTime
 
   createdAt DateTime @default(now())
 
@@ -145,13 +145,13 @@ model Session {
 
 // Audit logging
 model AuditLog {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
   metadata  Json?
-  ip        String   @default("unknown")
-  userAgent String   @default("unknown")
+  ip        String  @default("unknown")
+  userAgent String  @default("unknown")
 
   createdAt DateTime @default(now())
 
@@ -164,13 +164,13 @@ model AuditLog {
 
 // KYC Application
 model KycApplication {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status         String   @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, RESUBMIT_REQUIRED
-  submittedAt    DateTime @default(now())
-  reviewedAt     DateTime?
-  reviewerId     String?
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          String    @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, RESUBMIT_REQUIRED
+  submittedAt     DateTime  @default(now())
+  reviewedAt      DateTime?
+  reviewerId      String?
   rejectionReason String?
 
   // OCR extracted data (source: PaddleOCR)
@@ -181,12 +181,18 @@ model KycApplication {
   ocrAddress           String?
 
   // Processing progress & error tracking
-  processingStatus     String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
-  ocrFrontStatus       String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
-  ocrBackStatus        String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
-  faceStatus           String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED | SKIPPED
-  ocrProcessingError   String?
-  faceProcessingError  String?
+  processingStatus    String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  ocrFrontStatus      String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  ocrBackStatus       String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  faceStatus          String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED | SKIPPED
+  ocrProcessingError  String?
+  faceProcessingError String?
+
+  // Face-first workflow fields
+  workflowStage          String  @default("VALIDATING_FACE") // VALIDATING_FACE | AWAITING_OCR | AWAITING_USER_CONFIRMATION | COMPLETE
+  faceVerificationStatus String  @default("PENDING") // PENDING | VERIFIED | FAILED | SKIPPED
+  ocrProcessingStatus    String  @default("PENDING") // PENDING | EXTRACTING | EXTRACTED | PARTIAL | FAILED
+  queuedForManualReview  Boolean @default(false)
 
   // User confirmed data (source of truth)
   confirmedCitizenshipNumber String?
@@ -207,6 +213,8 @@ model KycApplication {
   ocrResults         OCRResult[]
   faceVerification   FaceVerification?
   verificationReport VerificationReport?
+  submissionFile     KYCSubmissionFile?
+  manualReviewQueue  ManualReviewQueue[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -218,17 +226,17 @@ model KycApplication {
 }
 
 model OCRResult {
-  id                String   @id @default(cuid())
-  kycApplicationId  String
-  kycApplication    KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+  id               String         @id @default(cuid())
+  kycApplicationId String
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
 
-  documentType      String   // CITIZENSHIP_FRONT, CITIZENSHIP_BACK, SELFIE
-  rawOcrText        String   @db.Text
-  extractedData     Json     // { name: "value", confidence: 0.92, ... }
-  overallConfidence Float    // 0-1
+  documentType      String // CITIZENSHIP_FRONT, CITIZENSHIP_BACK, SELFIE
+  rawOcrText        String @db.Text
+  extractedData     Json // { name: "value", confidence: 0.92, ... }
+  overallConfidence Float // 0-1
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([kycApplicationId])
   @@map("ocr_results")
@@ -236,18 +244,18 @@ model OCRResult {
 }
 
 model FaceVerification {
-  id                String   @id @default(cuid())
-  kycApplicationId  String   @unique
-  kycApplication    KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
 
   citizenshipPhotoPath String
   selfiePhotoPath      String
-  similarityScore      Float    // 0-1, displayed as 0-100
-  status               String   @default("PENDING") // PENDING, MATCH, POSSIBLE_MATCH, LOW_CONFIDENCE, MISMATCH
-  recommendation       String?  // "APPROVE", "REVIEW", "REJECT"
+  similarityScore      Float // 0-1, displayed as 0-100
+  status               String  @default("PENDING") // PENDING, MATCH, POSSIBLE_MATCH, LOW_CONFIDENCE, MISMATCH
+  recommendation       String? // "APPROVE", "REVIEW", "REJECT"
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([kycApplicationId])
   @@map("face_verifications")
@@ -255,51 +263,94 @@ model FaceVerification {
 }
 
 model VerificationReport {
-  id                String   @id @default(cuid())
-  kycApplicationId  String   @unique
-  kycApplication    KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
 
-  faceSimilarity    Float?
-  ocrConfidence     Float?
-  fieldsCorrected   Int      @default(0)
-  possibleMismatches Json?   // array of field names
+  faceSimilarity        Float?
+  ocrConfidence         Float?
+  fieldsCorrected       Int     @default(0)
+  possibleMismatches    Json? // array of field names
   manualReviewSuggested Boolean @default(false)
-  report            String   @db.Text // JSON stringified full report
+  report                String  @db.Text // JSON stringified full report
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([kycApplicationId])
   @@map("verification_reports")
   @@schema("auth")
 }
 
+// KYC Submission File - immutable snapshot created after successful face verification
+model KYCSubmissionFile {
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  status               String // PENDING | CREATED | FAILED
+  snapshotData         Json? // Complete submission snapshot at time of creation
+  faceSimilarity       Float?
+  faceStatusAtCreation String? // Face match result at submission time
+  ocrStatusAtCreation  String? // OCR status snapshot
+  createdAt            DateTime @default(now())
+
+  @@index([kycApplicationId])
+  @@map("kyc_submission_files")
+  @@schema("auth")
+}
+
+// Manual Review Queue - items needing admin review
+model ManualReviewQueue {
+  id               String         @id @default(cuid())
+  kycApplicationId String
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  reason          String // LOW_OCR_CONFIDENCE | FACE_VERIFICATION_ERROR | OCR_PROCESSING_ERROR | PARTIAL_EXTRACTION
+  details         String? // Human-readable description
+  priority        String    @default("NORMAL") // LOW | NORMAL | HIGH
+  status          String    @default("PENDING") // PENDING | REVIEWED | RESOLVED
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  resolution      String? // APPROVED | REJECTED | RESUBMIT_REQUIRED
+  resolutionNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@index([status])
+  @@index([priority])
+  @@map("manual_review_queue")
+  @@schema("auth")
+}
+
 // Document storage
 model Document {
-  id                   String                     @id @default(cuid())
-  userId               String
-  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kycId                String
-  kyc                  KycApplication             @relation(fields: [kycId], references: [id], onDelete: Cascade)
-  documentType         DocumentType
-  filePath             String
-  fileMimeType         String?
-  fileSize             Int?
-  ocrStatus            DocumentVerificationStatus @default(PENDING)
-  ocrConfidence        Float?
-  extractedData        Json?
-  ocrErrorMessage      String?
-  ocrProcessedAt       DateTime?
-  verificationStatus   DocumentVerificationStatus @default(PENDING)
-  verificationNotes    String?
-  verifiedBy           String?
-  verifiedByUser       User?                      @relation("DocumentVerifier", fields: [verifiedBy], references: [id])
-  verifiedAt           DateTime?
-  isDeleted            Boolean                    @default(false)
-  version              Int                        @default(1)
-  replacedById         String?
-  replacedBy           Document?                  @relation("DocumentVersions", fields: [replacedById], references: [id])
-  previousVersions     Document[]                 @relation("DocumentVersions")
+  id                 String                     @id @default(cuid())
+  userId             String
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycId              String
+  kyc                KycApplication             @relation(fields: [kycId], references: [id], onDelete: Cascade)
+  documentType       DocumentType
+  filePath           String
+  fileMimeType       String?
+  fileSize           Int?
+  ocrStatus          DocumentVerificationStatus @default(PENDING)
+  ocrConfidence      Float?
+  extractedData      Json?
+  ocrErrorMessage    String?
+  ocrProcessedAt     DateTime?
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  verificationNotes  String?
+  verifiedBy         String?
+  verifiedByUser     User?                      @relation("DocumentVerifier", fields: [verifiedBy], references: [id])
+  verifiedAt         DateTime?
+  isDeleted          Boolean                    @default(false)
+  version            Int                        @default(1)
+  replacedById       String?
+  replacedBy         Document?                  @relation("DocumentVersions", fields: [replacedById], references: [id])
+  previousVersions   Document[]                 @relation("DocumentVersions")
 
   // Relations
   versions DocumentVersion[]
@@ -333,15 +384,15 @@ model DocumentVersion {
 
 // Employment information for borrower income assessment
 model EmploymentInfo {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobTitle              String
-  employmentStartDate   DateTime
-  declaredAnnualIncome  Decimal  @db.Decimal(12, 2)
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobTitle               String
+  employmentStartDate    DateTime
+  declaredAnnualIncome   Decimal  @db.Decimal(12, 2)
   employmentTenureMonths Int?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   @@index([userId])
   @@map("employment_info")
@@ -372,22 +423,22 @@ model BorrowerFeatures {
 
 // Loan applications with risk assessment
 model LoanApplication {
-  id                String     @id @default(cuid())
-  userId            String
-  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  requestedAmount   Decimal    @db.Decimal(12, 2)
-  tenureMonths      Int
-  purpose           LoanPurpose
-  calculatedEmi     Decimal?   @db.Decimal(10, 2)
-  status            LoanStatus @default(SUBMITTED)
-  riskScore         Int?
-  riskLevel         RiskLevel?
-  loanOfficerNotes  String?
-  reviewedBy        String?
-  reviewedByUser    User?      @relation("LoanReviewer", fields: [reviewedBy], references: [id])
-  reviewedAt        DateTime?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id               String      @id @default(cuid())
+  userId           String
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestedAmount  Decimal     @db.Decimal(12, 2)
+  tenureMonths     Int
+  purpose          LoanPurpose
+  calculatedEmi    Decimal?    @db.Decimal(10, 2)
+  status           LoanStatus  @default(SUBMITTED)
+  riskScore        Int?
+  riskLevel        RiskLevel?
+  loanOfficerNotes String?
+  reviewedBy       String?
+  reviewedByUser   User?       @relation("LoanReviewer", fields: [reviewedBy], references: [id])
+  reviewedAt       DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@index([userId])
   @@index([status])

@@ -28,18 +28,20 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized successfully")
 
     logger.info("Loading AI models before accepting requests...")
+    _models_ready["ocr"] = False
+    _models_ready["face"] = False
+
     try:
-        import easyocr
-        logger.info("Loading EasyOCR (hi+en)...")
-        _ = easyocr.Reader(["hi", "en"], gpu=False, verbose=False)
+        from app.services.ocr_service import ocr_service
+        _ = ocr_service.processor.ocr
         _models_ready["ocr"] = True
         logger.info("EasyOCR ready")
     except Exception as e:
         logger.warning("EasyOCR pre-load failed: %s", e)
 
     try:
+        from app.services.identity_service import face_service
         from deepface import DeepFace
-        logger.info("Loading DeepFace Facenet model...")
         DeepFace.build_model("Facenet")
         _models_ready["face"] = True
         logger.info("DeepFace Facenet ready")

@@ -6,7 +6,7 @@ const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 const FACE_MATCH_ENABLED = process.env.FACE_MATCH_ENABLED !== 'false';
 const FACE_TIMEOUT_MS = parseInt(process.env.FACE_TIMEOUT_MS || '45000', 10);
 const READY_CHECK_INTERVAL_MS = 2000;
-const READY_MAX_WAIT_MS = parseInt(process.env.READY_MAX_WAIT_MS || '30000', 10);
+const READY_MAX_WAIT_MS = parseInt(process.env.READY_MAX_WAIT_MS || '120000', 10);
 const RETRY_MAX = 2;
 const RETRY_DELAY_MS = 5000;
 

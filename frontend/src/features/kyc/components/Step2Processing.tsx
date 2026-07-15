@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@shared/components/Button";
 import { useToast } from "@shared/hooks/useToast";
-import { apiClient } from "@shared/lib/apiClient";
+import { useKYC, type ProcessingStatus } from "../hooks/useKYC";
 
 interface Props {
   kycApplicationId: string;
@@ -10,135 +10,227 @@ interface Props {
   onSkip: () => void;
 }
 
-export const Step2Processing = ({ kycApplicationId, onComplete, onSkip }: Props) => {
+const STAGE_LABELS: Record<string, string> = {
+  VALIDATING_FACE: "Verifying your face...",
+  AWAITING_OCR: "Face verified! Extracting document data...",
+  AWAITING_USER_CONFIRMATION: "Processing complete — review your data",
+  COMPLETE: "All done!",
+};
+
+const FACE_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Waiting to start...",
+  PROCESSING: "Comparing faces...",
+  VERIFIED: "Face matched!",
+  FAILED: "Face verification issue",
+  SKIPPED: "Face verification skipped",
+};
+
+const OCR_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Waiting for face verification...",
+  EXTRACTING: "Reading document fields...",
+  EXTRACTED: "Document data extracted",
+  PARTIAL: "Some fields extracted (admin will verify)",
+  FAILED: "Document extraction needs admin review",
+};
+
+export const Step2Processing = ({ kycApplicationId, uploadedFiles, onComplete, onSkip }: Props) => {
   const toast = useToast();
-  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [ocrData, setOcrData] = useState<any>(null);
-  const [message, setMessage] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pollStatus, setPollStatus] = useState<"idle" | "polling" | "done" | "error">("idle");
 
+  const { kycStatus, kycStatusLoading } = useKYC({
+    kycApplicationId,
+    pollInterval: 3000,
+  });
+
+  // Timer for elapsed display
   useEffect(() => {
+    if (pollStatus === "polling") {
+      timerRef.current = setInterval(() => setElapsed((prev) => prev + 1), 1000);
+    }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [pollStatus]);
 
-  const handleStartOcr = useCallback(async () => {
-    setStatus("loading");
-    setElapsed(0);
-    timerRef.current = setInterval(() => {
-      setElapsed((prev) => prev + 1);
-    }, 1000);
-    setMessage("AI model loading (first run downloads ~50MB)...");
-    try {
-      const frontRes = await apiClient.post("/kyc/extract-ocr", {
-        kycApplicationId,
-        documentType: "CITIZENSHIP_FRONT",
-      });
-      const frontData = frontRes.data?.data?.extractedData || frontRes.data?.extractedData || {};
-
-      setMessage("Processing back document...");
-      const backRes = await apiClient.post("/kyc/extract-ocr", {
-        kycApplicationId,
-        documentType: "CITIZENSHIP_BACK",
-      });
-      const backData = backRes.data?.data?.extractedData || backRes.data?.extractedData || {};
-
-      const merged = { ...frontData, ...backData };
-      setOcrData(merged);
-      setStatus("done");
-      if (timerRef.current) clearInterval(timerRef.current);
-      toast("Data extracted successfully", "success");
-    } catch (err: any) {
-      setStatus("error");
-      if (timerRef.current) clearInterval(timerRef.current);
-      setMessage(err?.response?.data?.message || err?.message || "OCR extraction failed");
-      toast("OCR extraction failed. You can enter details manually.", "warning");
+  // Start polling when component mounts
+  useEffect(() => {
+    if (kycApplicationId) {
+      setPollStatus("polling");
     }
-  }, [kycApplicationId, toast]);
+  }, [kycApplicationId]);
 
-  const fmt = (s: number) => {
+  // Collect OCR data when done
+  const latestOcr = kycStatus?.latestOcrResult?.extractedData || {};
+  const ocrData = Object.keys(latestOcr).length > 0 ? latestOcr : null;
+
+  const formattedElapsed = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
   };
 
+  const mergeOcrFromAllDocs = async (): Promise<any> => {
+    try {
+      const { default: apiClient } = await import("@shared/lib/apiClient");
+      const frontRes = await apiClient.post("/kyc/extract-ocr", {
+        kycApplicationId,
+        documentType: "CITIZENSHIP_FRONT",
+      });
+      const backRes = await apiClient.post("/kyc/extract-ocr", {
+        kycApplicationId,
+        documentType: "CITIZENSHIP_BACK",
+      });
+      return {
+        ...(frontRes.data?.data?.extractedData || {}),
+        ...(backRes.data?.data?.extractedData || {}),
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const handleContinue = async () => {
+    if (ocrData && Object.keys(ocrData).length > 0) {
+      onComplete(ocrData);
+    } else {
+      const merged = await mergeOcrFromAllDocs();
+      onComplete(merged || {});
+    }
+  };
+
+  const stage: string = (kycStatus as any)?.workflowStage || "VALIDATING_FACE";
+  const faceStatus: string = (kycStatus as any)?.faceVerificationStatus || "PENDING";
+  const ocrStatus: string = (kycStatus as any)?.ocrProcessingStatus || "PENDING";
+  const processingStatus: string = (kycStatus as any)?.processingStatus || "PENDING";
+  const queuedForReview: boolean = (kycStatus as any)?.queuedForManualReview || false;
+  const faceSimilarity = (kycStatus as any)?.faceVerification?.similarityScore;
+
+  const isProcessing = pollStatus === "polling" && !["DONE", "FAILED"].includes(processingStatus);
+  const isComplete = processingStatus === "DONE" || stage === "COMPLETE";
+  const isFailed = processingStatus === "FAILED";
+  const isError = pollStatus === "error" || isFailed;
+
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Step 2: Extract Document Data</h2>
+      <h2 className="text-lg font-semibold mb-4">Step 2: Processing Your Documents</h2>
       <p className="text-sm text-gray-600 mb-4">
-        We'll extract text from your citizenship documents using AI-powered OCR.
+        We verify your face first, then extract document data in the background.
       </p>
 
-      {status === "idle" && (
-        <div>
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded mb-4 text-sm text-blue-700">
-            <p className="font-medium mb-1">First run notice</p>
-            <p>The OCR engine needs to download AI models on first use (~50MB). This can take 5&ndash;10 minutes depending on your internet and CPU. Subsequent runs will be much faster (30&ndash;60 seconds).</p>
-          </div>
-          <Button variant="primary" onClick={handleStartOcr}>
-            Start OCR Extraction
-          </Button>
+      {pollStatus === "idle" && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+          <p>Preparing to process your documents...</p>
         </div>
       )}
 
-      {status === "loading" && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full shrink-0" />
-            <div>
-              <p className="text-blue-700 font-medium">Processing &mdash; elapsed: {fmt(elapsed)}</p>
-              <p className="text-sm text-blue-600">{message}</p>
+      {isProcessing && (
+        <div className="space-y-4">
+          {/* Face verification progress */}
+          <div className={`p-4 rounded border ${faceStatus === "VERIFIED" ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"}`}>
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{faceStatus === "VERIFIED" ? "✅" : faceStatus === "FAILED" ? "❌" : faceStatus === "SKIPPED" ? "⏭️" : "🔄"}</span>
+              <div className="flex-1">
+                <p className="font-medium text-sm">{FACE_STATUS_LABELS[faceStatus] || "Checking face..."}</p>
+                {faceSimilarity !== undefined && faceSimilarity !== null && (
+                  <p className="text-xs text-gray-500">Similarity: {Math.round(faceSimilarity * 100)}%</p>
+                )}
+              </div>
+              {faceStatus === "PROCESSING" && (
+                <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full shrink-0" />
+              )}
             </div>
           </div>
-          <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+
+          {/* OCR progress */}
+          <div className={`p-4 rounded border ${ocrStatus === "EXTRACTED" ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}>
+            <div className="flex items-center gap-3">
+              <span className="text-xl">
+                {ocrStatus === "EXTRACTED" ? "✅" : ocrStatus === "FAILED" || ocrStatus === "PARTIAL" ? "⚠️" : faceStatus !== "VERIFIED" ? "⏳" : "🔄"}
+              </span>
+              <div className="flex-1">
+                <p className="font-medium text-sm">{OCR_STATUS_LABELS[ocrStatus] || "Extracting..."}</p>
+                {ocrStatus === "EXTRACTED" && kycStatus?.latestOcrResult && (
+                  <p className="text-xs text-gray-500">Confidence: {Math.round((kycStatus.latestOcrResult as any).overallConfidence * 100)}%</p>
+                )}
+              </div>
+              {(ocrStatus === "EXTRACTING" || ocrStatus === "EXTRACTED") && faceStatus === "VERIFIED" && (
+                <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full shrink-0" />
+              )}
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
-              style={{ width: `${Math.min((elapsed / 600) * 100, 95)}%` }}
+              style={{
+                width: `${faceStatus === "VERIFIED" ? (ocrStatus === "EXTRACTED" ? 95 : 50) : 20}%`,
+              }}
             />
           </div>
-          <p className="text-xs text-blue-400 mt-2">
-            This can take 5&ndash;10 minutes on first run (model download). Do not refresh the page.
+
+          <p className="text-xs text-gray-400">
+            Elapsed: {formattedElapsed(elapsed)} &mdash; {STAGE_LABELS[stage] || "Processing..."}
           </p>
+
+          {queuedForReview && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
+              Some data needs manual review by an admin. You can continue in the meantime.
+            </div>
+          )}
         </div>
       )}
 
-      {status === "done" && ocrData && (
+      {isComplete && (
         <div className="mt-4">
           <div className="bg-green-50 border border-green-200 rounded p-4 mb-4">
-            <p className="text-green-700 font-medium">Data extracted successfully ({fmt(elapsed)})</p>
+            <p className="text-green-700 font-medium">Processing complete ({formattedElapsed(elapsed)})</p>
+            {faceSimilarity !== undefined && (
+              <p className="text-sm text-green-600">Face match: {Math.round(faceSimilarity * 100)}%</p>
+            )}
+            {kycStatus?.latestOcrResult && (
+              <p className="text-sm text-green-600">Document confidence: {Math.round((kycStatus.latestOcrResult as any).overallConfidence * 100)}%</p>
+            )}
           </div>
-          <div className="space-y-2 border rounded p-4">
-            {Object.entries(ocrData).map(([key, val]) => (
-              <div key={key} className="flex gap-2 text-sm">
-                <span className="font-medium min-w-[140px] capitalize">{key.replace(/_/g, " ")}:</span>
-                <span>{String(val)}</span>
-              </div>
-            ))}
-          </div>
-          <Button variant="primary" className="mt-4" onClick={() => onComplete(ocrData)}>
-            Continue to Review
-          </Button>
-        </div>
-      )}
 
-      {status === "error" && (
-        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded">
-          <p className="text-amber-700 font-medium mb-1">Extraction failed ({fmt(elapsed)})</p>
-          <p className="text-sm text-amber-600 mb-3">{message}</p>
+          {ocrData && Object.keys(ocrData).length > 0 && (
+            <div className="space-y-2 border rounded p-4 mb-4">
+              {Object.entries(ocrData).map(([key, val]) => (
+                <div key={key} className="flex gap-2 text-sm">
+                  <span className="font-medium min-w-[140px] capitalize">{key.replace(/_/g, " ")}:</span>
+                  <span>{String(val)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {queuedForReview && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700 mb-4">
+              Some data needs manual review. An admin will verify the results.
+            </div>
+          )}
+
           <div className="flex gap-3">
-            <Button variant="primary" onClick={handleStartOcr}>Retry</Button>
+            <Button variant="primary" onClick={handleContinue}>
+              {ocrData ? "Continue to Review" : "Continue"}
+            </Button>
             <Button variant="secondary" onClick={onSkip}>Enter Details Manually</Button>
           </div>
         </div>
       )}
 
-      {status !== "idle" && status !== "loading" && (
-        <div className="mt-3">
-          <Button variant="secondary" onClick={onSkip}>
-            Skip &mdash; Enter Details Manually
-          </Button>
+      {isError && (
+        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded">
+          <p className="text-amber-700 font-medium mb-1">Processing needs attention</p>
+          <p className="text-sm text-amber-600 mb-3">
+            {kycStatus?.faceError || kycStatus?.processingError || "Some processing steps need manual review."}
+          </p>
+          <div className="flex gap-3">
+            <Button variant="primary" onClick={handleContinue}>Continue Anyway</Button>
+            <Button variant="secondary" onClick={onSkip}>Enter Details Manually</Button>
+          </div>
         </div>
       )}
     </div>
