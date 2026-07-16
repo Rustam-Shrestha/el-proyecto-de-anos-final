@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark } from "lucide-react";
+import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus } from "lucide-react";
 import { useAuth } from "@store/hooks";
 import { normalizeRole } from "@shared/utils/roleUtils";
+import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 
 type SidebarProps = {
   isOpen: boolean;
@@ -44,6 +45,10 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const showAdminItems = useMemo(() => role === "admin", [role]);
   const showReviewerItems = useMemo(() => role === "reviewer", [role]);
 
+  const { data: kycStatus } = useGetMyKYCStatus();
+  const kycApproved = kycStatus?.status === "APPROVED";
+  const showSubmitKyc = useMemo(() => showUserItems && !kycApproved, [showUserItems, kycApproved]);
+
   const linkClassName = ({ isActive }: { isActive: boolean }) =>
     [
       "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition-colors",
@@ -71,22 +76,38 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       </div>
 
       <nav className="space-y-2">
-        {showUserItems && userItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              onClick={onClose}
-              className={linkClassName}
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span>{item.label}</span>
-            </NavLink>
-          );
-        })}
+        {showUserItems && (
+          <>
+            {userItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.label}
+                  to={item.path}
+                  onClick={onClose}
+                  className={linkClassName}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+            {showSubmitKyc && (
+              <NavLink
+                to="/dashboard/kyc-submit"
+                onClick={onClose}
+                className={linkClassName}
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
+                  <ShieldPlus className="h-4 w-4" />
+                </span>
+                <span>Submit KYC</span>
+              </NavLink>
+            )}
+          </>
+        )}
 
         {showAdminItems && (
           <div className="pt-4">

@@ -2,28 +2,35 @@ import { pool } from "../src/db/pool";
 
 async function resetDatabase() {
   try {
-    console.log("🔄 Dropping existing tables (if any)...");
-    
-    // Drop tables in reverse order of dependencies
-    await pool.query("DROP TABLE IF EXISTS extraction_verifications CASCADE");
-    await pool.query("DROP TABLE IF EXISTS ocr_extractions CASCADE");
-    await pool.query("DROP TABLE IF EXISTS manual_review_queue CASCADE");
-    await pool.query("DROP TABLE IF EXISTS verification_reports CASCADE");
-    await pool.query("DROP TABLE IF EXISTS face_verifications CASCADE");
-    await pool.query("DROP TABLE IF EXISTS ocr_results CASCADE");
-    await pool.query("DROP TABLE IF EXISTS documents CASCADE");
-    await pool.query("DROP TABLE IF EXISTS kyc_applications CASCADE");
-    await pool.query("DROP TABLE IF EXISTS audit_logs CASCADE");
-    await pool.query("DROP TABLE IF EXISTS sessions CASCADE");
-    await pool.query("DROP TABLE IF EXISTS users CASCADE");
-    await pool.query("DROP TABLE IF EXISTS roles CASCADE");
-    
-    console.log("✅ All tables dropped successfully");
-    console.log("📝 Run 'npm run dev' to reinitialize the database with correct schema");
-    
+    console.log("Dropping all tables in auth schema...");
+
+    await pool.query(`
+      DO $$ DECLARE
+        r RECORD;
+      BEGIN
+        FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'auth') LOOP
+          EXECUTE 'DROP TABLE IF EXISTS auth.' || quote_ident(r.tablename) || ' CASCADE';
+        END LOOP;
+      END $$;
+    `);
+
+    console.log("Dropping all enums in auth schema...");
+    await pool.query(`
+      DO $$ DECLARE
+        r RECORD;
+      BEGIN
+        FOR r IN (SELECT t.typname FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname = 'auth' AND t.typtype = 'e') LOOP
+          EXECUTE 'DROP TYPE IF EXISTS auth.' || quote_ident(r.typname) || ' CASCADE';
+        END LOOP;
+      END $$;
+    `);
+
+    console.log("All tables and enums dropped successfully");
+    console.log("Run 'npx prisma migrate deploy' then 'npm run seed' to reinitialize");
+
     await pool.end();
   } catch (error) {
-    console.error("❌ Error resetting database:", error);
+    console.error("Error resetting database:", error);
     process.exit(1);
   }
 }

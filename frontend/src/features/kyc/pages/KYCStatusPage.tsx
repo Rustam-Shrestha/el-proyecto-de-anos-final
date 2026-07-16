@@ -114,8 +114,15 @@ const KYCStatusPage = () => {
     return (
       <section className="space-y-6">
         <HeaderShell />
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800   ">
-          Unable to load your KYC status. Please try again later.
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800">
+          <p className="text-base font-medium">Unable to load your KYC status. Please try again later.</p>
+          <p className="mt-2 text-sm text-red-600">If this issue persists, please contact support.</p>
+          <Link
+            to="/dashboard/kyc-submit"
+            className="mt-4 inline-block rounded-xl bg-[var(--green-icon)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
+          >
+            Submit KYC Application
+          </Link>
         </div>
       </section>
     );
