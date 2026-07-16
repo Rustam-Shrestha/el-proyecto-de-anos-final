@@ -155,6 +155,10 @@ export const kycService = {
               select: { email: true },
             },
             ocrResults: true,
+            ocrExtractions: {
+              orderBy: { createdAt: 'desc' },
+            },
+            extractionVerification: true,
             faceVerification: true,
             submissionFile: true,
           },
@@ -165,6 +169,8 @@ export const kycService = {
       return {
         ...formatKycApplication(kyc)!,
         ocrResults: kyc.ocrResults || [],
+        ocrExtractions: kyc.ocrExtractions || [],
+        extractionVerification: kyc.extractionVerification || null,
         faceVerification: kyc.faceVerification || null,
         ocrFullName: kyc.ocrFullName,
         ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
@@ -230,6 +236,10 @@ export const kycService = {
             },
           },
           ocrResults: true,
+          ocrExtractions: {
+            orderBy: { createdAt: 'desc' },
+          },
+          extractionVerification: true,
           faceVerification: true,
           verificationReport: true,
           submissionFile: true,
@@ -243,6 +253,8 @@ export const kycService = {
       return {
         ...formatKycApplication(kyc),
         ocrResults: kyc.ocrResults || [],
+        ocrExtractions: kyc.ocrExtractions || [],
+        extractionVerification: kyc.extractionVerification || null,
         faceVerification: kyc.faceVerification || null,
         verificationReport: kyc.verificationReport || null,
         submissionFile: kyc.submissionFile || null,

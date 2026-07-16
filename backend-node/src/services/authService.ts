@@ -44,13 +44,14 @@ export const authService = {
       // Hash password
       const passwordHash = await bcryptjs.hash(input.password, 12);
 
-      // Get default USER role
-      const userRole = await prisma.role.findFirst({
+      // Get or create default USER role
+      let userRole = await prisma.role.findFirst({
         where: { name: 'USER' },
       });
 
       if (!userRole) {
-        throw new AppError('Default role not configured', 500);
+        userRole = await prisma.role.create({ data: { name: 'USER' } });
+        logger.info('Default USER role created on-the-fly');
       }
 
       // Create user

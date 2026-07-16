@@ -5,6 +5,10 @@ async function resetDatabase() {
     console.log("🔄 Dropping existing tables (if any)...");
     
     // Drop tables in reverse order of dependencies
+    await pool.query("DROP TABLE IF EXISTS extraction_verifications CASCADE");
+    await pool.query("DROP TABLE IF EXISTS ocr_extractions CASCADE");
+    await pool.query("DROP TABLE IF EXISTS manual_review_queue CASCADE");
+    await pool.query("DROP TABLE IF EXISTS verification_reports CASCADE");
     await pool.query("DROP TABLE IF EXISTS face_verifications CASCADE");
     await pool.query("DROP TABLE IF EXISTS ocr_results CASCADE");
     await pool.query("DROP TABLE IF EXISTS documents CASCADE");

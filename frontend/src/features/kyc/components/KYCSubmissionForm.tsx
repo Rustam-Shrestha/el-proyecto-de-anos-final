@@ -22,7 +22,7 @@ type CurrentUser = {
 };
 
 type FileField = "selfie" | "idProof" | "addressProof";
-
+const MAX_POLLING_ATTEMPTS = 20;
 const FIELD_TO_DOC_TYPE: Record<FileField, DocumentType> = {
   selfie: DocumentType.SELFIE,
   idProof: DocumentType.CITIZENSHIP_FRONT,
@@ -160,8 +160,6 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
     }
   };
 
-  const MAX_POLLING_ATTEMPTS = 90;
-
   const skipToManualEntry = useCallback(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -183,7 +181,18 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
           "/kyc/my-status"
         );
         const app = data.data;
-        if (app && app.ocrResults && app.ocrResults.length > 0) {
+        if (!app) {
+          setPollingAttempts((prev) => prev + 1);
+          return;
+        }
+
+        const hasOcr = app.ocrResults && app.ocrResults.length > 0;
+        const hasFace = app.faceVerification && app.faceVerification.status !== 'PENDING';
+        const isDone = app.processingStatus === 'DONE' || app.processingStatus === 'FAILED';
+        const isAwaitingUser = app.workflowStage === 'AWAITING_USER_CONFIRMATION' || app.workflowStage === 'COMPLETE';
+        const readyToProceed = hasOcr || isDone || isAwaitingUser;
+
+        if (hasOcr) {
           const ocrResult = app.ocrResults[0];
           const extracted = ocrResult.extractedData as Record<string, string>;
           setOcrData({
@@ -203,6 +212,9 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
             confirmedGender: extracted.gender || app.ocrGender || "",
             confirmedAddress: prev.confirmedAddress || extracted.address || app.ocrAddress || "",
           }));
+        }
+
+        if (readyToProceed) {
           if (pollingRef.current) {
             clearInterval(pollingRef.current);
             pollingRef.current = null;
@@ -210,6 +222,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
           setStep(5);
           return;
         }
+
         setPollingAttempts((prev) => prev + 1);
       } catch (err) {
         const apiError = err as { response?: { data?: { message?: string } } };
@@ -217,16 +230,16 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
         setPollingError(msg);
         setPollingAttempts((prev) => prev + 1);
       }
-    }, 2000);
+    }, 3000);
   }, []);
 
   useEffect(() => {
-    if (pollingAttempts >= MAX_POLLING_ATTEMPTS && pollingRef.current) {
+    if (pollingAttempts >= 60 && pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
       const msg = pollingError
         ? `Processing timed out: ${pollingError}. You can enter the details manually.`
-        : "OCR processing is taking longer than expected. You can enter the details manually.";
+        : "Processing is taking longer than expected. You can enter the details manually.";
       toast.error(msg);
       setStep(5);
     }

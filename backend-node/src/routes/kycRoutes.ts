@@ -32,6 +32,7 @@ import { kycVerificationService } from '@/services/kycVerificationService';
 import { kycSubmissionFileService } from '@/services/kycSubmissionFileService';
 import { kycService } from '@/services/kycService';
 import { auditService } from '@/services/auditService';
+import { extractionVerificationService } from '@/services/extractionVerificationService';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
 
 const kycRouter = Router();
@@ -128,6 +129,8 @@ kycRouter.get('/status/:kycId', authenticate, async (req: Request, res: Response
       include: {
         faceVerification: true,
         ocrResults: { orderBy: { createdAt: 'desc' }, take: 1 },
+        ocrExtractions: { orderBy: { createdAt: 'desc' } },
+        extractionVerification: true,
         submissionFile: true,
         manualReviewQueue: { where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' } },
         documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true } },
@@ -147,6 +150,8 @@ kycRouter.get('/status/:kycId', authenticate, async (req: Request, res: Response
       ocrFrontStatus: kyc.ocrFrontStatus,
       ocrBackStatus: kyc.ocrBackStatus,
       latestOcrResult: kyc.ocrResults[0] || null,
+      ocrExtractions: kyc.ocrExtractions,
+      extractionVerification: kyc.extractionVerification,
       submissionFile: kyc.submissionFile,
       pendingReviewQueue: kyc.manualReviewQueue,
       queuedForManualReview: kyc.queuedForManualReview,
@@ -598,15 +603,24 @@ kycRouter.post('/submit-confirmed', authenticate, async (req: Request, res: Resp
 
     await kycVerificationService.generateVerificationReport(kycApplicationId);
 
+    const verification = await extractionVerificationService.runVerification(kycApplicationId);
+
     await auditService.log({
       userId: req.user!.id,
       action: 'SUBMIT_KYC',
-      metadata: { kycApplicationId },
+      metadata: { kycApplicationId, autoVerified: verification?.autoVerified },
       ip: req.ip,
       userAgent: req.get('user-agent')
     });
 
-    res.json(apiResponse.success('KYC submitted for review', kyc));
+    res.json(apiResponse.success(
+      verification?.autoVerified ? 'KYC auto-verified successfully' : 'KYC submitted for review',
+      {
+        ...kyc,
+        extractionVerification: verification,
+        autoVerified: verification?.autoVerified || false,
+      }
+    ));
   } catch (error) {
     next(error);
   }

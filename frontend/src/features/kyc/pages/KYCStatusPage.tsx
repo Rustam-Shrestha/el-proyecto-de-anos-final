@@ -96,6 +96,16 @@ const KYCStatusPage = () => {
     [application?.faceVerification]
   );
 
+  const extractionVerification = useMemo(
+    () => (application as any)?.extractionVerification ?? null,
+    [application]
+  );
+
+  const ocrExtractions = useMemo(
+    () => (application as any)?.ocrExtractions ?? [],
+    [application]
+  );
+
   if (isLoading) {
     return (
       <section className="space-y-6">
@@ -231,6 +241,41 @@ const KYCStatusPage = () => {
                 <p className="mt-2 text-xs text-gray-500 line-clamp-3">{ocr.rawOcrText}</p>
               </div>
             ))}
+          </div>
+        ) : null}
+
+        {/* Extraction Verification (auto-verify or queue) */}
+        {extractionVerification ? (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold text-gray-900">Data Verification</h2>
+            <div className="mt-3 rounded-2xl border p-4" style={{
+              borderColor: extractionVerification.autoVerified ? "var(--green-200, #bbf7d0)" : "var(--amber-200, #fde68a)",
+              backgroundColor: extractionVerification.autoVerified ? "var(--green-50, #f0fdf4)" : "var(--amber-50, #fffbeb)",
+            }}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-900">Decision</span>
+                <span className={`text-sm font-semibold ${
+                  extractionVerification.autoVerified ? "text-green-700" : "text-amber-700"
+                }`}>
+                  {extractionVerification.autoVerified ? "Auto-Verified" : "Queued for Review"}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-sm text-gray-500">OCR Confidence</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {Math.round(extractionVerification.ocrConfidence * 100)}%
+                </span>
+              </div>
+              {extractionVerification.matchScore != null ? (
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Data Match Score</span>
+                  <span className="text-sm font-medium text-gray-900">{extractionVerification.matchScore}%</span>
+                </div>
+              ) : null}
+              <div className="mt-2 text-xs text-gray-500">
+                Locked: {extractionVerification.locked ? "Yes (final)" : "No"}
+              </div>
+            </div>
           </div>
         ) : null}
 

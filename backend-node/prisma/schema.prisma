@@ -209,12 +209,14 @@ model KycApplication {
   confirmedEducationLevel    String?
 
   // Relations
-  documents          Document[]
-  ocrResults         OCRResult[]
-  faceVerification   FaceVerification?
-  verificationReport VerificationReport?
-  submissionFile     KYCSubmissionFile?
-  manualReviewQueue  ManualReviewQueue[]
+  documents              Document[]
+  ocrResults             OCRResult[]
+  ocrExtractions         OcrExtraction[]
+  faceVerification       FaceVerification?
+  verificationReport     VerificationReport?
+  extractionVerification ExtractionVerification?
+  submissionFile         KYCSubmissionFile?
+  manualReviewQueue      ManualReviewQueue[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -279,6 +281,51 @@ model VerificationReport {
 
   @@index([kycApplicationId])
   @@map("verification_reports")
+  @@schema("auth")
+}
+
+// OcrExtraction - stores raw OCR output with per-field confidence and comparison results
+model OcrExtraction {
+  id               String         @id @default(cuid())
+  kycApplicationId String
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  documentType      String // CITIZENSHIP_FRONT, CITIZENSHIP_BACK
+  rawText           String @db.Text
+  extractedFields   Json   // {name: "John", citizenship_number: "12345678901", ...}
+  overallConfidence Float  // 0.0 to 1.0
+  fieldConfidence   Json?  // Per-field confidence: {name: 0.95, citizenship_number: 0.87}
+  comparisonResults Json?  // Per-field comparison: {name: {match: true, userValue: "John", ocrValue: "John", matchPercent: 100}, ...}
+  matchScore        Float? // Overall match percentage 0-100 across compared fields
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("ocr_extractions")
+  @@schema("auth")
+}
+
+// ExtractionVerification - final decision + audit trail, locked after creation
+model ExtractionVerification {
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  decision          String  // AUTO_VERIFIED | QUEUED_FOR_REVIEW
+  ocrConfidence     Float   // Overall OCR confidence 0.0-1.0
+  matchScore        Float?  // Overall match with user data 0-100
+  autoVerified      Boolean @default(false)
+  manualReviewAdded Boolean @default(false)
+  decisionDetails   Json?   // Full details: {fieldComparisons: [...], matchScore: 95, reason: "All fields match"}
+  verifiedAt        DateTime? // When decision was made
+  verifiedBy        String? // "system" or userId
+  locked            Boolean @default(true) // Immutable after creation
+
+  createdAt DateTime @default(now())
+
+  @@index([kycApplicationId])
+  @@map("extraction_verifications")
   @@schema("auth")
 }
 

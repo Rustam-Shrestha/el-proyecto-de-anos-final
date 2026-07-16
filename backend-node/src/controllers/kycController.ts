@@ -5,6 +5,7 @@ import { auditService } from '@/services/auditService';
 import { ocrService } from '@/services/ocrService';
 import { faceService } from '@/services/faceService';
 import { kycSubmissionFileService } from '@/services/kycSubmissionFileService';
+import { extractionVerificationService } from '@/services/extractionVerificationService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
 import { getRelativePath, resolveAbsolutePath } from '@/utils/pathUtils';
@@ -244,6 +245,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
                   overallConfidence: ocrFront.overallConfidence,
                 },
               });
+              await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_FRONT', ocrFront);
               const prefill: any = {};
               if (ocrFront.extractedData.name) prefill.ocrFullName = ocrFront.extractedData.name;
               if (ocrFront.extractedData.citizenship_number) prefill.ocrCitizenshipNumber = ocrFront.extractedData.citizenship_number;
@@ -282,6 +284,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
                   overallConfidence: ocrBack.overallConfidence,
                 },
               });
+              await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_BACK', ocrBack);
               await prisma.kycApplication.update({
                 where: { id: result.id },
                 data: { ocrBackStatus: 'DONE' },

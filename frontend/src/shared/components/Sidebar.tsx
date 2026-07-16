@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, ScanSearch, FileBarChart2, UserCircle2, HandCoins, Landmark } from "lucide-react";
+import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark } from "lucide-react";
 import { useAuth } from "@store/hooks";
 import { normalizeRole } from "@shared/utils/roleUtils";
 
@@ -17,7 +17,6 @@ type MenuItem = {
 
 const userItems: MenuItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { label: "Submit KYC", path: "/dashboard/kyc-submit", icon: ScanSearch },
   { label: "KYC Status", path: "/dashboard/kyc-status", icon: ShieldCheck },
   { label: "Apply for Loan", path: "/dashboard/loans/apply", icon: HandCoins },
   { label: "My Loans", path: "/dashboard/loans/status", icon: FileBarChart2 },
