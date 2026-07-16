@@ -190,7 +190,8 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
         const hasFace = app.faceVerification && app.faceVerification.status !== 'PENDING';
         const isDone = app.processingStatus === 'DONE' || app.processingStatus === 'FAILED';
         const isAwaitingUser = app.workflowStage === 'AWAITING_USER_CONFIRMATION' || app.workflowStage === 'COMPLETE';
-        const readyToProceed = hasOcr || isDone || isAwaitingUser;
+        const faceDone = hasFace || app.faceVerificationStatus === 'VERIFIED' || app.faceStatus === 'DONE';
+        const readyToProceed = hasOcr || isDone || isAwaitingUser || faceDone;
 
         if (hasOcr) {
           const ocrResult = app.ocrResults[0];
@@ -211,6 +212,25 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
             confirmedDateOfBirth: extracted.dateOfBirth || app.ocrDateOfBirth || "",
             confirmedGender: extracted.gender || app.ocrGender || "",
             confirmedAddress: prev.confirmedAddress || extracted.address || app.ocrAddress || "",
+          }));
+        } else if (faceDone) {
+          // Face is complete but OCR not yet done — set partial data
+          setOcrData({
+            ocrFullName: app.ocrFullName ?? "",
+            ocrCitizenshipNumber: app.ocrCitizenshipNumber ?? "",
+            ocrDateOfBirth: app.ocrDateOfBirth ?? "",
+            ocrGender: app.ocrGender ?? "",
+            ocrAddress: app.ocrAddress ?? "",
+            faceSimilarity: app.faceVerification?.similarityScore ?? 0,
+            faceStatus: app.faceVerification?.status ?? "PENDING",
+          });
+          setConfirmedData((prev) => ({
+            ...prev,
+            confirmedFullName: prev.confirmedFullName || app.ocrFullName || "",
+            confirmedCitizenshipNumber: app.ocrCitizenshipNumber || "",
+            confirmedDateOfBirth: app.ocrDateOfBirth || "",
+            confirmedGender: app.ocrGender || "",
+            confirmedAddress: prev.confirmedAddress || app.ocrAddress || "",
           }));
         }
 

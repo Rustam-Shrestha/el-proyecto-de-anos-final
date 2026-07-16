@@ -1,9 +1,20 @@
 import { memo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
+import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import KYCSubmissionForm from "@features/kyc/components/KYCSubmissionForm";
 
 const UserKYCPage = () => {
   const navigate = useNavigate();
+  const { data: kyc, isLoading } = useGetMyKYCStatus();
+
+  if (isLoading) {
+    return <SkeletonLoader count={2} type="list" />;
+  }
+
+  if (kyc?.status === "APPROVED") {
+    return <Navigate to="/dashboard/loans/apply" replace />;
+  }
 
   return (
     <section className="space-y-6">

@@ -158,12 +158,16 @@ class OCRProcessor:
             if best_match is not None:
                 value = self._extract_field_value(raw_lines, best_match)
                 if field_name in ("citizenship_number", "citizenship_number_alt") and value:
-                    digits = re.sub(r'\D', '', value)
-                    if re.match(r'^\d{11}$', digits):
-                        value = digits
-                    else:
-                        logger.warning("Invalid citizenship number format: %s", value)
+                    # Skip values that contain no digits (wrong line picked up by OCR)
+                    if not re.search(r'\d', value):
+                        logger.debug("Skipping non-numeric value as citizenship number: %s", value)
                         value = None
+                    else:
+                        # Preserve original formatting; just ensure it has digits
+                        digits = re.sub(r'\D', '', value)
+                        if len(digits) < 4:
+                            logger.debug("Too few digits for citizenship number: %s", value)
+                            value = None
                 if value is not None:
                     structured[field_name] = value
                     matched_confidences.append(best_confidence)

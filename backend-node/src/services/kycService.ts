@@ -75,17 +75,20 @@ export const kycService = {
         throw new AppError('User not found', 404);
       }
 
-      // Check for existing active KYC application
+      // Check for existing active or approved KYC application
       const existingKyc = await prisma.kycApplication.findFirst({
         where: {
           userId: input.userId,
           status: {
-            in: ['PENDING', 'UNDER_REVIEW'],
+            in: ['PENDING', 'UNDER_REVIEW', 'APPROVED'],
           },
         },
       });
 
       if (existingKyc) {
+        if (existingKyc.status === 'APPROVED') {
+          throw new AppError('Your KYC is already approved. You do not need to submit again.', 409);
+        }
         throw new AppError('You already have an active KYC application', 409);
       }
 
