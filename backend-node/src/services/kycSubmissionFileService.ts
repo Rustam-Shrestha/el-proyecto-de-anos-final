@@ -1,9 +1,10 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils/AppError';
 import { logger } from '@/config/logger';
 
 export const kycSubmissionFileService = {
-  async createSubmissionFile(kycApplicationId: string): Promise<any> {
+  async createSubmissionFile(kycApplicationId: string): Promise<Prisma.KYCSubmissionFileGetPayload<{}>> {
     try {
       const kyc = await prisma.kycApplication.findUnique({
         where: { id: kycApplicationId },
@@ -21,7 +22,7 @@ export const kycSubmissionFileService = {
         userId: kyc.userId,
         userEmail: kyc.user.email,
         status: kyc.status,
-        documents: kyc.documents.map((d: any) => ({
+        documents: kyc.documents.map((d: Prisma.DocumentGetPayload<{}>) => ({
           type: d.documentType,
           filePath: d.filePath,
           mimeType: d.fileMimeType,
@@ -67,7 +68,7 @@ export const kycSubmissionFileService = {
     }
   },
 
-  async getSubmissionFile(kycApplicationId: string): Promise<any> {
+  async getSubmissionFile(kycApplicationId: string): Promise<Prisma.KYCSubmissionFileGetPayload<{}>> {
     const file = await prisma.kYCSubmissionFile.findUnique({
       where: { kycApplicationId },
     });

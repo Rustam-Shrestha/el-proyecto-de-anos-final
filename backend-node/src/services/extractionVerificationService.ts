@@ -48,14 +48,17 @@ function getMatchPercent(ocrVal: string | null, userVal: string | null): number 
   return Math.round((matches / Math.max(o.length, u.length)) * 100);
 }
 
-function compareOcrWithUserData(kyc: any): ComparisonResult {
+function compareOcrWithUserData(kyc: {
+  ocrResults?: Array<{ overallConfidence?: number | null }> | null;
+  [key: string]: unknown;
+}): ComparisonResult {
   const fieldComparisons: FieldComparison[] = [];
   let totalMatchPercent = 0;
   let fieldsWithBothValues = 0;
 
   for (const field of COMPARISON_FIELDS) {
-    const ocrVal = (kyc as any)[field.ocr] || null;
-    const userVal = (kyc as any)[field.user] || null;
+    const ocrVal = (kyc as Record<string, string | null>)[field.ocr] || null;
+    const userVal = (kyc as Record<string, string | null>)[field.user] || null;
 
     if (userVal === null) continue;
 
@@ -117,7 +120,7 @@ function compareOcrWithUserData(kyc: any): ComparisonResult {
 export const extractionVerificationService = {
   async storeExtraction(kycApplicationId: string, documentType: string, ocrResult: {
     rawText: string;
-    extractedData: Record<string, any>;
+    extractedData: Record<string, unknown>;
     overallConfidence: number;
     error?: string;
   }) {
@@ -150,7 +153,7 @@ export const extractionVerificationService = {
     const comparison = compareOcrWithUserData(kyc);
 
     const hasUserData = COMPARISON_FIELDS.some(
-      f => (kyc as any)[f.user] !== null
+      f => (kyc as Record<string, string | null>)[f.user] !== null
     );
 
     if (!hasUserData) {

@@ -23,7 +23,7 @@ import { env } from '@/config/env';
 
 const documentStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
-    const userId = (req as any).user?.id ?? 'unknown';
+    const userId = req.user ? req.user.id : 'unknown';
     const documentType = req.body?.documentType ?? 'OTHER';
     const dir = path.join(process.cwd(), env.UPLOAD_DIR, `user-${userId}`, documentType);
     fs.mkdirSync(dir, { recursive: true });

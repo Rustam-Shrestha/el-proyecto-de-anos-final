@@ -16,7 +16,6 @@ import {
   triggerRefetch as triggerRefetchAction,
   triggerMenuAction as triggerMenuActionAction,
   setThemeColor,
-  toggleDarkMode as toggleDarkModeAction,
   toggleProfileDropdown as toggleProfileDropdownAction,
   closeProfileDropdown as closeProfileDropdownAction,
   openThemeModal as openThemeModalAction,
@@ -24,7 +23,6 @@ import {
   selectModalContent,
   selectModalProps,
   selectThemeColor,
-  selectDarkMode,
   selectRefetch,
   selectMenuAction,
   selectShowProfileDropdown,
@@ -39,7 +37,6 @@ const useUI = () => {
   const modalContent = useSelector(selectModalContent);
   const modalProps = useSelector(selectModalProps);
   const themeColor = useSelector(selectThemeColor);
-  const darkMode = useSelector(selectDarkMode);
   const refetch = useSelector(selectRefetch);
   const menuAction = useSelector(selectMenuAction);
   const showProfileDropdown = useSelector(selectShowProfileDropdown);

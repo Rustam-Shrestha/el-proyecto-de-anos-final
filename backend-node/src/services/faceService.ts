@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { AppError } from '@/utils/AppError';
+import axios, { type AxiosResponse } from 'axios';
 import { logger } from '@/config/logger';
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
@@ -16,10 +15,11 @@ function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function isRetryable(err: any): boolean {
-  if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') return true;
-  if (err.response?.status && err.response.status >= 500) return true;
-  if (err.code === 'ETIMEDOUT' || err.message?.includes('timeout')) return true;
+function isRetryable(err: unknown): boolean {
+  const e = err as { code?: string; response?: { status?: number }; message?: string };
+  if (e.code === 'ECONNREFUSED' || e.code === 'ECONNRESET') return true;
+  if (e.response?.status && e.response.status >= 500) return true;
+  if (e.code === 'ETIMEDOUT' || e.message?.includes('timeout')) return true;
   return false;
 }
 
@@ -35,11 +35,12 @@ async function waitForFastAPIReady(): Promise<void> {
         return;
       }
       logger.info('FastAPI models still loading, waiting...', { models: res.data?.models });
-    } catch (err: any) {
-      if (err.response?.status === 503) {
-        logger.info('FastAPI not ready yet (503), waiting...', { models: err.response?.data?.detail?.models });
+    } catch (err: unknown) {
+      const apiError = err as { response?: { status?: number; data?: { detail?: { models?: unknown } } }; message?: string };
+      if (apiError.response?.status === 503) {
+        logger.info('FastAPI not ready yet (503), waiting...', { models: apiError.response?.data?.detail?.models });
       } else {
-        logger.warn('FastAPI ready check failed, retrying', { error: err.message });
+        logger.warn('FastAPI ready check failed, retrying', { error: apiError.message });
       }
     }
     await delay(READY_CHECK_INTERVAL_MS);
@@ -47,15 +48,16 @@ async function waitForFastAPIReady(): Promise<void> {
   logger.warn('FastAPI models did not become ready in time — face matching will be degraded');
 }
 
-async function callFaceWithRetry(citizenshipPhotoPath: string, selfiePhotoPath: string, retryCount = 0): Promise<any> {
+async function callFaceWithRetry(citizenshipPhotoPath: string, selfiePhotoPath: string, retryCount = 0): Promise<AxiosResponse<Record<string, unknown>>> {
   try {
     return await axios.post(`${FASTAPI_URL}/api/v1/kyc/face/verify`, {
       citizenship_photo: citizenshipPhotoPath,
       selfie_photo: selfiePhotoPath,
     }, { timeout: FACE_TIMEOUT_MS });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const apiError = error as { message?: string };
     if (retryCount < RETRY_MAX && isRetryable(error)) {
-      logger.warn({ err: error.message, retryCount }, 'Face call failed, retrying with backoff');
+      logger.warn({ err: apiError.message, retryCount }, 'Face call failed, retrying with backoff');
       await delay(RETRY_DELAY_MS * (retryCount + 1));
       return callFaceWithRetry(citizenshipPhotoPath, selfiePhotoPath, retryCount + 1);
     }
@@ -83,17 +85,18 @@ export const faceService = {
       const response = await callFaceWithRetry(citizenshipPhotoPath, selfiePhotoPath);
 
       return {
-        similarityScore: response.data.similarity_score ?? 0,
-        status: response.data.status || 'UNKNOWN',
-        recommendation: response.data.recommendation || 'REVIEW',
+        similarityScore: (response.data.similarity_score as number) ?? 0,
+        status: (response.data.status as string) || 'UNKNOWN',
+        recommendation: (response.data.recommendation as string) || 'REVIEW',
       };
-    } catch (error: any) {
-      logger.error({ err: error?.message }, 'Face verification failed, returning review recommendation');
+    } catch (error: unknown) {
+      const apiError = error as { message?: string };
+      logger.error({ err: apiError.message }, 'Face verification failed, returning review recommendation');
       return {
         similarityScore: 0,
         status: 'FAILED',
         recommendation: 'REVIEW',
-        error: `Face verification failed: ${error?.message || 'Unknown error'}`,
+        error: `Face verification failed: ${apiError.message || 'Unknown error'}`,
         retryable: isRetryable(error),
         timestamp: Date.now(),
       };

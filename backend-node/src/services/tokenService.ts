@@ -81,7 +81,7 @@ export const tokenService = {
    */
   verifyVerificationToken(token: string): TokenPayload | null {
     try {
-      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as any;
+      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as TokenPayload & { type: string };
       if (payload.type !== 'verify_email') return null;
       return payload;
     } catch {
@@ -94,7 +94,7 @@ export const tokenService = {
    */
   verifyPasswordResetToken(token: string): TokenPayload | null {
     try {
-      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as any;
+      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as TokenPayload & { type: string };
       if (payload.type !== 'password_reset') return null;
       return payload;
     } catch {

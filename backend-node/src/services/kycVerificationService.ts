@@ -1,9 +1,10 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils/AppError';
 import { logger } from '@/config/logger';
 
 export const kycVerificationService = {
-  async generateVerificationReport(kycApplicationId: string): Promise<any> {
+  async generateVerificationReport(kycApplicationId: string): Promise<Prisma.VerificationReportGetPayload<{}>> {
     try {
       const kyc = await prisma.kycApplication.findUnique({
         where: { id: kycApplicationId },

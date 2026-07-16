@@ -17,7 +17,6 @@ async function main() {
     logger.info('Roles created');
 
     const hash = (pw: string) => bcryptjs.hash(pw, 12);
-    const now = new Date();
 
     const users = [
       {
@@ -43,7 +42,7 @@ async function main() {
     for (const u of users) {
       const existing = await prisma.user.findUnique({ where: { email: u.email } });
       if (!existing) {
-        const user = await prisma.user.create({
+        await prisma.user.create({
           data: {
             email: u.email,
             passwordHash: u.password,

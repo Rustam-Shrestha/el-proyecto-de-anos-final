@@ -1,11 +1,10 @@
-import { useEffect } from "react";
 import { Button } from "@shared/components/Button";
 import { useKYC } from "../hooks/useKYC";
 
 interface Props {
   kycApplicationId: string;
-  uploadedFiles: any;
-  onComplete: (result: any) => void;
+  uploadedFiles: Record<string, unknown>;
+  onComplete: (result: { similarityScore: number; status: string; recommendation: string | null } | null) => void;
   onBack: () => void;
 }
 
@@ -15,8 +14,8 @@ export const Step4FaceResult = ({ kycApplicationId, onComplete, onBack }: Props)
     pollInterval: 3000,
   });
 
-  const faceVerification = (kycStatus as any)?.faceVerification;
-  const faceStatus = (kycStatus as any)?.faceVerificationStatus;
+  const faceVerification = kycStatus?.faceVerification;
+  const faceStatus = kycStatus?.faceVerificationStatus;
   const similarityScore = faceVerification?.similarityScore;
 
   const result = faceVerification
@@ -70,7 +69,7 @@ export const Step4FaceResult = ({ kycApplicationId, onComplete, onBack }: Props)
             </div>
           </div>
 
-          {(kycStatus as any)?.queuedForManualReview && (
+          {kycStatus?.queuedForManualReview && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700 mb-4">
               This result has been queued for manual review by an admin.
             </div>

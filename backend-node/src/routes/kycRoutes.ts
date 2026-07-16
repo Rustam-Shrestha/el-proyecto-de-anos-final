@@ -26,14 +26,15 @@ import { getKycDocumentsSchema } from '@/routes/documentSchemas';
 import documentRoutes from '@/routes/documentRoutes';
 import { apiResponse } from '@/utils/apiResponse';
 import { prisma } from '@/config/database';
+import { logger } from '@/config/logger';
 import { ocrService } from '@/services/ocrService';
 import { faceService } from '@/services/faceService';
 import { kycVerificationService } from '@/services/kycVerificationService';
-import { kycSubmissionFileService } from '@/services/kycSubmissionFileService';
 import { kycService } from '@/services/kycService';
 import { auditService } from '@/services/auditService';
 import { extractionVerificationService } from '@/services/extractionVerificationService';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
+import { DocumentType } from '@prisma/client';
 
 const kycRouter = Router();
 
@@ -431,7 +432,7 @@ kycRouter.post('/extract-ocr', authenticate, async (req: Request, res: Response,
     }
 
     const doc = await prisma.document.findFirst({
-      where: { kycId: kycApplicationId, documentType: documentType as any },
+      where: { kycId: kycApplicationId, documentType: documentType as DocumentType },
     });
     if (!doc) {
       return res.status(404).json(apiResponse.error(`Document not found for type: ${documentType}`, 404));
@@ -450,7 +451,7 @@ kycRouter.post('/extract-ocr', authenticate, async (req: Request, res: Response,
       }
     });
 
-    const prefillData: any = {};
+    const prefillData: Record<string, string | undefined> = {};
     if (result.extractedData.name) prefillData.ocrFullName = result.extractedData.name;
     if (result.extractedData.citizenship_number) prefillData.ocrCitizenshipNumber = result.extractedData.citizenship_number;
     if (result.extractedData.dob) prefillData.ocrDateOfBirth = result.extractedData.dob;
@@ -519,10 +520,10 @@ kycRouter.post('/verify-face', authenticate, async (req: Request, res: Response,
 
     if (!faceDisabled) {
       const frontDoc = await prisma.document.findFirst({
-        where: { kycId: kycApplicationId, documentType: 'CITIZENSHIP_FRONT' as any },
+        where: { kycId: kycApplicationId, documentType: 'CITIZENSHIP_FRONT' as DocumentType },
       });
       const selfieDoc = await prisma.document.findFirst({
-        where: { kycId: kycApplicationId, documentType: 'SELFIE' as any },
+        where: { kycId: kycApplicationId, documentType: 'SELFIE' as DocumentType },
       });
 
       if (!frontDoc || !selfieDoc) {

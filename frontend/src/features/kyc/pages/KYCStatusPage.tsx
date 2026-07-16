@@ -4,7 +4,7 @@ import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { DocumentStatusBadge } from "@shared/components/DocumentStatusBadge";
 import { env } from "@shared/lib/env";
-import type { KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
+import type { KYCApplication, KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
 import { DocumentType } from "@shared/types/common";
 
 const resolveDocumentUrl = (filePath: string): string => {
@@ -97,12 +97,7 @@ const KYCStatusPage = () => {
   );
 
   const extractionVerification = useMemo(
-    () => (application as any)?.extractionVerification ?? null,
-    [application]
-  );
-
-  const ocrExtractions = useMemo(
-    () => (application as any)?.ocrExtractions ?? [],
+    () => (application as KYCApplication & { extractionVerification?: { autoVerified: boolean; ocrConfidence: number; matchScore?: number; locked: boolean } })?.extractionVerification ?? null,
     [application]
   );
 

@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@shared/components/Button";
-import { useToast } from "@shared/hooks/useToast";
-import { useKYC, type ProcessingStatus } from "../hooks/useKYC";
+import { useKYC } from "../hooks/useKYC";
 
 interface Props {
   kycApplicationId: string;
-  uploadedFiles: any;
-  onComplete: (ocrExtracted: any) => void;
+  _uploadedFiles: Record<string, unknown>;
+  onComplete: (ocrExtracted: Record<string, unknown>) => void;
   onSkip: () => void;
 }
 
@@ -33,13 +32,12 @@ const OCR_STATUS_LABELS: Record<string, string> = {
   FAILED: "Document extraction needs admin review",
 };
 
-export const Step2Processing = ({ kycApplicationId, uploadedFiles, onComplete, onSkip }: Props) => {
-  const toast = useToast();
+export const Step2Processing = ({ kycApplicationId, _uploadedFiles, onComplete, onSkip }: Props) => {
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pollStatus, setPollStatus] = useState<"idle" | "polling" | "done" | "error">("idle");
 
-  const { kycStatus, kycStatusLoading } = useKYC({
+  const { kycStatus } = useKYC({
     kycApplicationId,
     pollInterval: 3000,
   });
@@ -71,7 +69,7 @@ export const Step2Processing = ({ kycApplicationId, uploadedFiles, onComplete, o
     return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
   };
 
-  const mergeOcrFromAllDocs = async (): Promise<any> => {
+  const mergeOcrFromAllDocs = async (): Promise<Record<string, unknown> | null> => {
     try {
       const { default: apiClient } = await import("@shared/lib/apiClient");
       const frontRes = await apiClient.post("/kyc/extract-ocr", {
@@ -100,12 +98,12 @@ export const Step2Processing = ({ kycApplicationId, uploadedFiles, onComplete, o
     }
   };
 
-  const stage: string = (kycStatus as any)?.workflowStage || "VALIDATING_FACE";
-  const faceStatus: string = (kycStatus as any)?.faceVerificationStatus || "PENDING";
-  const ocrStatus: string = (kycStatus as any)?.ocrProcessingStatus || "PENDING";
-  const processingStatus: string = (kycStatus as any)?.processingStatus || "PENDING";
-  const queuedForReview: boolean = (kycStatus as any)?.queuedForManualReview || false;
-  const faceSimilarity = (kycStatus as any)?.faceVerification?.similarityScore;
+  const stage: string = kycStatus?.workflowStage || "VALIDATING_FACE";
+  const faceStatus: string = kycStatus?.faceVerificationStatus || "PENDING";
+  const ocrStatus: string = kycStatus?.ocrProcessingStatus || "PENDING";
+  const processingStatus: string = kycStatus?.processingStatus || "PENDING";
+  const queuedForReview: boolean = kycStatus?.queuedForManualReview || false;
+  const faceSimilarity = kycStatus?.faceVerification?.similarityScore;
 
   const isProcessing = pollStatus === "polling" && !["DONE", "FAILED"].includes(processingStatus);
   const isComplete = processingStatus === "DONE" || stage === "COMPLETE";
@@ -152,7 +150,7 @@ export const Step2Processing = ({ kycApplicationId, uploadedFiles, onComplete, o
               <div className="flex-1">
                 <p className="font-medium text-sm">{OCR_STATUS_LABELS[ocrStatus] || "Extracting..."}</p>
                 {ocrStatus === "EXTRACTED" && kycStatus?.latestOcrResult && (
-                  <p className="text-xs text-gray-500">Confidence: {Math.round((kycStatus.latestOcrResult as any).overallConfidence * 100)}%</p>
+                  <p className="text-xs text-gray-500">Confidence: {Math.round(kycStatus.latestOcrResult.overallConfidence * 100)}%</p>
                 )}
               </div>
               {(ocrStatus === "EXTRACTING" || ocrStatus === "EXTRACTED") && faceStatus === "VERIFIED" && (
@@ -191,7 +189,7 @@ export const Step2Processing = ({ kycApplicationId, uploadedFiles, onComplete, o
               <p className="text-sm text-green-600">Face match: {Math.round(faceSimilarity * 100)}%</p>
             )}
             {kycStatus?.latestOcrResult && (
-              <p className="text-sm text-green-600">Document confidence: {Math.round((kycStatus.latestOcrResult as any).overallConfidence * 100)}%</p>
+              <p className="text-sm text-green-600">Document confidence: {Math.round(kycStatus.latestOcrResult.overallConfidence * 100)}%</p>
             )}
           </div>
 

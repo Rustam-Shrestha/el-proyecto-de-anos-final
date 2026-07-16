@@ -11,7 +11,7 @@ export const applyForLoan = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -54,7 +54,7 @@ export const getLoan = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -76,7 +76,7 @@ export const listLoans = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -111,7 +111,7 @@ export const reviewLoan = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;

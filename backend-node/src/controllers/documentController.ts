@@ -11,7 +11,7 @@ export const uploadDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -66,7 +66,7 @@ export const getKycDocuments = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -88,7 +88,7 @@ export const getDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -110,7 +110,7 @@ export const verifyDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -150,7 +150,7 @@ export const replaceDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -205,7 +205,7 @@ export const deleteDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;

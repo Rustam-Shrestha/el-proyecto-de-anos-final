@@ -49,7 +49,7 @@ export const riskService = {
       let monthlyIncome: number | undefined;
 
       if (incomeProofDoc?.extractedData && typeof incomeProofDoc.extractedData === 'object' && 'net_salary' in incomeProofDoc.extractedData) {
-        monthlyIncome = Number((incomeProofDoc.extractedData as any).net_salary);
+        monthlyIncome = Number((incomeProofDoc.extractedData as Record<string, unknown>).net_salary);
       }
 
       if (!monthlyIncome && employmentInfo) {
@@ -93,7 +93,7 @@ export const riskService = {
         });
 
         if (citizenshipDoc?.extractedData && typeof citizenshipDoc.extractedData === 'object') {
-          const dobStr = (citizenshipDoc.extractedData as any).date_of_birth;
+          const dobStr = (citizenshipDoc.extractedData as Record<string, unknown>).date_of_birth as string | undefined;
           if (dobStr) {
             const dob = new Date(dobStr);
             const age = Math.floor((Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25));

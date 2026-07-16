@@ -4,7 +4,7 @@ import { useToast } from "@shared/hooks/useToast";
 import { useSubmitKYCMutation } from "@features/kyc/api/kycApi";
 
 interface Props {
-  onComplete: (files: any, kycId: string) => void;
+  onComplete: (files: { citizenshipFront: File | null; citizenshipBack: File | null; selfie: File | null }, kycId: string) => void;
 }
 
 export const Step1Upload = ({ onComplete }: Props) => {

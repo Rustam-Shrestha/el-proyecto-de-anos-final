@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
@@ -36,7 +37,22 @@ export interface KycApplicationDetail {
   updatedAt: Date;
 }
 
-function formatKycDocument(doc: any) {
+interface KycDocumentLike {
+  id: string;
+  documentType?: string | null;
+  type?: string | null;
+  filePath: string;
+  fileMimeType?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  sizeBytes?: number | null;
+  verificationStatus?: string | null;
+  createdAt?: Date | null;
+  uploadedAt?: Date | null;
+  [key: string]: unknown;
+}
+
+function formatKycDocument(doc: KycDocumentLike) {
   return {
     id: doc.id,
     type: doc.documentType ?? doc.type,
@@ -48,7 +64,11 @@ function formatKycDocument(doc: any) {
   };
 }
 
-function formatKycApplication(kyc: any, userEmail?: string) {
+function formatKycApplication(kyc: {
+  user?: { email?: string } | null;
+  documents?: KycDocumentLike[];
+  [key: string]: unknown;
+} | null, userEmail?: string) {
   if (!kyc) return null;
   const user = kyc.user as { email?: string } | undefined;
   const email = userEmail ?? user?.email;
@@ -123,7 +143,7 @@ export const kycService = {
 
       logger.info({ userId: input.userId, kycId: kyc.id }, 'KYC application submitted');
 
-      return { ...kyc, userEmail: user.email, applicantEmail: user.email, documents: kyc.documents.map((d: any) => ({ id: d.id, type: d.documentType, filePath: d.filePath, mimeType: d.fileMimeType, sizeBytes: d.fileSize, verificationStatus: 'PENDING', createdAt: new Date() })) } as KycApplicationDetail;
+      return { ...kyc, userEmail: user.email, applicantEmail: user.email, documents: kyc.documents.map((d: { id: string; documentType: string; filePath: string; fileMimeType: string; fileSize: number }) => ({ id: d.id, type: d.documentType, filePath: d.filePath, mimeType: d.fileMimeType, sizeBytes: d.fileSize, verificationStatus: 'PENDING', createdAt: new Date() })) } as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId: input.userId }, 'Failed to submit KYC');
@@ -197,7 +217,7 @@ export const kycService = {
         faceVerificationStatus: kyc.faceVerificationStatus,
         ocrProcessingStatus: kyc.ocrProcessingStatus,
         queuedForManualReview: kyc.queuedForManualReview,
-      } as any;
+      } as unknown as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to get KYC status');
@@ -211,7 +231,7 @@ export const kycService = {
   /**
    * Get single KYC application by ID
    */
-  async getKycById(kycId: string): Promise<any> {
+  async getKycById(kycId: string): Promise<KycApplicationDetail> {
     try {
       const kyc = await prisma.kycApplication.findUnique({
         where: { id: kycId },
@@ -283,7 +303,7 @@ export const kycService = {
         faceVerificationStatus: kyc.faceVerificationStatus,
         ocrProcessingStatus: kyc.ocrProcessingStatus,
         queuedForManualReview: kyc.queuedForManualReview,
-      };
+      } as unknown as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to get KYC by ID');
@@ -302,9 +322,9 @@ export const kycService = {
     offset: number = 0,
     status?: string,
     search?: string
-  ): Promise<{ applications: any[]; total: number }> {
+  ): Promise<{ applications: (KycApplicationDetail | null)[]; total: number }> {
     try {
-      const where: any = {};
+      const where: Prisma.KycApplicationWhereInput = {};
 
       if (status) {
         where.status = status;
@@ -354,7 +374,7 @@ export const kycService = {
       ]);
 
       return {
-        applications: applications.map((a) => formatKycApplication(a)),
+        applications: applications.map((a: Parameters<typeof formatKycApplication>[0]) => formatKycApplication(a)),
         total,
       };
     } catch (error) {

@@ -121,9 +121,9 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
     // Background processing: FACE FIRST, OCR in background (non-blocking, after response sent)
     setImmediate(async () => {
       try {
-        const frontDoc = result.documents.find((d: any) => d.type === 'CITIZENSHIP_FRONT');
-        const backDoc = result.documents.find((d: any) => d.type === 'CITIZENSHIP_BACK');
-        const selfieDoc = result.documents.find((d: any) => d.type === 'SELFIE');
+        const frontDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_FRONT');
+        const backDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_BACK');
+        const selfieDoc = result.documents.find((d) => d.type === 'SELFIE');
 
         await prisma.kycApplication.update({
           where: { id: result.id },
@@ -209,7 +209,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
           try {
             await kycSubmissionFileService.createSubmissionFile(result.id);
             logger.info({ kycId: result.id }, 'Submission file created after face verification');
-          } catch (sfErr: any) {
+          } catch (sfErr: unknown) {
             logger.error({ err: sfErr, kycId: result.id }, 'Submission file creation failed (non-blocking)');
           }
         }
@@ -246,7 +246,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
                 },
               });
               await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_FRONT', ocrFront);
-              const prefill: any = {};
+              const prefill: Record<string, string | undefined> = {};
               if (ocrFront.extractedData.name) prefill.ocrFullName = ocrFront.extractedData.name;
               if (ocrFront.extractedData.citizenship_number) prefill.ocrCitizenshipNumber = ocrFront.extractedData.citizenship_number;
               if (ocrFront.extractedData.dob) prefill.ocrDateOfBirth = ocrFront.extractedData.dob;
@@ -347,15 +347,15 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
         }
 
         logger.info({ kycId: result.id }, 'Background face-first processing complete');
-      } catch (bgError: any) {
+      } catch (bgError: unknown) {
         logger.error({ err: bgError, kycId: result.id }, 'Background face-first processing failed');
         await prisma.kycApplication.update({
           where: { id: result.id },
           data: {
             processingStatus: 'FAILED',
-            ocrProcessingError: bgError?.message || 'Background processing failed',
+            ocrProcessingError: bgError instanceof Error ? bgError.message : 'Background processing failed',
           },
-        }).catch((e: any) => logger.error({ err: e }, 'Failed to store background error'));
+        }).catch((e: unknown) => logger.error({ err: e }, 'Failed to store background error'));
       }
     });
   } catch (error) {

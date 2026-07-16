@@ -2,7 +2,7 @@ import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { riskService } from '@/services/riskService';
-import { LoanPurpose, LoanStatus } from '@prisma/client';
+import { LoanPurpose, LoanStatus, Prisma } from '@prisma/client';
 
 export interface ApplyLoanInput {
   requestedAmount: number;
@@ -126,7 +126,7 @@ export const loanService = {
     requestingUserId?: string
   ) {
     try {
-      const where: any = {};
+      const where: Prisma.LoanApplicationWhereInput = {};
 
       if (filters.status) {
         where.status = filters.status;

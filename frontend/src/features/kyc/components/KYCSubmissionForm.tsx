@@ -9,17 +9,9 @@ import { FileUploadField } from "@shared/components/FileUploadField";
 import { useToast } from "@hooks/useToast";
 import { apiClient } from "@shared/lib/apiClient";
 import { useSubmitKYCMutation } from "@features/kyc/api/kycApi";
-import type { KYCApplication } from "@shared/types/common";
+import type { KYCApplication, User } from "@shared/types/common";
 import { DocumentType, FILE_VALIDATION } from "@shared/types/common";
 import CustomDatePicker from "@components/common/CutomDatePicker";
-
-type CurrentUser = {
-  id?: string;
-  email?: string;
-  fullName?: string;
-  phone?: string;
-  address?: string;
-};
 
 type FileField = "selfie" | "idProof" | "addressProof";
 const MAX_POLLING_ATTEMPTS = 20;
@@ -44,7 +36,6 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   const toast = useToast();
   const submitMutation = useSubmitKYCMutation();
   const [step, setStep] = useState(1);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -81,7 +72,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
   const authQuery = useQuery({
     queryKey: ["auth", "me", "kyc-submit"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data?: CurrentUser }>("/users/me");
+      const { data } = await apiClient.get<{ data?: User }>("/users/me");
       return data.data ?? null;
     },
     staleTime: 5 * 60 * 1000,
@@ -89,7 +80,6 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
 
   useEffect(() => {
     if (authQuery.data) {
-      setCurrentUser(authQuery.data);
       setFullName(authQuery.data.fullName ?? "");
       setPhone(authQuery.data.phone ?? "");
       setAddress(authQuery.data.address ?? "");

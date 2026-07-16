@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { kycApiService, type UploadResponse, type VerifyResponse } from "../api/kycApi";
+import type { FaceVerificationType, OCRResultType } from "@shared/types/common";
 
 interface UseKYCOptions {
   kycApplicationId?: string;
@@ -13,11 +14,11 @@ export interface ProcessingStatus {
   processingStatus: string;
   faceVerificationStatus: string;
   ocrProcessingStatus: string;
-  faceVerification: any;
-  latestOcrResult: any;
-  submissionFile: any;
+  faceVerification: FaceVerificationType | null;
+  latestOcrResult: OCRResultType | null;
+  submissionFile: Record<string, unknown> | null;
   queuedForManualReview: boolean;
-  pendingReviewQueue: any[];
+  pendingReviewQueue: unknown[];
   faceError: string | null;
   processingError: string | null;
 }

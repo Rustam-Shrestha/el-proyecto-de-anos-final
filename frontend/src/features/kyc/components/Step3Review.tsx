@@ -6,7 +6,7 @@ import { apiClient } from "@shared/lib/apiClient";
 interface Props {
   kycApplicationId: string;
   ocrData: Record<string, string>;
-  onComplete: (confirmedData: any) => void;
+  onComplete: (confirmedData: Record<string, string>) => void;
   onBack: () => void;
 }
 

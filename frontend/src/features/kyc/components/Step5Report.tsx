@@ -6,14 +6,14 @@ import { apiClient } from "@shared/lib/apiClient";
 
 interface Props {
   kycApplicationId: string;
-  onComplete: (report: any) => void;
+  onComplete: (report: Record<string, unknown> | null) => void;
   onBack: () => void;
 }
 
 export const Step5Report = ({ kycApplicationId, onComplete, onBack }: Props) => {
   const navigate = useNavigate();
   const toast = useToast();
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 

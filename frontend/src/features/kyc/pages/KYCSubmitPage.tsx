@@ -1,18 +1,15 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@shared/components/Button";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { useToast } from "@shared/hooks/useToast";
-import {
-  useGetMyKYCStatus,
-  useSubmitKYCMutation,
-} from "@features/kyc/api/kycApi";
+import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { KYCWizardSteps } from "@features/kyc/components/KYCWizardSteps";
 import { Step1Upload } from "@features/kyc/components/Step1Upload";
 import { Step2Processing } from "@features/kyc/components/Step2Processing";
 import { Step3Review } from "@features/kyc/components/Step3Review";
 import { Step4FaceResult } from "@features/kyc/components/Step4FaceResult";
 import { Step5Report } from "@features/kyc/components/Step5Report";
+import type { KYCApplication } from "@shared/types/common";
 
 const STEPS = ["Upload", "OCR", "Review", "Face", "Submit"];
 
@@ -23,40 +20,38 @@ const KYCSubmitPage = () => {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [kycApplicationId, setKycApplicationId] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState<any>({});
-  const [ocrData, setOcrData] = useState<any>(null);
-  const [faceResult, setFaceResult] = useState<any>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, unknown>>({});
+  const [ocrData, setOcrData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (existingKyc) {
-      const status = existingKyc?.status || (existingKyc as any)?.applicationStatus;
+      const status = existingKyc?.status || (existingKyc as KYCApplication & { applicationStatus?: string })?.applicationStatus;
       if (status === "APPROVED" || status === "UNDER_REVIEW" || status === "PENDING_REVIEW") {
         navigate("/dashboard/kyc-status");
       }
     }
   }, [existingKyc, navigate]);
 
-  const handleUploadComplete = useCallback((files: any, kycId: string) => {
+  const handleUploadComplete = useCallback((files: { citizenshipFront: File | null; citizenshipBack: File | null; selfie: File | null }, kycId: string) => {
     setUploadedFiles(files);
     setKycApplicationId(kycId);
     setCurrentStep(2);
   }, []);
 
-  const handleProcessingComplete = useCallback((extracted: any) => {
+  const handleProcessingComplete = useCallback((extracted: Record<string, unknown>) => {
     setOcrData(extracted);
     setCurrentStep(3);
   }, []);
 
-  const handleReviewComplete = useCallback((confirmedData: any) => {
+  const handleReviewComplete = useCallback((_confirmedData: Record<string, string>) => {
     setCurrentStep(4);
   }, []);
 
-  const handleFaceComplete = useCallback((result: any) => {
-    setFaceResult(result);
+  const handleFaceComplete = useCallback((_result: { similarityScore: number; status: string; recommendation: string | null } | null) => {
     setCurrentStep(5);
   }, []);
 
-  const handleReportGenerated = useCallback((report: any) => {
+  const handleReportGenerated = useCallback((_report: Record<string, unknown> | null) => {
     toast("KYC submitted successfully!", "success");
     navigate("/dashboard/kyc-status");
   }, [navigate, toast]);

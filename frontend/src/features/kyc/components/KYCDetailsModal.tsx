@@ -20,7 +20,7 @@ type OCRResult = {
   id: string;
   documentType: string;
   overallConfidence: number;
-  extractedData: Record<string, any>;
+  extractedData: Record<string, unknown>;
 };
 
 type FaceVerification = {
@@ -37,7 +37,7 @@ type VerificationReport = {
   faceSimilarity: number | null;
   ocrConfidence: number | null;
   fieldsCorrected: number;
-  possibleMismatches: any;
+  possibleMismatches: unknown;
   manualReviewSuggested: boolean;
   report: string;
 };
@@ -162,7 +162,7 @@ const recommendationIcon = (rec: string | null | undefined) => {
   }
 };
 
-const comparisonFields: Array<{ label: string; ocrKey: string; confirmedKey: string }> = [
+const comparisonFields: Array<{ label: string; ocrKey: keyof KYCApplicationExtended; confirmedKey: keyof KYCApplicationExtended }> = [
   { label: "Citizenship Number", ocrKey: "ocrCitizenshipNumber", confirmedKey: "confirmedCitizenshipNumber" },
   { label: "Full Name", ocrKey: "ocrFullName", confirmedKey: "confirmedFullName" },
   { label: "Date of Birth", ocrKey: "ocrDateOfBirth", confirmedKey: "confirmedDateOfBirth" },
@@ -238,7 +238,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
   const faceScore = faceVerification ? Math.round(faceVerification.similarityScore * 100) : null;
 
   const report = app?.verificationReport;
-  let parsedReport: any = null;
+  let parsedReport: Record<string, unknown> | null = null;
   if (report?.report) {
     try {
       parsedReport = JSON.parse(report.report);
@@ -333,8 +333,8 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                   </thead>
                   <tbody>
                     {comparisonFields.map((field) => {
-                      const ocrVal = (app as any)[field.ocrKey];
-                      const confirmedVal = (app as any)[field.confirmedKey];
+                      const ocrVal = (app as KYCApplicationExtended)[field.ocrKey];
+                      const confirmedVal = (app as KYCApplicationExtended)[field.confirmedKey];
                       const hasDiff = ocrVal && confirmedVal && ocrVal !== confirmedVal;
                       return (
                         <tr key={field.label} className={`border-b border-gray-100 ${hasDiff ? "bg-red-50/50" : ""}`}>
