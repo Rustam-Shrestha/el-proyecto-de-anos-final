@@ -9,7 +9,7 @@ const statusBadgeClasses: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800  ",
   UNDER_REVIEW: "bg-blue-100 text-blue-800  ",
   APPROVED: "bg-green-100 text-green-800  ",
-  REJECTED: "bg-red-100 text-red-800  ",
+  REJECTED: "bg-danger-100 text-red-800",
   DISBURSED: "bg-purple-100 text-purple-800  ",
   ACTIVE: "bg-indigo-100 text-indigo-800  ",
   CLOSED: "bg-gray-100 text-gray-800  ",
@@ -74,7 +74,7 @@ const LoanStatusPage = () => {
       <HeaderShell />
 
       {loansQuery.isError ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800   ">
+        <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
           Failed to load loan applications. Please try again later.
         </div>
       ) : null}
@@ -156,7 +156,7 @@ const LoanStatusPage = () => {
                       {loan.riskLevel ? (
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                           loan.riskLevel === "HIGH" || loan.riskLevel === "VERY_HIGH"
-                            ? "bg-red-100 text-red-800  "
+                            ? "bg-danger-100 text-red-800"
                             : loan.riskLevel === "MEDIUM"
                               ? "bg-yellow-100 text-yellow-800  "
                               : "bg-green-100 text-green-800  "

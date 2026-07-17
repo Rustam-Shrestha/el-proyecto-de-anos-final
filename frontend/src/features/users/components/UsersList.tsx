@@ -94,7 +94,7 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
 
   if (error) {
     return (
-      <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800   ">
+      <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <div className="flex-1">
@@ -181,7 +181,7 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
                       <button
                         type="button"
                         onClick={() => handleDeleteClick(user)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition-colors hover:bg-red-50   :bg-red-950/40"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition-colors hover:bg-danger-50"
                         aria-label={`Delete ${user.email}`}
                       >
                         <Trash2 className="h-4 w-4" />

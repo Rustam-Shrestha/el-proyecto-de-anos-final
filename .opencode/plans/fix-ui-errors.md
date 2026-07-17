@@ -78,7 +78,7 @@ Then add an error block after the `isLoading` check:
 if (isError) {
   return (
     <section className="space-y-6">
-      <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+      <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-danger-950/40 dark:text-red-200">
         Unable to load KYC status. Please try again later.
       </div>
     </section>

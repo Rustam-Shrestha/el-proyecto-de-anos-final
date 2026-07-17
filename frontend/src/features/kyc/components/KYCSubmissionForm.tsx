@@ -394,7 +394,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
       {step === 4 ? (
         <div className="space-y-5 py-8 text-center">
           {pollingError ? (
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-danger-100">
               <XCircle className="h-8 w-8 text-red-600" />
             </div>
           ) : (
@@ -407,7 +407,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
           )}
           <h3 className="text-lg font-semibold text-gray-900">Processing your documents</h3>
           {pollingError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <div className="rounded-xl border border-red-200 bg-danger-50 p-4">
               <p className="text-sm font-medium text-red-800">{pollingError}</p>
               <p className="mt-1 text-xs text-red-600">
                 Retrying automatically ({pollingAttempts}/{MAX_POLLING_ATTEMPTS})...

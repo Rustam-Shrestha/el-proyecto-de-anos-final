@@ -26,7 +26,7 @@ const LoanApplicationPage = () => {
       {isLoading ? (
         <SkeletonLoader count={2} type="list" />
       ) : isError ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800   ">
+        <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
           Unable to load KYC status. Please try again later.
         </div>
       ) : !kyc ? (

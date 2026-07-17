@@ -914,7 +914,7 @@ export const Button = ({
   const variantClass = {
     primary: "bg-blue-500 text-white hover:bg-blue-600",
     secondary: "bg-gray-300 text-gray-800 hover:bg-gray-400",
-    danger: "bg-red-500 text-white hover:bg-red-600"
+    danger: "bg-danger-500 text-white hover:bg-danger-600"
   }[variant];
   const sizeClass = {
     sm: "px-2 py-1 text-sm",

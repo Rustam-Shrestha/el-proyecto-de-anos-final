@@ -33,7 +33,7 @@ const docStatusToBadgeStatus = (
 const statusClasses: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
+  REJECTED: "bg-danger-100 text-red-800",
   UNDER_REVIEW: "bg-blue-100 text-blue-800",
   RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800",
 };
@@ -78,7 +78,7 @@ const UserKYCStatusPage = () => {
     return (
       <section className="space-y-6">
         <HeaderShell />
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800">
+        <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
           Unable to load your KYC status. Please try again later.
         </div>
       </section>
@@ -287,7 +287,7 @@ const UserKYCStatusPage = () => {
         </div>
 
         {application.rejectionReason ? (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <div className="mt-4 rounded-2xl border border-red-200 bg-danger-50 p-4 text-red-800">
             <p className="text-sm font-semibold">Rejection Reason</p>
             <p className="mt-1 text-sm">{application.rejectionReason}</p>
             <Link

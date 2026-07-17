@@ -18,16 +18,16 @@ const getRiskConfig = (score: number | null, level: RiskLevel | null) => {
   if (level === "VERY_HIGH" || (score !== null && score > 70)) {
     return {
       label: "High Risk",
-      bg: "bg-red-100 text-red-800  ",
-      dot: "bg-red-500",
+      bg: "bg-danger-100 text-red-800",
+      dot: "bg-danger-500",
     };
   }
 
   if (level === "HIGH" || (score !== null && score > 70)) {
     return {
       label: "High Risk",
-      bg: "bg-red-100 text-red-800  ",
-      dot: "bg-red-500",
+      bg: "bg-danger-100 text-red-800",
+      dot: "bg-danger-500",
     };
   }
 

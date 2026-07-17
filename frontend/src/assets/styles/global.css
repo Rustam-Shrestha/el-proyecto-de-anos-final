@@ -32,9 +32,10 @@
   }
 }
 
-/* Ensure section headers with red background always have white text */
-.bg-red-600,
-tr.bg-red-600,
+/* Ensure danger/hazard backgrounds always have white text */
+.bg-danger-600,
+tr.bg-danger-600,
+.bg-danger-500,
 .section-header-red {
   color: #fff !important;
 }

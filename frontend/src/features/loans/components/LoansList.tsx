@@ -10,7 +10,7 @@ const statusBadgeClasses: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800  ",
   UNDER_REVIEW: "bg-blue-100 text-blue-800  ",
   APPROVED: "bg-green-100 text-green-800  ",
-  REJECTED: "bg-red-100 text-red-800  ",
+  REJECTED: "bg-danger-100 text-red-800",
   DISBURSED: "bg-purple-100 text-purple-800  ",
   ACTIVE: "bg-indigo-100 text-indigo-800  ",
   CLOSED: "bg-gray-100 text-gray-800  ",
@@ -67,7 +67,7 @@ const LoansList = ({ status }: LoansListProps) => {
 
   if (loansQuery.isError) {
     return (
-      <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800   ">
+      <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
         <div className="flex items-start gap-3">
           <XCircle className="mt-0.5 h-5 w-5" />
           <div className="flex-1">
@@ -76,7 +76,7 @@ const LoansList = ({ status }: LoansListProps) => {
             <button
               type="button"
               onClick={() => loansQuery.refetch()}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-danger-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-danger-700"
             >
               <RefreshCcw className="h-4 w-4" />
               Retry

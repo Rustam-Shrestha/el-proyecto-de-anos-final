@@ -85,7 +85,7 @@ const CustomFileUpload = memo(({ onFileUpload }) => {
           <button
             type="button"
             aria-label="Remove uploaded image"
-            className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center"
+            className="absolute top-0 right-0 bg-danger-500 text-white w-5 h-5 rounded-full flex items-center justify-center"
             onClick={handleRemoveImage}
           >
             &times;

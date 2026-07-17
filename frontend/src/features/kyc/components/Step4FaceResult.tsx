@@ -52,7 +52,7 @@ export const Step4FaceResult = ({ kycApplicationId, onComplete, onBack }: Props)
         <div className="mt-4">
           <div className={`rounded p-4 mb-4 border ${
             faceStatus === "VERIFIED" ? "bg-green-50 border-green-200" :
-            faceStatus === "FAILED" ? "bg-red-50 border-red-200" :
+            faceStatus === "FAILED" ? "bg-danger-50 border-red-200" :
             "bg-amber-50 border-amber-200"
           }`}>
             <div className="flex items-center gap-3 mb-2">

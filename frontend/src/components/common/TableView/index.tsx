@@ -52,7 +52,7 @@ const TableHeader = memo(({ columns, onFilterChange, hasExpandableRows }) => {
                 />
                 <button
                   onClick={() => closeSearch(column.accessor)}
-                  className="absolute top-1 right-0 bg-red-500 text-gray-600 text-lg px-2 py-0 rounded-full rounded-e-none bg-[#F6F6F6] hover:bg-primary hover:text-white"
+                  className="absolute top-1 right-0 bg-danger-500 text-gray-600 text-lg px-2 py-0 rounded-full rounded-e-none bg-[#F6F6F6] hover:bg-primary hover:text-white"
                 >
                   &times;
                 </button>

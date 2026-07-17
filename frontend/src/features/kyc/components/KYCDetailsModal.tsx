@@ -97,7 +97,7 @@ const docStatusToBadgeStatus = (
 const statusBadgeClasses: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
+  REJECTED: "bg-danger-100 text-red-800",
   UNDER_REVIEW: "bg-blue-100 text-blue-800",
   RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800",
 };
@@ -150,7 +150,7 @@ const similarityColor = (score: number): string => {
 const similarityBg = (score: number): string => {
   if (score >= 85) return "bg-green-50 border-green-200";
   if (score >= 70) return "bg-yellow-50 border-yellow-200";
-  return "bg-red-50 border-red-200";
+  return "bg-danger-50 border-red-200";
 };
 
 const recommendationIcon = (rec: string | null | undefined) => {
@@ -227,7 +227,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
     }
   };
 
-  const isPending = resolvedApplication?.status === "PENDING";
+  const isPending = resolvedApplication?.status === "PENDING" || resolvedApplication?.status === "UNDER_REVIEW";
   const isRejecting = showRejectForm;
   const isMutating = approveMutation.isPending || rejectMutation.isPending;
 
@@ -337,7 +337,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                       const confirmedVal = (app as KYCApplicationExtended)[field.confirmedKey];
                       const hasDiff = ocrVal && confirmedVal && ocrVal !== confirmedVal;
                       return (
-                        <tr key={field.label} className={`border-b border-gray-100 ${hasDiff ? "bg-red-50/50" : ""}`}>
+                        <tr key={field.label} className={`border-b border-gray-100 ${hasDiff ? "bg-danger-50/50" : ""}`}>
                           <td className="py-2 pr-4 text-gray-700 font-medium">{field.label}</td>
                           <td className={`py-2 pr-4 ${ocrVal ? "text-gray-900" : "text-gray-400 italic"}`}>
                             {ocrVal || "—"}
@@ -408,7 +408,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                   <div className="h-2 w-full rounded-full bg-gray-200">
                     <div
                       className={`h-2 rounded-full transition-all ${
-                        faceScore >= 85 ? "bg-green-500" : faceScore >= 70 ? "bg-yellow-500" : "bg-red-500"
+                        faceScore >= 85 ? "bg-green-500" : faceScore >= 70 ? "bg-yellow-500" : "bg-danger-500"
                       }`}
                       style={{ width: `${Math.min(faceScore, 100)}%` }}
                     />
@@ -417,7 +417,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                       faceVerification.status === "MATCH" ? "bg-green-100 text-green-800" :
                       faceVerification.status === "POSSIBLE_MATCH" ? "bg-yellow-100 text-yellow-800" :
-                      "bg-red-100 text-red-800"
+                      "bg-danger-100 text-red-800"
                     }`}>
                       {faceVerification.status}
                     </span>
@@ -469,7 +469,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                 </div>
               </div>
               {mismatches.length > 0 && (
-                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
+                <div className="mt-3 rounded-xl border border-red-200 bg-danger-50 p-3">
                   <p className="text-xs font-semibold text-red-800 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
                     Possible Mismatches
@@ -553,7 +553,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
           </div>
 
           {app.rejectionReason ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+            <div className="rounded-2xl border border-red-200 bg-danger-50 p-4 text-red-800">
               <p className="flex items-center gap-2 text-sm font-semibold">
                 <AlertCircle className="h-4 w-4" />
                 Rejection Reason

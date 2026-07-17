@@ -50,7 +50,7 @@ const statusCardClasses: Record<string, string> = {
   APPROVED:
     "border-green-200 bg-green-50  ",
   REJECTED:
-    "border-red-200 bg-red-50  ",
+    "border-red-200 bg-danger-50",
 };
 
 const statusLabelClasses: Record<string, string> = {
@@ -59,7 +59,7 @@ const statusLabelClasses: Record<string, string> = {
   APPROVED:
     "bg-green-100 text-green-800  ",
   REJECTED:
-    "bg-red-100 text-red-800  ",
+    "bg-danger-100 text-red-800",
   UNDER_REVIEW:
     "bg-blue-100 text-blue-800  ",
   RESUBMIT_REQUIRED:
@@ -114,7 +114,7 @@ const KYCStatusPage = () => {
     return (
       <section className="space-y-6">
         <HeaderShell />
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800">
+        <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
           <p className="text-base font-medium">Unable to load your KYC status. Please try again later.</p>
           <p className="mt-2 text-sm text-red-600">If this issue persists, please contact support.</p>
           <Link
@@ -482,7 +482,7 @@ const RejectedSection = ({
         No specific reason provided.
       </p>
     )}
-    <div className="mt-4 rounded-xl border border-red-200 bg-red-100/50 p-3  ">
+    <div className="mt-4 rounded-xl border border-red-200 bg-danger-100/50 p-3">
       <p className="text-sm font-medium text-red-800 ">
         Need to resubmit?
       </p>
