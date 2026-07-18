@@ -14,10 +14,11 @@ export const tokenService = {
    * Generate access token (short-lived, 15 minutes)
    */
   generateAccessToken(userId: string, email: string, role: string): string {
+    const expiresIn = env.JWT_ACCESS_TTL as jwt.SignOptions['expiresIn'];
     return jwt.sign(
       { sub: userId, email, role },
       env.JWT_ACCESS_SECRET,
-      { expiresIn: env.JWT_ACCESS_TTL, algorithm: 'HS256' }
+      { expiresIn, algorithm: 'HS256' }
     );
   },
 
@@ -25,10 +26,11 @@ export const tokenService = {
    * Generate refresh token (long-lived, 7 days)
    */
   generateRefreshToken(userId: string, email: string, role: string): string {
+    const expiresIn = env.JWT_REFRESH_TTL as jwt.SignOptions['expiresIn'];
     return jwt.sign(
       { sub: userId, email, role },
       env.JWT_REFRESH_SECRET,
-      { expiresIn: env.JWT_REFRESH_TTL, algorithm: 'HS256' }
+      { expiresIn, algorithm: 'HS256' }
     );
   },
 

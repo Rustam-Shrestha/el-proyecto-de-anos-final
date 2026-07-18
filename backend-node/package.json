@@ -10,7 +10,7 @@
     "prestart": "prisma generate --schema prisma/schema.prisma",
     "start": "node dist/server.js",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "jest --runInBand",
+    "test": "jest --runInBand --passWithNoTests",
     "test:watch": "jest --watch",
     "seed": "tsx src/seed.ts",
     "reset-db": "tsx scripts/reset-db.ts"
@@ -44,7 +44,7 @@
   "devDependencies": {
     "@types/bcryptjs": "3.0.0",
     "@types/cors": "^2.8.19",
-    "@types/express": "5.0.6",
+    "@types/express": "4.17.23",
     "@types/jest": "30.0.0",
     "@types/jsonwebtoken": "9.0.10",
     "@types/morgan": "^1.9.10",

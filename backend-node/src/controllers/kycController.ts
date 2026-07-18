@@ -247,11 +247,11 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
               });
               await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_FRONT', ocrFront);
               const prefill: Record<string, string | undefined> = {};
-              if (ocrFront.extractedData.name) prefill.ocrFullName = ocrFront.extractedData.name;
-              if (ocrFront.extractedData.citizenship_number) prefill.ocrCitizenshipNumber = ocrFront.extractedData.citizenship_number;
-              if (ocrFront.extractedData.dob) prefill.ocrDateOfBirth = ocrFront.extractedData.dob;
-              if (ocrFront.extractedData.gender) prefill.ocrGender = ocrFront.extractedData.gender;
-              if (ocrFront.extractedData.address) prefill.ocrAddress = ocrFront.extractedData.address;
+              if (ocrFront.extractedData.name) prefill.ocrFullName = String(ocrFront.extractedData.name);
+              if (ocrFront.extractedData.citizenship_number) prefill.ocrCitizenshipNumber = String(ocrFront.extractedData.citizenship_number);
+              if (ocrFront.extractedData.dob) prefill.ocrDateOfBirth = String(ocrFront.extractedData.dob);
+              if (ocrFront.extractedData.gender) prefill.ocrGender = String(ocrFront.extractedData.gender);
+              if (ocrFront.extractedData.address) prefill.ocrAddress = String(ocrFront.extractedData.address);
               if (Object.keys(prefill).length > 0) {
                 await prisma.kycApplication.update({ where: { id: result.id }, data: { ...prefill, ocrFrontStatus: 'DONE' } });
               } else {
@@ -377,9 +377,8 @@ export const getKycStatus = async (req: Request, res: Response, next: NextFuncti
     const kyc = await kycService.getKycStatus(req.user.id);
 
     if (!kyc) {
-      return res.json(
-        apiResponse.success('No KYC application found', null)
-      );
+      res.json(apiResponse.success('No KYC application found', null));
+      return;
     }
 
     res.json(apiResponse.success('KYC status retrieved', kyc));

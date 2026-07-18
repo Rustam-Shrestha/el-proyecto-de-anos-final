@@ -28,9 +28,7 @@ export const updateUserRoleSchema = z.object({
     id: z.string().min(1, 'User ID is required'),
   }),
   body: z.object({
-    role: z.enum(['USER', 'ADMIN', 'REVIEWER'], {
-      errorMap: () => ({ message: 'Role must be USER, ADMIN, or REVIEWER' }),
-    }),
+    role: z.enum(['USER', 'ADMIN', 'REVIEWER']),
   }),
 });
 
@@ -54,9 +52,7 @@ export const createUserSchema = z.object({
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters'),
-    role: z.enum(['USER', 'ADMIN', 'REVIEWER'], {
-      errorMap: () => ({ message: 'Role must be USER, ADMIN, or REVIEWER' }),
-    }),
+    role: z.enum(['USER', 'ADMIN', 'REVIEWER']),
     fullName: z.string().optional(),
   }),
 });
@@ -67,9 +63,7 @@ export const updateUserAdminSchema = z.object({
   }),
   body: z.object({
     email: z.string().email('Invalid email').optional(),
-    role: z.enum(['USER', 'ADMIN', 'REVIEWER'], {
-      errorMap: () => ({ message: 'Role must be USER, ADMIN, or REVIEWER' }),
-    }).optional(),
+    role: z.enum(['USER', 'ADMIN', 'REVIEWER']).optional(),
   }).refine(
     (data) => data.email || data.role,
     { message: 'At least one field (email or role) must be provided' }

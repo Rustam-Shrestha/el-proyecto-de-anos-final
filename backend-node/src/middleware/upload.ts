@@ -29,7 +29,7 @@ const storage = multer.diskStorage({
 
   filename: (req, file, cb) => {
     if (!req.user) {
-      return cb(new Error('User not authenticated'));
+      return cb(new Error('User not authenticated'), '');
     }
 
     const documentType = req.body.type || 'OTHER';
@@ -46,7 +46,7 @@ const storage = multer.diskStorage({
  * File filter for Multer
  * Allowed MIME types: JPEG, PNG, WebP, PDF
  */
-const fileFilter = (_req: Request, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
   if (allowedMimes.includes(file.mimetype)) {

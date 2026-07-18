@@ -45,11 +45,12 @@ const profileSelect = {
   avatarUrl: true,
 } as const;
 
-const mapUserProfile = (user: UserWithProfile): Omit<UserDetail, 'isDeleted'> => ({
+const mapUserProfile = (user: UserWithProfile): UserDetail => ({
   id: user.id,
   email: user.email,
   role: user.role.name,
   isVerified: user.isVerified,
+  isDeleted: user.isDeleted,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
   fullName: user.profile?.fullName ?? null,

@@ -452,11 +452,11 @@ kycRouter.post('/extract-ocr', authenticate, async (req: Request, res: Response,
     });
 
     const prefillData: Record<string, string | undefined> = {};
-    if (result.extractedData.name) prefillData.ocrFullName = result.extractedData.name;
-    if (result.extractedData.citizenship_number) prefillData.ocrCitizenshipNumber = result.extractedData.citizenship_number;
-    if (result.extractedData.dob) prefillData.ocrDateOfBirth = result.extractedData.dob;
-    if (result.extractedData.gender) prefillData.ocrGender = result.extractedData.gender;
-    if (result.extractedData.address) prefillData.ocrAddress = result.extractedData.address;
+    if (result.extractedData.name) prefillData.ocrFullName = String(result.extractedData.name);
+    if (result.extractedData.citizenship_number) prefillData.ocrCitizenshipNumber = String(result.extractedData.citizenship_number);
+    if (result.extractedData.dob) prefillData.ocrDateOfBirth = String(result.extractedData.dob);
+    if (result.extractedData.gender) prefillData.ocrGender = String(result.extractedData.gender);
+    if (result.extractedData.address) prefillData.ocrAddress = String(result.extractedData.address);
 
     if (Object.keys(prefillData).length > 0) {
       await prisma.kycApplication.update({

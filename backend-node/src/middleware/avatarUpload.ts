@@ -13,7 +13,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     if (!req.user) {
-      return cb(new Error('User not authenticated'));
+      return cb(new Error('User not authenticated'), '');
     }
 
     const ext = path.extname(file.originalname).toLowerCase() || '.png';
