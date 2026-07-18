@@ -27,6 +27,13 @@ export const getLoanSchema = z.object({
   }),
 });
 
+export const calculateRiskSchema = z.object({
+  body: z.object({
+    requestedLoanAmount: z.number().positive().max(10000000),
+    loanTenureMonths: z.number().int().min(6).max(84)
+  }),
+});
+
 export const loanReviewSchema = z.object({
   params: z.object({
     id: z.string(),

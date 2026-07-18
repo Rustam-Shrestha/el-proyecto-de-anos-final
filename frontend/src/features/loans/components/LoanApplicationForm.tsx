@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApplyLoanMutation } from "@features/loans/api/loansApi";
+import { useApplyLoanMutation, useCalculateRiskMutation } from "@features/loans/api/loansApi";
+import type { HomeCreditFeatures, DeriveFeatures } from "@features/loans/api/loansApi";
 import { Button } from "@shared/components/Button";
 import { useToast } from "@shared/hooks/useToast";
 import { z } from "zod";
 import { loanApplicationSchema } from "@shared/utils/validators";
 import type { LoanPurpose } from "@shared/types/common";
+import RiskScoreDisplay from "@features/loans/components/RiskScoreDisplay";
 
 const ANNUAL_INTEREST_RATE = 18;
 
@@ -46,11 +48,18 @@ const LoanApplicationForm = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const applyMutation = useApplyLoanMutation();
+  const riskMutation = useCalculateRiskMutation();
 
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState<LoanPurpose>("PERSONAL");
   const [tenureMonths, setTenureMonths] = useState(12);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [riskResult, setRiskResult] = useState<{
+    riskScore: number;
+    riskLevel: string;
+    homeCredtFeatures: HomeCreditFeatures;
+    derivedFeatures: DeriveFeatures;
+  } | null>(null);
 
   const numericAmount = useMemo(() => {
     const parsed = Number(amount.replace(/,/g, ""));
@@ -83,6 +92,26 @@ const LoanApplicationForm = () => {
     setErrors({});
     return true;
   }, [numericAmount, purpose, tenureMonths]);
+
+  const handleCalculateRisk = async () => {
+    if (!validate()) return;
+
+    try {
+      const result = await riskMutation.mutateAsync({
+        requestedLoanAmount: numericAmount,
+        loanTenureMonths: tenureMonths,
+      });
+      setRiskResult({
+        riskScore: result.riskScore,
+        riskLevel: result.riskLevel,
+        homeCredtFeatures: result.homeCredtFeatures,
+        derivedFeatures: result.derivedFeatures,
+      });
+    } catch (error) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      toast.error(apiError.response?.data?.message || "Failed to calculate risk");
+    }
+  };
 
   const handleSubmit = async () => {
     if (!validate()) return;
@@ -213,18 +242,40 @@ const LoanApplicationForm = () => {
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-end gap-3 border-t border-gray-200 pt-5 ">
+      {riskResult ? (
+        <div className="mt-6">
+          <RiskScoreDisplay
+            riskScore={riskResult.riskScore}
+            riskLevel={riskResult.riskLevel}
+            homeCredtFeatures={riskResult.homeCredtFeatures}
+            derivedFeatures={riskResult.derivedFeatures}
+          />
+        </div>
+      ) : null}
+
+      <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5 ">
         <Button variant="ghost" type="button" onClick={() => navigate("/dashboard")}>
           Cancel
         </Button>
         <Button
           type="button"
-          onClick={handleSubmit}
-          isLoading={applyMutation.isPending}
+          variant="secondary"
+          onClick={handleCalculateRisk}
+          isLoading={riskMutation.isPending}
           disabled={!numericAmount || numericAmount < 10000}
         >
-          Submit Application
+          {riskResult ? "Recalculate Risk" : "Calculate Risk"}
         </Button>
+        {riskResult ? (
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            isLoading={applyMutation.isPending}
+            disabled={riskResult.riskLevel === "HIGH"}
+          >
+            Submit Application
+          </Button>
+        ) : null}
       </div>
     </div>
   );

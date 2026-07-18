@@ -14,12 +14,14 @@ export const saveEmployment = async (
       return;
     }
 
-    const { jobTitle, employmentStartDate, declaredAnnualIncome } = req.body;
+    const { occupationJobTitle, employmentStartDate, annualIncome, employerName, dependentsCount } = req.body;
 
     const result = await employmentService.saveEmploymentInfo(user.id, {
-      jobTitle,
+      occupationJobTitle,
       employmentStartDate,
-      declaredAnnualIncome: Number(declaredAnnualIncome),
+      annualIncome: Number(annualIncome),
+      employerName,
+      dependentsCount: dependentsCount ? Number(dependentsCount) : undefined,
     });
 
     res.status(201).json(

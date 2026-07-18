@@ -1,13 +1,16 @@
 import { memo } from "react";
 import { Link } from "react-router-dom";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
+import { useGetMyEmployment } from "@features/loans/api/employmentApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import LoanApplicationForm from "@features/loans/components/LoanApplicationForm";
 
 const LoanApplicationPage = () => {
   const { data: kyc, isLoading, isError } = useGetMyKYCStatus();
+  const { data: employment, isLoading: loadingEmployment } = useGetMyEmployment();
 
   const isKycApproved = kyc?.status === "APPROVED";
+  const hasPortfolio = !!employment?.annualIncome && employment.annualIncome > 0;
 
   return (
     <section className="space-y-6">
@@ -19,11 +22,11 @@ const LoanApplicationPage = () => {
           Apply for Loan
         </h1>
         <p className="mt-2 text-sm text-gray-500 ">
-          Submit a new loan application. Your KYC must be approved first.
+          Submit a new loan application. Your KYC must be approved and financial profile must be set up first.
         </p>
       </div>
 
-      {isLoading ? (
+      {isLoading || loadingEmployment ? (
         <SkeletonLoader count={2} type="list" />
       ) : isError ? (
         <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
@@ -57,6 +60,23 @@ const LoanApplicationPage = () => {
             className="mt-4 inline-block text-sm font-semibold underline"
           >
             Check KYC Status
+          </Link>
+        </div>
+      ) : !hasPortfolio ? (
+        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm   ">
+          <p className="text-base font-medium text-gray-900 ">
+            Financial profile required
+          </p>
+          <p className="mt-2 text-sm">
+            You need to set up your financial profile (employment & income details)
+            before applying for a loan. This data is used to assess your loan eligibility
+            and calculate your risk score.
+          </p>
+          <Link
+            to="/dashboard/portfolio"
+            className="mt-4 inline-block rounded-xl bg-[var(--green-icon)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
+          >
+            Set Up Financial Profile
           </Link>
         </div>
       ) : (

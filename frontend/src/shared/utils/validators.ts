@@ -67,11 +67,13 @@ export const loanApplicationSchema = z.object({
     "BUSINESS",
     "EDUCATION",
     "HOME",
-    "VEHICLE",
-    "AGRICULTURE",
-    "OTHER",
   ]),
-  termMonths: z.number().int().positive("Term must be positive"),
+  termMonths: z
+    .number()
+    .int()
+    .refine((v) => [6, 12, 18, 24, 36, 48, 60].includes(v), {
+      message: "Tenure must be one of: 6, 12, 18, 24, 36, 48, 60 months",
+    }),
   income: z.number().positive().optional(),
   employmentYears: z.number().min(0).optional(),
 });

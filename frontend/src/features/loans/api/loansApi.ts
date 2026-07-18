@@ -109,7 +109,11 @@ export const useApplyLoanMutation = () => {
     ) => {
       const { data } = await apiClient.post<ApiResponse<LoanApplication>>(
         "/loan/apply",
-        payload
+        {
+          requestedAmount: payload.amount,
+          tenureMonths: payload.termMonths,
+          purpose: payload.purpose,
+        }
       );
       return data.data;
     },
@@ -144,6 +148,51 @@ export const useReviewLoanMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: loanKeys.all });
+    },
+  });
+};
+
+export type HomeCreditFeatures = {
+  AMT_INCOME_TOTAL: number;
+  AMT_CREDIT: number;
+  DAYS_BIRTH: number;
+  DAYS_EMPLOYED: number;
+  AMT_ANNUITY: number;
+  OCCUPATION_TYPE: string;
+  CNT_CHILDREN: number;
+};
+
+export type DeriveFeatures = {
+  CREDIT_INCOME_PERCENT: number;
+  ANNUITY_INCOME_PERCENT: number;
+  INCOME_PER_PERSON: number;
+  DAYS_EMPLOYED_PERCENT: number;
+  EMPLOYMENT_STABILITY: number;
+  AGE_CATEGORY: number;
+};
+
+type CalculateRiskResponse = {
+  requestedLoanAmount: number;
+  loanTenureMonths: number;
+  calculatedEMI: number;
+  riskScore: number;
+  riskLevel: string;
+  homeCredtFeatures: HomeCreditFeatures;
+  derivedFeatures: DeriveFeatures;
+  approvalRecommendation: string;
+};
+
+export const useCalculateRiskMutation = () => {
+  return useMutation({
+    mutationFn: async (payload: {
+      requestedLoanAmount: number;
+      loanTenureMonths: number;
+    }) => {
+      const { data } = await apiClient.post<ApiResponse<CalculateRiskResponse>>(
+        "/loan/calculate-risk",
+        payload
+      );
+      return data.data;
     },
   });
 };

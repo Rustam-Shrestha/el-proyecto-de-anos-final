@@ -95,6 +95,7 @@ model User {
   documents         Document[]
   employmentInfo    EmploymentInfo?
   borrowerFeatures  BorrowerFeatures?
+  loanFeatures      LoanFeatures?
   loanApplications  LoanApplication[]
   reviewedLoans     LoanApplication[] @relation("LoanReviewer")
   verifiedDocuments Document[]        @relation("DocumentVerifier")
@@ -431,18 +432,70 @@ model DocumentVersion {
 
 // Employment information for borrower income assessment
 model EmploymentInfo {
-  id                     String   @id @default(cuid())
-  userId                 String   @unique
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobTitle               String
-  employmentStartDate    DateTime
-  declaredAnnualIncome   Decimal  @db.Decimal(12, 2)
-  employmentTenureMonths Int?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // HOME CREDIT MAPPING: Core Fields
+  employmentStatus          String   @default("UNEMPLOYED")
+  occupationJobTitle        String?  // Maps to OCCUPATION_TYPE
+  employerName              String?
+  employmentStartDate       DateTime?
+
+  // HOME CREDIT MAPPING: Income Fields
+  monthlyGrossIncome        Decimal  @db.Decimal(12, 2)  // Monthly salary
+  annualIncome              Decimal  @db.Decimal(12, 2)  // AMT_INCOME_TOTAL (Annual)
+
+  // HOME CREDIT MAPPING: Dependent Count
+  dependentsCount           Int      @default(0)         // CNT_CHILDREN
+
+  // Calculated Fields (Home Credit Derived)
+  employmentTenureMonths    Int?
+  employmentTenureDays      Int?     // DAYS_EMPLOYED (calculated, negative)
+  employmentStable          Boolean  @default(false)     // 1 if > 5 years
+  incomeSourceType          String   @default("SALARY")
+  incomeStabilityScore      Int      @default(50)        // 1-100
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   @@index([userId])
   @@map("employment_info")
+  @@schema("auth")
+}
+
+model LoanFeatures {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loanApplicationId         String?  // FK to active loan
+
+  // HOME CREDIT MAPPING: Loan Features
+  requestedLoanAmount       Decimal  @db.Decimal(12, 2)  // AMT_CREDIT
+  loanTenureMonths          Int
+  calculatedEMI             Decimal  @db.Decimal(10, 2)  // AMT_ANNUITY
+
+  // Derived Features (Home Credit Model)
+  creditIncomePercent       Decimal  @db.Decimal(5, 2)   // AMT_CREDIT / AMT_INCOME × 100
+  annuityIncomePercent      Decimal  @db.Decimal(5, 2)   // (EMI×12) / AMT_INCOME × 100
+
+  // Additional From Portfolio
+  totalDebtObligations      Decimal  @db.Decimal(12, 2)  // Sum of all EMIs
+  debtToIncomeRatio         Decimal  @db.Decimal(5, 2)   // (Debt + EMI) / Income × 100
+
+  // Calculated Safety Metrics
+  incomePerPerson           Decimal  @db.Decimal(12, 2)  // Income / (1 + dependents)
+  availableMonthlyCapacity  Decimal  @db.Decimal(10, 2)  // Income - expenses - existing debt
+
+  // Risk Assessment
+  riskScore                 Int      @default(50)        // 0-100
+  riskLevel                 String   @default("MEDIUM")  // LOW, MEDIUM, HIGH
+  defaultProbability        Float?   // 0-1 if ML model used
+
+  lastCalculated            DateTime @default(now())
+
+  @@index([userId])
+  @@map("loan_features")
   @@schema("auth")
 }
 

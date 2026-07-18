@@ -53,7 +53,7 @@ export const riskService = {
       }
 
       if (!monthlyIncome && employmentInfo) {
-        monthlyIncome = Number(employmentInfo.declaredAnnualIncome) / 12;
+        monthlyIncome = Number(employmentInfo.annualIncome) / 12;
       }
 
       const annualIncome = monthlyIncome ? monthlyIncome * 12 : undefined;
