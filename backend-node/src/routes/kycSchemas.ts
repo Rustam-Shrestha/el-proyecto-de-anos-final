@@ -17,7 +17,7 @@ export const submitKycSchema = z.object({
 
 export const getKycStatusSchema = z.object({
   query: z.object({
-    userId: z.string().uuid().optional(),
+    userId: z.string().optional(),
   }),
 });
 
@@ -34,19 +34,19 @@ export const listKycApplicationsSchema = z.object({
 
 export const getKycByIdSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid KYC application ID'),
+    id: z.string().min(1, 'KYC application ID is required'),
   }),
 });
 
 export const approveKycSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid KYC application ID'),
+    id: z.string().min(1, 'KYC application ID is required'),
   }),
 });
 
 export const rejectKycSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid KYC application ID'),
+    id: z.string().min(1, 'KYC application ID is required'),
   }),
   body: z.object({
     rejectionReason: z.string().min(10, 'Rejection reason must be at least 10 characters'),
@@ -55,7 +55,7 @@ export const rejectKycSchema = z.object({
 
 export const requestResubmitSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid KYC application ID'),
+    id: z.string().min(1, 'KYC application ID is required'),
   }),
   body: z.object({
     note: z.string().min(10, 'Note must be at least 10 characters'),

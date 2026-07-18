@@ -1,4 +1,4 @@
-export {
+import {
   Button,
   DangerButton,
   OutlineButton,
@@ -67,4 +67,11 @@ const FileUploadButton = ({
   );
 };
 
-export { FileUploadButton };
+export {
+  Button,
+  DangerButton,
+  OutlineButton,
+  PrimaryButton,
+  SecondaryButton,
+  FileUploadButton,
+};

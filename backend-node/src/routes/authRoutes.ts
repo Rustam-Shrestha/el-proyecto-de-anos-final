@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '@/middleware/auth';
+import { authLimiter } from '@/middleware/rateLimiter';
 import { validate } from '@/middleware/requestValidation';
 import {
   registerSchema,
@@ -70,7 +71,7 @@ const authRouter = Router();
  *       400:
  *         description: Validation error
  */
-authRouter.post('/register', validate(registerSchema), register);
+authRouter.post('/register', authLimiter, validate(registerSchema), register);
 
 /**
  * @swagger
@@ -108,7 +109,7 @@ authRouter.post('/register', validate(registerSchema), register);
  *       401:
  *         description: Invalid email or password
  */
-authRouter.post('/login', validate(loginSchema), login);
+authRouter.post('/login', authLimiter, validate(loginSchema), login);
 
 /**
  * @swagger

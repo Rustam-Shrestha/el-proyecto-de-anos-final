@@ -9,9 +9,13 @@ import {
   updateUserSchema,
   updateUserRoleSchema,
   updateUserProfileSchema,
+  createUserSchema,
+  updateUserAdminSchema,
   deleteUserSchema,
 } from '@/routes/schemas';
 import {
+  createUser,
+  updateUserAdmin,
   getMe,
   updateMe,
   uploadAvatar,
@@ -168,6 +172,14 @@ userRouter.delete('/me/avatar', authenticate, deleteAvatar);
  *       403:
  *         description: Forbidden - Admin access required
  */
+userRouter.post(
+  '/',
+  authenticate,
+  authorize('ADMIN'),
+  validate(createUserSchema),
+  createUser
+);
+
 userRouter.get(
   '/',
   authenticate,
@@ -207,6 +219,14 @@ userRouter.get(
   authorize('ADMIN'),
   validate(getUserByIdSchema),
   getUser
+);
+
+userRouter.patch(
+  '/:id',
+  authenticate,
+  authorize('ADMIN'),
+  validate(updateUserAdminSchema),
+  updateUserAdmin
 );
 
 /**

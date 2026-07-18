@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import AccessDeniedPage from "@pages/AccessDeniedPage";
+import { normalizeRole } from "@shared/utils/roleUtils";
 import { useAppSelector } from "@hooks/reduxHooks";
 import { selectIsAuthenticated, selectUserData } from "@store/slices/authSlice";
 
@@ -9,8 +10,6 @@ type RoleProtectedRouteProps = {
   requiredRoles: string[];
   fallback?: ReactNode;
 };
-
-const normalizeRole = (role?: string | null) => role?.trim().toLowerCase() ?? "";
 
 export const RoleProtectedRoute = ({ children, requiredRoles, fallback }: RoleProtectedRouteProps) => {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);

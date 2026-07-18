@@ -1,7 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAppSelector } from "@hooks/reduxHooks";
-
-const normalizeRole = (role?: string | null) => role?.trim().toLowerCase() ?? "";
+import { normalizeRole } from "@shared/utils/roleUtils";
 
 const getRoleFromLocalStorage = () => {
   try {
@@ -39,7 +38,7 @@ export const AdminOnlyRoute = () => {
   }
 
   if (role !== "admin") {
-    return <Navigate to="/app/access-denied" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/dashboard" replace state={{ from: location.pathname }} />;
   }
 
   return <Outlet />;

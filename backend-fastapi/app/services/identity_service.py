@@ -1,28 +1,14 @@
 """
 Identity Service - Face Verification and Matching.
-
-This module provides face detection, cropping, and matching functionality
-using the DeepFace library with the VGG-Face model.
-
-Core Components:
-1. Face Detection: Detect face region within ID documents.
-2. Face Cropping: Extract and align face for comparison.
-3. Face Matching: Compare embeddings using DeepFace.verify().
-4. Scoring & Threshold: Distance-based matching with configurable threshold.
-5. Persistence: Save verification results to database.
-
-Matching Threshold (VGG-Face Model):
-- distance < 0.4: Strong match (is_match = True)
-- distance >= 0.4: No match (is_match = False)
-
-Note: Threshold is tuned for VGG-Face and may need adjustment for other models.
 """
-
 import asyncio
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+os.environ['TF_USE_LEGACY_KERAS'] = '1'
 
 import cv2
 import numpy as np
@@ -39,9 +25,11 @@ class FaceVerificationService:
     Manages face detection, cropping, and matching for identity verification.
     """
 
-    MATCH_THRESHOLD = 0.4  # VGG-Face model threshold
-    MODEL = "VGG-Face"  # DeepFace model to use
+    MATCH_THRESHOLD = 0.4  # Facenet model threshold (typical range: 0.3-0.5)
+    MODEL = "Facenet"  # Faster than VGG-Face (~5-10s vs ~34s on CPU)
+    FALLBACK_MODEL = "VGG-Face"  # Slower but more robust
     DETECTOR = "opencv"  # Face detector backend
+    QUALITY_THRESHOLD = 0.3  # Minimum image quality score
 
     def __init__(self, match_threshold: float = 0.4):
         """
@@ -59,7 +47,7 @@ class FaceVerificationService:
         selfie_path: str,
         id_document_path: str,
         kyc_application_id: str,
-        session: AsyncSession,
+        session: Optional[AsyncSession] = None,
     ) -> FaceVerification:
         """
         Asynchronously verify face match between selfie and ID document.
@@ -98,7 +86,7 @@ class FaceVerificationService:
             id_document_path,
         )
 
-        # Save result to database
+        # Save result to database (only if session is provided)
         verification = FaceVerification(
             id=uuid.uuid4(),
             kyc_application_id=kyc_application_id,
@@ -109,43 +97,31 @@ class FaceVerificationService:
             model_used=self.MODEL,
         )
 
-        session.add(verification)
-        await session.flush()
-        logger.info("Face verification saved: %s (is_match=%s, distance=%.4f)", verification.id, is_match, distance)
+        if session is not None:
+            session.add(verification)
+            await session.flush()
+
+        logger.info("Face verification complete: is_match=%s, distance=%.4f", is_match, distance)
 
         return verification
 
     def _verify_face_match_sync(self, selfie_path: str, id_document_path: str) -> Tuple[float, bool]:
-        """
-        Synchronous face matching (executed in thread pool).
+        selfie_quality = self._estimate_image_quality(selfie_path)
+        id_quality = self._estimate_image_quality(id_document_path)
+        logger.info("Image quality - selfie: %.2f, id: %.2f", selfie_quality, id_quality)
 
-        Steps:
-        1. Crop face from ID document.
-        2. Detect face in selfie.
-        3. Compare embeddings using DeepFace.
-        4. Return distance and match verdict.
-        """
+        if selfie_quality < self.QUALITY_THRESHOLD or id_quality < self.QUALITY_THRESHOLD:
+            logger.warning("Image quality below threshold, cannot match reliably")
+            return (0.0, False)
+
         try:
-            # Step 1: Crop face from ID document
             id_face_crop = self._detect_and_crop_face(id_document_path, label="ID document")
             logger.debug("Face detected and cropped from ID document")
 
-            # Step 2: Verify selfie has a detectable face (but use it as-is for comparison)
-            self._detect_and_crop_face(selfie_path, label="Selfie")  # Just validation
+            self._detect_and_crop_face(selfie_path, label="Selfie")
             logger.debug("Face detected in selfie")
 
-            # Step 3: Compare using DeepFace
-            # Save cropped face temporarily for comparison
-            temp_crop_path = "/tmp/id_face_crop.png"
-            cv2.imwrite(temp_crop_path, id_face_crop)
-
-            result = DeepFace.verify(
-                img1_path=selfie_path,
-                img2_path=temp_crop_path,
-                model_name=self.MODEL,
-                detector_backend=self.DETECTOR,
-                enforce_detection=True,
-            )
+            result = self._deepface_verify_with_fallback(selfie_path, id_face_crop)
 
             distance = result["distance"]
             is_match = distance < self.match_threshold
@@ -157,49 +133,56 @@ class FaceVerificationService:
             logger.error("Face verification failed: %s", str(e), exc_info=True)
             raise ValueError(f"Face verification error: {str(e)}")
 
+    def _deepface_verify_with_fallback(self, img1_path: str, img2_crop: np.ndarray) -> dict:
+        try:
+            return DeepFace.verify(
+                img1_path=img1_path,
+                img2_path=img2_crop,
+                model_name=self.MODEL,
+                detector_backend=self.DETECTOR,
+                enforce_detection=True,
+            )
+        except Exception as e:
+            logger.warning("Facenet verification failed (%s), falling back to VGG-Face", str(e))
+            return DeepFace.verify(
+                img1_path=img1_path,
+                img2_path=img2_crop,
+                model_name=self.FALLBACK_MODEL,
+                detector_backend=self.DETECTOR,
+                enforce_detection=True,
+            )
+
+    def _estimate_image_quality(self, image_path: str) -> float:
+        image = cv2.imread(image_path)
+        if image is None:
+            return 0.0
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+        blur_score = min(laplacian_var / 500.0, 1.0)
+        brightness = gray.mean() / 255.0
+        brightness_score = 1.0 - abs(brightness - 0.5) * 2
+        h, w = gray.shape
+        size_score = min((w * h) / (400 * 400), 1.0)
+        quality = blur_score * 0.5 + brightness_score * 0.3 + size_score * 0.2
+        return max(0.0, min(quality, 1.0))
+
     def _detect_and_crop_face(self, image_path: str, label: str = "Image") -> np.ndarray:
-        """
-        Detect face in image and return cropped face region.
-
-        Uses OpenCV's cascade classifier for face detection.
-
-        Args:
-            image_path (str): Path to the image.
-            label (str): Label for logging.
-
-        Returns:
-            np.ndarray: Cropped face image.
-
-        Raises:
-            ValueError: If no face is detected.
-        """
         image = cv2.imread(image_path)
         if image is None:
             raise ValueError(f"Cannot load image: {image_path}")
 
-        # Use DeepFace's face detection
         try:
-            faces = DeepFace.extract_faces(
+            face_crop = DeepFace.detectFace(
                 img_path=image_path,
                 enforce_detection=True,
                 detector_backend=self.DETECTOR,
             )
-            if not faces:
+            if face_crop is None:
                 raise ValueError(f"No face detected in {label}: {image_path}")
 
-            # Use the first (largest) detected face
-            face_obj = faces[0]
-            x, y, w, h = int(face_obj["x"]), int(face_obj["y"]), int(face_obj["w"]), int(face_obj["h"])
+            face_crop = (face_crop * 255).astype(np.uint8)
 
-            # Add small padding for better comparison
-            padding = 10
-            x = max(0, x - padding)
-            y = max(0, y - padding)
-            w = min(image.shape[1] - x, w + 2 * padding)
-            h = min(image.shape[0] - y, h + 2 * padding)
-
-            face_crop = image[y : y + h, x : x + w]
-            logger.debug("Face cropped from %s. Shape: %s", label, face_crop.shape)
+            logger.debug("Face detected from %s. Shape: %s", label, face_crop.shape)
             return face_crop
 
         except Exception as e:

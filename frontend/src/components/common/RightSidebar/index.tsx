@@ -6,19 +6,19 @@ import UserProfile from "../../user";
 const RightSidebar = ({ onFileUpload, quickLinks = [] }) => {
   return (
     <aside className="hidden lg:flex lg:flex-col w-80 shrink-0 pl-6">
-      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-4 mb-4 shadow-sm">
+      <div className="bg-white  border border-gray-100  rounded-lg p-4 mb-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-sm font-semibold">Profile</h4>
         </div>
         <UserProfile />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-4 mb-4 shadow-sm">
+      <div className="bg-white  border border-gray-100  rounded-lg p-4 mb-4 shadow-sm">
         <h4 className="text-sm font-semibold mb-3">Upload</h4>
         <CustomFileUpload onFileUpload={onFileUpload} />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+      <div className="bg-white  border border-gray-100  rounded-lg p-4 shadow-sm">
         <h4 className="text-sm font-semibold mb-3">Quick Links</h4>
         <ul className="text-sm space-y-2">
           {quickLinks.length === 0 ? (

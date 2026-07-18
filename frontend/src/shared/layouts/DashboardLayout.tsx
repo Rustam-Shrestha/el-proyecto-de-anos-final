@@ -11,7 +11,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-color)] text-[var(--text-color)] transition-colors dark:bg-[#10211a] dark:text-gray-100">
+    <div className="min-h-screen bg-white text-[#1a1a1a]">
       <Navbar onToggleSidebar={() => setIsSidebarOpen((value) => !value)} />
       <div className="flex min-h-[calc(100vh-4rem)]">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

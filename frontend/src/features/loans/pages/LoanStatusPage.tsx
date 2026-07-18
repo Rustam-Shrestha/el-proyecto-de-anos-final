@@ -6,14 +6,14 @@ import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 
 
 const statusBadgeClasses: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
-  UNDER_REVIEW: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
-  APPROVED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
-  DISBURSED: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
-  ACTIVE: "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300",
-  CLOSED: "bg-gray-100 text-gray-800 dark:bg-gray-500/15 dark:text-gray-300",
-  DEFAULTED: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+  PENDING: "bg-yellow-100 text-yellow-800  ",
+  UNDER_REVIEW: "bg-blue-100 text-blue-800  ",
+  APPROVED: "bg-green-100 text-green-800  ",
+  REJECTED: "bg-danger-100 text-red-800",
+  DISBURSED: "bg-purple-100 text-purple-800  ",
+  ACTIVE: "bg-indigo-100 text-indigo-800  ",
+  CLOSED: "bg-gray-100 text-gray-800  ",
+  DEFAULTED: "bg-orange-100 text-orange-800  ",
 };
 
 const formatDate = (value?: string) => {
@@ -74,14 +74,14 @@ const LoanStatusPage = () => {
       <HeaderShell />
 
       {loansQuery.isError ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+        <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
           Failed to load loan applications. Please try again later.
         </div>
       ) : null}
 
       {!loansQuery.isError && loans.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-          <p className="text-base font-medium text-gray-900 dark:text-gray-100">
+        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500 shadow-sm   ">
+          <p className="text-base font-medium text-gray-900 ">
             No loan applications yet
           </p>
           <p className="mt-2 text-sm">
@@ -97,50 +97,50 @@ const LoanStatusPage = () => {
       ) : null}
 
       {loans.length > 0 ? (
-        <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm  ">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-              <thead className="bg-gray-50 dark:bg-gray-950/60">
+            <table className="min-w-full divide-y divide-gray-200 ">
+              <thead className="bg-gray-50 ">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Amount
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Purpose
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Tenure
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     EMI
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Risk
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Applied
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody className="divide-y divide-gray-100 ">
                 {loans.map((loan) => (
                   <tr
                     key={loan.id}
-                    className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                    className="transition-colors hover:bg-gray-50 :bg-gray-800/60"
                   >
-                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 ">
                       {formatNPR(loan.amount)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 text-sm text-gray-700 ">
                       {purposeLabel[loan.purpose] ?? loan.purpose}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 text-sm text-gray-700 ">
                       {loan.termMonths} mo
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 text-sm text-gray-700 ">
                       {loan.monthlyPayment ? formatNPR(loan.monthlyPayment) : "--"}
                     </td>
                     <td className="px-6 py-4 text-sm">
@@ -152,20 +152,20 @@ const LoanStatusPage = () => {
                         {loan.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 text-sm text-gray-700 ">
                       {loan.riskLevel ? (
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                           loan.riskLevel === "HIGH" || loan.riskLevel === "VERY_HIGH"
-                            ? "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300"
+                            ? "bg-danger-100 text-red-800"
                             : loan.riskLevel === "MEDIUM"
-                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300"
-                              : "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300"
+                              ? "bg-yellow-100 text-yellow-800  "
+                              : "bg-green-100 text-green-800  "
                         }`}>
                           {formatRiskLevel(loan.riskLevel)}
                         </span>
                       ) : "--"}
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 ">
                       {formatDate(loan.appliedAt)}
                     </td>
                   </tr>
@@ -174,8 +174,8 @@ const LoanStatusPage = () => {
             </table>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between ">
+            <p className="text-sm text-gray-500 ">
               Page {page} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ const LoanStatusPage = () => {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50   :bg-gray-800"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -192,7 +192,7 @@ const LoanStatusPage = () => {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50   :bg-gray-800"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />
@@ -206,14 +206,14 @@ const LoanStatusPage = () => {
 };
 
 const HeaderShell = () => (
-  <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+  <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
     <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
       Loan Applications
     </p>
-    <h1 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+    <h1 className="mt-2 text-3xl font-semibold text-gray-900 ">
       Your Loan Applications
     </h1>
-    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+    <p className="mt-2 text-sm text-gray-500 ">
       Track the status of your submitted loan applications.
     </p>
   </div>

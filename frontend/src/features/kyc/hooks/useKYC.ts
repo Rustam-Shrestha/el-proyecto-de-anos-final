@@ -1,23 +1,26 @@
-// """
-// useKYC Hook - Custom React hook for KYC operations.
-
-// Manages:
-// - Document uploads (citizenship, selfie)
-// - Face verification
-// - Status polling
-// - Error handling
-
-// Uses TanStack Query for data fetching and caching.
-// """
-
 import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { kycApiService, type UploadResponse, type VerifyResponse } from "../api/kycApi";
+import type { FaceVerificationType, OCRResultType } from "@shared/types/common";
 
 interface UseKYCOptions {
   kycApplicationId?: string;
   userId?: string;
   pollInterval?: number;
+}
+
+export interface ProcessingStatus {
+  workflowStage: string;
+  processingStatus: string;
+  faceVerificationStatus: string;
+  ocrProcessingStatus: string;
+  faceVerification: FaceVerificationType | null;
+  latestOcrResult: OCRResultType | null;
+  submissionFile: Record<string, unknown> | null;
+  queuedForManualReview: boolean;
+  pendingReviewQueue: unknown[];
+  faceError: string | null;
+  processingError: string | null;
 }
 
 export const useKYC = (options: UseKYCOptions = {}) => {
@@ -26,14 +29,24 @@ export const useKYC = (options: UseKYCOptions = {}) => {
 
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // Poll detailed processing status (face-first workflow)
   const kycStatusQuery = useQuery({
-    queryKey: ["kyc-status", kycApplicationId],
-    queryFn: async () => {
-      if (!kycApplicationId) throw new Error("KYC Application ID is required");
-      return kycApiService.getKYCStatus(kycApplicationId);
+    queryKey: ["kyc-processing", kycApplicationId],
+    queryFn: async (): Promise<ProcessingStatus | null> => {
+      if (!kycApplicationId) return null;
+      const res = await fetch(`/api/v1/kyc/status/${kycApplicationId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+      });
+      const json = await res.json();
+      return json?.data || null;
     },
     enabled: !!kycApplicationId,
-    refetchInterval: kycApplicationId ? pollInterval : undefined,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return pollInterval;
+      const done = data.workflowStage === 'COMPLETE' || data.processingStatus === 'FAILED';
+      return done ? false : pollInterval;
+    },
     staleTime: 0,
   });
 
@@ -46,17 +59,10 @@ export const useKYC = (options: UseKYCOptions = {}) => {
       file: File;
     }): Promise<UploadResponse> => {
       if (!userId) throw new Error("User ID is required");
-      return kycApiService.uploadDocument(
-        userId,
-        documentType,
-        file,
-        setUploadProgress
-      );
+      return kycApiService.uploadDocument(userId, documentType, file, setUploadProgress);
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({
-        queryKey: ["kyc-status", data.kyc_application_id],
-      });
+      queryClient.invalidateQueries({ queryKey: ["kyc-processing", data.kyc_application_id] });
     },
   });
 
@@ -69,51 +75,36 @@ export const useKYC = (options: UseKYCOptions = {}) => {
       idDocumentPath: string;
     }): Promise<VerifyResponse> => {
       if (!kycApplicationId) throw new Error("KYC Application ID is required");
-      return kycApiService.verifyFace(
-        kycApplicationId,
-        selfiePath,
-        idDocumentPath
-      );
+      return kycApiService.verifyFace(kycApplicationId, selfiePath, idDocumentPath);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["kyc-status", kycApplicationId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["kyc-processing", kycApplicationId] });
     },
   });
 
   const uploadDocument = useCallback(
-    async (documentType: string, file: File) => {
-      return uploadDocumentMutation.mutateAsync({ documentType, file });
-    },
+    async (documentType: string, file: File) => uploadDocumentMutation.mutateAsync({ documentType, file }),
     [uploadDocumentMutation]
   );
 
   const verifyFace = useCallback(
-    async (selfiePath: string, idDocumentPath: string) => {
-      return verifyFaceMutation.mutateAsync({ selfiePath, idDocumentPath });
-    },
+    async (selfiePath: string, idDocumentPath: string) => verifyFaceMutation.mutateAsync({ selfiePath, idDocumentPath }),
     [verifyFaceMutation]
   );
 
-  const resetProgress = useCallback(() => {
-    setUploadProgress(0);
-  }, []);
+  const resetProgress = useCallback(() => setUploadProgress(0), []);
 
   return {
-    // Status
     kycStatus: kycStatusQuery.data,
     kycStatusLoading: kycStatusQuery.isLoading,
     kycStatusError: kycStatusQuery.error,
 
-    // Document upload
     uploadDocument,
     uploadProgress,
     isUploading: uploadDocumentMutation.isPending,
     uploadError: uploadDocumentMutation.error,
     resetProgress,
 
-    // Face verification
     verifyFace,
     isVerifying: verifyFaceMutation.isPending,
     verifyError: verifyFaceMutation.error,

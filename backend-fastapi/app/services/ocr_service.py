@@ -1,33 +1,15 @@
-"""
-OCR Service - Mixed-Script Document Processing.
-
-This module provides comprehensive OCR functionality for extracting structured data
-from documents containing both Devanagari (Hindi) and English text.
-
-Core Components:
-1. Image Preprocessing: Grayscale conversion, resizing, noise reduction.
-2. PaddleOCR Integration: Language detection and text extraction.
-3. Fuzzy Matcher: Identifies key fields using Devanagari/English keyword matching.
-4. Data Structuring: Converts raw OCR output into structured key-value pairs.
-5. Persistence: Saves results to the database.
-
-Key Features:
-- Supports mixed-script documents (Devanagari + English).
-- Proximity-based field detection for structured data extraction.
-- Confidence scoring for extracted fields.
-- Async processing for I/O-intensive operations.
-"""
-
 import asyncio
 import json
 import logging
+import os
+import re
 import uuid
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
 import cv2
 import numpy as np
-from paddleocr import PaddleOCR
+import easyocr
 from thefuzz import fuzz
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,89 +19,57 @@ logger = logging.getLogger(__name__)
 
 
 class OCRProcessor:
-    """
-    Manages OCR extraction and data structuring for mixed-script documents.
-    """
 
-    # Devanagari and English keywords for fuzzy matching
     FIELD_KEYWORDS = {
-        "name": ["नाम", "name", "नाम:"],
-        "surname": ["थर", "surname", "थर:", "family name"],
-        "dob": ["जन्म मिति", "date of birth", "dob", "जन्म:", "d.o.b"],
-        "citizenship_number": ["नागरिकता नं", "citizenship no", "citizenship number", "नागरिकता:"],
-        "citizenship_number_alt": ["document number", "दस्तावेज संख्या"],
-        "gender": ["लिङ्ग", "sex", "gender", "लिङ्ग:"],
-        "address": ["ठेगाना", "address", "address:", "ठेगाना:"],
-        "father_name": ["बाबु", "father", "father name", "बाबु:"],
-        "mother_name": ["आमा", "mother", "mother name", "आमा:"],
+        "name": ["\u0928\u093e\u092e", "name", "\u0928\u093e\u092e:"],
+        "surname": ["\u0925\u0930", "surname", "\u0925\u0930:", "family name"],
+        "dob": ["\u091c\u0928\u094d\u092e \u092e\u093f\u0924\u093f", "date of birth", "dob", "\u091c\u0928\u094d\u092e:", "d.o.b"],
+        "citizenship_number": ["\u0928\u093e\u0917\u0930\u093f\u0915\u0924\u093e \u0928\u0902", "citizenship no", "citizenship number", "\u0928\u093e\u0917\u0930\u093f\u0915\u0924\u093e:"],
+        "citizenship_number_alt": ["document number", "\u0926\u0938\u094d\u0924\u093e\u0935\u0947\u091c \u0938\u0902\u0916\u094d\u092f\u093e"],
+        "gender": ["\u0932\u093f\u0919\u094d\u0917", "sex", "gender", "\u0932\u093f\u0919\u094d\u0917:"],
+        "address": ["\u0920\u0947\u0917\u093e\u0928\u093e", "address", "address:", "\u0920\u0947\u0917\u093e\u0928\u093e:"],
+        "father_name": ["\u092c\u093e\u092c\u0941", "father", "father name", "\u092c\u093e\u092c\u0941:"],
+        "mother_name": ["\u0906\u092e\u093e", "mother", "mother name", "\u0906\u092e\u093e:"],
     }
 
-    CONFIDENCE_THRESHOLD = 0.5  # Minimum OCR confidence to include a field
+    CONFIDENCE_THRESHOLD = 0.3
+    FUZZY_MATCH_THRESHOLD = 50
+    FUZZY_MATCH_THRESHOLD_STRICT = 70  # For longer keywords (>5 chars)
 
     def __init__(self, use_gpu: bool = False, lang: str = "hi"):
-        """
-        Initialize PaddleOCR with configuration for i3 processor compatibility.
-
-        Args:
-            use_gpu (bool): Enable GPU acceleration (False for i3 compatibility).
-            lang (str): Primary language ('hi' for Devanagari, 'en' for English).
-        """
-        logger.info("Initializing PaddleOCR with use_gpu=%s, lang=%s", use_gpu, lang)
-        # PaddleOCR expects a hashable language identifier (string); passing a list
-        # caused `TypeError: unhashable type: 'list'`. Use a single language string here.
-        # For mixed-script extraction, you can switch to a different model or run
-        # two passes (hi then en) if needed. Default to the provided `lang`.
-        self.ocr = PaddleOCR(use_gpu=use_gpu, lang=lang, use_angle_cls=True)
+        logger.info("Initializing EasyOCR with gpu=%s, lang=%s", use_gpu, lang)
+        self.ocr = easyocr.Reader(["hi", "en"], gpu=use_gpu, verbose=False)
         self.lang = lang
 
     async def process_image_async(self, image_path: str) -> Dict:
-        """
-        Asynchronously process an image file for OCR extraction.
-
-        Args:
-            image_path (str): Path to the image file.
-
-        Returns:
-            Dict: Contains 'raw_text', 'structured_data', 'confidence_score', 'language_detected'.
-
-        Raises:
-            FileNotFoundError: If image file does not exist.
-            ValueError: If image cannot be processed.
-        """
         if not Path(image_path).exists():
-            raise FileNotFoundError(f"Image file not found: {image_path}")
+            logger.warning("Image file not found: %s", image_path)
+            return {"raw_text": "", "structured_data": {}, "confidence_score": 0.0, "language_detected": "unknown", "error": "file_not_found"}
 
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, self._process_image_sync, image_path)
         return result
 
     def _process_image_sync(self, image_path: str) -> Dict:
-        """
-        Synchronous image processing (executed in thread pool).
-
-        Steps:
-        1. Load and preprocess image.
-        2. Run PaddleOCR extraction.
-        3. Detect language.
-        4. Apply fuzzy matching.
-        5. Structure data and calculate confidence.
-        """
         try:
-            # Step 1: Preprocess image
             preprocessed = self._preprocess_image(image_path)
             logger.debug("Image preprocessed: %s", image_path)
 
-            # Step 2: Run OCR
-            ocr_output = self.ocr.ocr(preprocessed, cls=True)
-            raw_text_lines = self._extract_raw_text(ocr_output)
-            raw_text = "\n".join(raw_text_lines)
-            logger.debug("OCR extraction complete. Lines: %d", len(raw_text_lines))
+            ocr_results = self.ocr.readtext(preprocessed, detail=1, paragraph=False)
 
-            # Step 3: Detect language
+            raw_lines, confs = self._extract_raw_text(ocr_results)
+            raw_text = "\n".join(raw_lines)
+            logger.debug("OCR extraction complete. Lines: %d", len(raw_lines))
+
             language = self._detect_language(raw_text)
 
-            # Step 4: Apply fuzzy matching and structuring
-            structured_data, confidence = self._structure_data(raw_text_lines, ocr_output)
+            structured_data, confidence = self._structure_data(raw_lines, confs)
+
+            if "citizenship_number" not in structured_data or not structured_data["citizenship_number"]:
+                civ = self._extract_citizenship_number(raw_lines)
+                if civ:
+                    structured_data["citizenship_number"] = civ
+
             logger.info("Data structured. Confidence: %.2f", confidence)
 
             return {
@@ -131,65 +81,43 @@ class OCRProcessor:
 
         except Exception as e:
             logger.error("Error processing image %s: %s", image_path, str(e), exc_info=True)
-            raise ValueError(f"Failed to process image: {str(e)}")
+            return {
+                "raw_text": "",
+                "structured_data": {},
+                "confidence_score": 0.0,
+                "language_detected": "unknown",
+                "error": str(e),
+            }
 
     def _preprocess_image(self, image_path: str) -> np.ndarray:
-        """
-        Preprocess image for optimal OCR extraction.
-
-        Steps:
-        1. Load image.
-        2. Convert to grayscale.
-        3. Resize to max 1080px width while maintaining aspect ratio.
-        4. Apply slight contrast enhancement using CLAHE.
-        """
         image = cv2.imread(image_path)
         if image is None:
             raise ValueError(f"Cannot load image: {image_path}")
 
-        # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Resize to max 1080px width
         height, width = gray.shape
-        if width > 1080:
-            scale = 1080 / width
+        if width > 720:
+            scale = 720 / width
             new_height = int(height * scale)
-            gray = cv2.resize(gray, (1080, new_height), interpolation=cv2.INTER_AREA)
+            gray = cv2.resize(gray, (720, new_height), interpolation=cv2.INTER_AREA)
 
-        # Apply CLAHE for contrast enhancement
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         gray = clahe.apply(gray)
 
         logger.debug("Image preprocessed. Shape: %s", gray.shape)
         return gray
 
-    def _extract_raw_text(self, ocr_output: List) -> List[str]:
-        """
-        Extract raw text from PaddleOCR output.
-
-        PaddleOCR returns: [[[x1, y1], [x2, y2], ...], ('text', confidence)], ...]
-
-        Returns:
-            List[str]: Extracted text lines.
-        """
+    def _extract_raw_text(self, ocr_results: List) -> Tuple[List[str], List[float]]:
         raw_lines = []
-        for line in ocr_output:
-            for word_info in line:
-                text = word_info[1][0]
-                confidence = word_info[1][1]
-                if confidence >= self.CONFIDENCE_THRESHOLD:
-                    raw_lines.append(text)
-        return raw_lines
+        confidences = []
+        for bbox, text, confidence in ocr_results:
+            if confidence >= self.CONFIDENCE_THRESHOLD:
+                raw_lines.append(text)
+                confidences.append(confidence)
+        return raw_lines, confidences
 
     def _detect_language(self, text: str) -> str:
-        """
-        Detect the language in the text (hi, en, or mixed).
-
-        Uses Unicode ranges:
-        - Devanagari: U+0900 to U+097F
-        - Latin: U+0041 to U+005A, U+0061 to U+007A
-        """
         devanagari_count = sum(1 for c in text if '\u0900' <= c <= '\u097F')
         latin_count = sum(1 for c in text if ('A' <= c <= 'Z') or ('a' <= c <= 'z'))
         total = devanagari_count + latin_count
@@ -207,24 +135,9 @@ class OCRProcessor:
         else:
             return "mixed"
 
-    def _structure_data(self, raw_lines: List[str], ocr_output: List) -> Tuple[Dict, float]:
-        """
-        Apply fuzzy matching to extract structured key-value pairs.
-
-        Algorithm:
-        1. For each field type, find the best matching line using fuzzy matching.
-        2. Extract the value from the matched line (proximity-based if possible).
-        3. Calculate overall confidence as average of matched field confidences.
-
-        Args:
-            raw_lines (List[str]): Extracted text lines.
-            ocr_output (List): Full OCR output with bounding boxes and confidence.
-
-        Returns:
-            Tuple[Dict, float]: (structured_data, confidence_score)
-        """
+    def _structure_data(self, raw_lines: List[str], confidences: List[float]) -> Tuple[Dict, float]:
         structured = {}
-        confidences = []
+        matched_confidences = []
 
         for field_name, keywords in self.FIELD_KEYWORDS.items():
             best_match = None
@@ -233,56 +146,92 @@ class OCRProcessor:
 
             for i, line in enumerate(raw_lines):
                 for keyword in keywords:
-                    # Use token_set_ratio for more flexible matching
-                    score = fuzz.token_set_ratio(keyword.lower(), line.lower())
-                    if score > best_score and score > 60:  # Threshold for fuzzy match
+                    if self._find_field_in_text(keyword, line):
+                        score = 100
+                    else:
+                        score = 0
+                    if score > best_score and score > self.FUZZY_MATCH_THRESHOLD:
                         best_score = score
                         best_match = i
-                        # Extract confidence from OCR output
-                        best_confidence = ocr_output[i][0][-1] if i < len(ocr_output) else 0.5
+                        best_confidence = confidences[i] if i < len(confidences) else 0.5
 
             if best_match is not None:
-                # Extract value: next non-keyword line or remainder of matched line
                 value = self._extract_field_value(raw_lines, best_match)
-                structured[field_name] = value
-                confidences.append(best_confidence)
+                if field_name in ("citizenship_number", "citizenship_number_alt") and value:
+                    # Skip values that contain no digits (wrong line picked up by OCR)
+                    if not re.search(r'\d', value):
+                        logger.debug("Skipping non-numeric value as citizenship number: %s", value)
+                        value = None
+                    else:
+                        # Preserve original formatting; just ensure it has digits
+                        digits = re.sub(r'\D', '', value)
+                        if len(digits) < 4:
+                            logger.debug("Too few digits for citizenship number: %s", value)
+                            value = None
+                if value is not None:
+                    structured[field_name] = value
+                    matched_confidences.append(best_confidence)
 
-        # Calculate overall confidence
-        overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+        if "citizenship_number_alt" in structured and "citizenship_number" not in structured:
+            structured["citizenship_number"] = structured.pop("citizenship_number_alt")
+        elif "citizenship_number_alt" in structured:
+            del structured["citizenship_number_alt"]
+
+        overall_confidence = sum(matched_confidences) / len(matched_confidences) if matched_confidences else 0.0
         overall_confidence = min(overall_confidence, 1.0)
 
         logger.debug("Structured data: %s fields. Overall confidence: %.2f", len(structured), overall_confidence)
         return structured, overall_confidence
 
+    def _find_field_in_text(self, keyword: str, line: str) -> bool:
+        if len(keyword) <= 5:
+            return keyword.lower() in line.lower()
+        score = fuzz.token_set_ratio(keyword.lower(), line.lower())
+        return score > self.FUZZY_MATCH_THRESHOLD_STRICT
+
     def _extract_field_value(self, lines: List[str], line_index: int) -> str:
-        """
-        Extract the value for a matched field.
-
-        Strategy:
-        1. Check if the next line is a value (non-keyword).
-        2. Otherwise, extract remainder of the current line after the keyword.
-        3. Fallback to the entire line if nothing else works.
-        """
-        if line_index + 1 < len(lines):
-            next_line = lines[line_index + 1]
-            # Check if next line is a keyword (heuristic: short, all caps or Devanagari)
-            if not any(kw.lower() in next_line.lower() for kws in self.FIELD_KEYWORDS.values() for kw in kws):
-                return next_line.strip()
-
-        # Try to extract the part after the colon or keyword
         line = lines[line_index]
-        if ":" in line:
-            parts = line.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
+
+        if line_index + 1 < len(lines):
+            next_line = lines[line_index + 1].strip()
+            is_keyword = any(
+                kw.lower() in next_line.lower()
+                for kws in self.FIELD_KEYWORDS.values()
+                for kw in kws
+            )
+            if next_line and not is_keyword and len(next_line) > 2:
+                return next_line
+
+        for sep in [":", "-", "\u2014", "\u2013", "="]:
+            if sep in line:
+                parts = line.split(sep, 1)
+                if len(parts) > 1 and parts[1].strip():
+                    return parts[1].strip()
+
+        all_keywords = sorted(
+            set(kw for kws in self.FIELD_KEYWORDS.values() for kw in kws),
+            key=len,
+            reverse=True,
+        )
+        lower_line = line.lower()
+        for kw in all_keywords:
+            idx = lower_line.find(kw.lower())
+            if idx >= 0:
+                after = line[idx + len(kw):].strip().lstrip(":-\u2014\u2013= ").strip()
+                if after:
+                    return after
 
         return line.strip()
 
+    def _extract_citizenship_number(self, raw_lines: List[str]) -> Optional[str]:
+        for line in raw_lines:
+            digits = re.sub(r'\D', '', line)
+            if re.match(r'^\d{11}$', digits):
+                return digits
+        return None
+
 
 class OCRService:
-    """
-    High-level OCR service for integration with FastAPI endpoints.
-    """
 
     def __init__(self):
         self.processor = OCRProcessor(use_gpu=False, lang="hi")
@@ -294,24 +243,10 @@ class OCRService:
         document_type: str,
         session: AsyncSession,
     ) -> OCRResult:
-        """
-        Process a document image and save results to the database.
-
-        Args:
-            image_path (str): Path to the image file.
-            kyc_application_id (str): ID of the KYC application.
-            document_type (str): Type of document (citizenship_front, citizenship_back, etc.).
-            session (AsyncSession): SQLAlchemy async session.
-
-        Returns:
-            OCRResult: Database record of the OCR result.
-        """
         logger.info("Processing document: %s (app_id=%s)", image_path, kyc_application_id)
 
-        # Process image asynchronously
         result = await self.processor.process_image_async(image_path)
 
-        # Create database record
         ocr_record = OCRResult(
             id=uuid.uuid4(),
             kyc_application_id=kyc_application_id,
@@ -329,5 +264,4 @@ class OCRService:
         return ocr_record
 
 
-# Global OCR service instance
 ocr_service = OCRService()

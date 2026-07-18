@@ -63,7 +63,7 @@ const DesktopNav = ({
             !item.isDisable && (
               <ul className="absolute left-0 top-8 z-50 border rounded shadow-lg w-40" style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}>
                 {item.dropdownItems?.map((dropdownItem, dropdownIndex) => (
-                  <li key={dropdownIndex} className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                  <li key={dropdownIndex} className="hover:bg-gray-100 :bg-gray-700 cursor-pointer">
                     <Link
                       to={dropdownItem.path}
                       className="block px-4 py-2 text-sm" style={{ color: 'var(--text-color)' }}

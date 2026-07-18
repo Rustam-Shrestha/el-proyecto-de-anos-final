@@ -1,13 +1,12 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@components/common/Button";
 import InputField from "@components/common/Input";
 import PopMessage from "@components/PopMessage";
 import { useAppDispatch, useAppSelector } from "@hooks/reduxHooks";
-import { apiService } from "@services/apiService";
-import { endpoints } from "@services/endpoints";
+import { loginRequest } from "@features/auth/api/authApi";
 import { loginSchema, type LoginInput } from "@shared/validation/authSchemas";
 import {
   selectIsAuthenticated,
@@ -45,7 +44,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate, user?.id]);
 
@@ -54,8 +53,7 @@ const Auth = () => {
     dispatch(setError(null));
 
     try {
-      const response = await apiService.post(endpoints.login, values);
-      const payload = response?.data?.data ?? response?.data ?? response;
+      const payload = await loginRequest(values);
       const accessToken = payload?.accessToken ?? null;
       const refreshToken = payload?.refreshToken ?? null;
       const nextUser = payload?.user ?? null;
@@ -81,7 +79,7 @@ const Auth = () => {
       dispatch(setUser(nextUser));
 
       PopMessage.success("Login successful");
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
       const apiError = error as {
         response?: { data?: { message?: string } };
@@ -98,15 +96,15 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-color)] px-4 py-10 text-[var(--text-color)] transition-colors dark:bg-[#10211a]">
+    <div className="min-h-screen bg-[var(--bg-color)] px-4 py-10 text-[var(--text-color)] transition-colors">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl items-center justify-center">
-        <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-xl transition-colors dark:bg-[#18251f] sm:p-8">
+        <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-sm sm:p-8">
           <div className="mb-6 space-y-2 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">
               CMS Access
             </p>
             <h1 className="text-3xl font-semibold text-[var(--text-color)]">Login to FinGuard</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-300">Enter your credentials</p>
+            <p className="text-sm text-gray-500 ">Enter your credentials</p>
           </div>
 
           <form
@@ -137,6 +135,13 @@ const Auth = () => {
               </Button>
             </div>
           </form>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-gray-500">Don't have an account? </span>
+            <Link to="/register" className="text-blue-600 hover:underline font-medium">
+              Register
+            </Link>
+          </div>
         </div>
       </div>
     </div>

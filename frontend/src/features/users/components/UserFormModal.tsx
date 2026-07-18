@@ -148,10 +148,10 @@ export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) =
           />
         )}
 
-        <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+        <label className="grid gap-2 text-sm font-medium text-gray-700 ">
           Role
           <select
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)]"
             {...register("role")}
           >
             <option value="USER">User</option>

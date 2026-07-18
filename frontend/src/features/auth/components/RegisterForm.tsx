@@ -67,7 +67,7 @@ const RegisterForm = () => {
       dispatch(setUser(nextUser));
 
       toast.success("Account created");
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
       const apiError = error as {
         response?: { data?: { message?: string } };
@@ -102,7 +102,7 @@ const RegisterForm = () => {
         {...register("password")}
       />
 
-      <p className="-mt-2 text-xs text-gray-500 dark:text-gray-300">
+      <p className="-mt-2 text-xs text-gray-500 ">
         Password must be at least 8 characters and include uppercase, lowercase, and a number.
       </p>
 

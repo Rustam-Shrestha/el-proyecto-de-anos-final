@@ -7,7 +7,7 @@ interface DocumentStatusBadgeProps {
 const statusConfig: Record<DocumentBadgeStatus, { label: string; bg: string; text: string }> = {
   PENDING: { label: "Pending", bg: "bg-yellow-100", text: "text-yellow-800" },
   VERIFIED: { label: "Verified", bg: "bg-green-100", text: "text-green-800" },
-  REJECTED: { label: "Rejected", bg: "bg-red-100", text: "text-red-800" },
+  REJECTED: { label: "Rejected", bg: "bg-danger-100", text: "text-red-800" },
   MANUAL_REVIEW: { label: "Manual Review", bg: "bg-orange-100", text: "text-orange-800" },
   PROCESSING: { label: "Processing", bg: "bg-blue-100", text: "text-blue-800" },
 };

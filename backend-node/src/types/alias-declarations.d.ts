@@ -82,6 +82,7 @@ declare module '@/routes/kycSchemas' {
 
 declare module '@/controllers/kycController' {
   export const submitKyc: any;
+  export const getMyStatus: any;
   export const getKycStatus: any;
   export const listKycApplications: any;
   export const getKycById: any;
@@ -101,7 +102,9 @@ declare module '@/middleware/avatarUpload' {
 
 declare module '@/routes/documentSchemas' {
   export const uploadDocumentSchema: any;
+  export const getKycDocumentsSchema: any;
   export const getDocumentSchema: any;
+  export const verifyDocumentSchema: any;
   export const getDocumentVersionsSchema: any;
   export const deleteDocumentSchema: any;
   export const replaceDocumentSchema: any;
@@ -109,19 +112,24 @@ declare module '@/routes/documentSchemas' {
 
 declare module '@/controllers/documentController' {
   export const uploadDocument: any;
+  export const getKycDocuments: any;
   export const getDocument: any;
+  export const verifyDocument: any;
   export const getDocumentVersions: any;
   export const deleteDocument: any;
   export const replaceDocument: any;
 }
 
 declare module '@/controllers/userController' {
+  export const createUser: any;
+  export const updateUserAdmin: any;
   export const getMe: any;
   export const updateMe: any;
   export const uploadAvatar: any;
   export const deleteAvatar: any;
   export const listUsers: any;
   export const getUser: any;
+  export const updateProfile: any;
   export const changeUserRole: any;
   export const deleteUser: any;
 }

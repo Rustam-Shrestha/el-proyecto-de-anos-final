@@ -33,21 +33,26 @@ const formatDate = (value?: string) => {
       }).format(date);
 };
 
-const roleBadge = (role: string) => {
+const extractRoleName = (role: unknown): string => {
+  if (typeof role === "string") return role;
+  if (role && typeof role === "object" && "name" in role) return String((role as { name: string }).name);
+  return "UNKNOWN";
+};
+
+const roleBadge = (role: unknown) => {
+  const roleName = extractRoleName(role);
   const styles: Record<string, string> = {
-    ADMIN:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-    REVIEWER:
-      "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-    USER: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+    ADMIN: "bg-purple-100 text-purple-800",
+    REVIEWER: "bg-blue-100 text-blue-800",
+    USER: "bg-green-100 text-green-800",
   };
   return (
     <span
       className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        styles[role] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+        styles[roleName] || "bg-gray-100 text-gray-800"
       }`}
     >
-      {role}
+      {roleName}
     </span>
   );
 };
@@ -89,7 +94,7 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
 
   if (error) {
     return (
-      <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+      <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <div className="flex-1">
@@ -112,8 +117,8 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
 
   if (!users.length) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-        <p className="text-base font-medium text-gray-900 dark:text-gray-100">
+      <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500 shadow-sm   ">
+        <p className="text-base font-medium text-gray-900 ">
           No users found
         </p>
         <p className="mt-2 text-sm">Try a different page or refresh later.</p>
@@ -122,44 +127,44 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm  ">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-          <thead className="bg-gray-50 dark:bg-gray-950/60">
+        <table className="min-w-full divide-y divide-gray-200 ">
+          <thead className="bg-gray-50 ">
             <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                 Email
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                 Role
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                 Status
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                 Created At
               </th>
               {isAdmin && (
-                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-200">
+                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 ">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <tbody className="divide-y divide-gray-100 ">
             {users.map((user) => (
               <tr
                 key={user.id}
-                className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                className="transition-colors hover:bg-gray-50 :bg-gray-800/60"
               >
-                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                <td className="px-6 py-4 text-sm text-gray-900 ">
                   {user.email}
                 </td>
                 <td className="px-6 py-4">{roleBadge(user.role)}</td>
-                <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                <td className="px-6 py-4 text-sm text-gray-600 ">
                   {user.isVerified ? "Verified" : "Unverified"}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                <td className="px-6 py-4 text-sm text-gray-600 ">
                   {formatDate(user.createdAt)}
                 </td>
                 {isAdmin && (
@@ -168,7 +173,7 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
                       <button
                         type="button"
                         onClick={() => onEdit(user.id)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-blue-200 text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-blue-200 text-blue-600 transition-colors hover:bg-blue-50   :bg-blue-950/40"
                         aria-label={`Edit ${user.email}`}
                       >
                         <PencilLine className="h-4 w-4" />
@@ -176,7 +181,7 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
                       <button
                         type="button"
                         onClick={() => handleDeleteClick(user)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/40 dark:text-red-300 dark:hover:bg-red-950/40"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition-colors hover:bg-danger-50"
                         aria-label={`Delete ${user.email}`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -190,8 +195,8 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
         </table>
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+      <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between ">
+        <p className="text-sm text-gray-500 ">
           Page {page} of {totalPages}
         </p>
         <div className="flex items-center gap-2">
@@ -199,7 +204,7 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
             type="button"
             onClick={goToPreviousPage}
             disabled={page <= 1}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50   :bg-gray-800"
           >
             <ChevronLeft className="h-4 w-4" />
             Previous
@@ -208,7 +213,7 @@ const UsersList = memo(({ onEdit }: UsersListProps) => {
             type="button"
             onClick={() => goToNextPage(totalPages)}
             disabled={page >= totalPages}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50   :bg-gray-800"
           >
             Next
             <ChevronRight className="h-4 w-4" />

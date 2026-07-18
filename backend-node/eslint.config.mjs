@@ -14,11 +14,17 @@ export default [
       globals: {
         __dirname: "readonly",
         __filename: "readonly",
+        Buffer: "readonly",
+        clearInterval: "readonly",
+        clearTimeout: "readonly",
         exports: "readonly",
         Express: "readonly",
         module: "readonly",
         process: "readonly",
-        require: "readonly"
+        require: "readonly",
+        setImmediate: "readonly",
+        setInterval: "readonly",
+        setTimeout: "readonly"
       },
       parserOptions: {
         ecmaVersion: "latest",

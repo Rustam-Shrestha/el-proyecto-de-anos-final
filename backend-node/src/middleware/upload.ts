@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { env } from '@/config/env';
 import { logger } from '@/config/logger';
+import type { Request } from 'express';
 
 // Create upload directories if they don't exist
 const uploadDir = path.join(process.cwd(), env.UPLOAD_DIR);
@@ -28,7 +29,7 @@ const storage = multer.diskStorage({
 
   filename: (req, file, cb) => {
     if (!req.user) {
-      return cb(new Error('User not authenticated'));
+      return cb(new Error('User not authenticated'), '');
     }
 
     const documentType = req.body.type || 'OTHER';
@@ -45,7 +46,7 @@ const storage = multer.diskStorage({
  * File filter for Multer
  * Allowed MIME types: JPEG, PNG, WebP, PDF
  */
-const fileFilter = (_req: any, file: any, cb: any) => {
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
   if (allowedMimes.includes(file.mimetype)) {

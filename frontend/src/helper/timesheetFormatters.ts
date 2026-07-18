@@ -24,7 +24,7 @@ export const getStatusInfo = (status: string) => {
   const normalized = String(status || "pending").toLowerCase();
   const palette: Record<string, { label: string; className: string }> = {
     approved: { label: "Approved", className: "text-green-700 bg-green-100" },
-    rejected: { label: "Rejected", className: "text-red-700 bg-red-100" },
+    rejected: { label: "Rejected", className: "text-red-700 bg-danger-100" },
     submitted: { label: "Submitted", className: "text-blue-700 bg-blue-100" },
     pending: { label: "Pending", className: "text-yellow-700 bg-yellow-100" }
   };

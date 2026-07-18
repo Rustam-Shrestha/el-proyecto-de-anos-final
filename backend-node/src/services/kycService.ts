@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
@@ -16,6 +17,8 @@ export interface SubmitKycInput {
 export interface KycApplicationDetail {
   id: string;
   userId: string;
+  userEmail?: string;
+  applicantEmail?: string;
   status: string;
   submittedAt: Date;
   reviewedAt: Date | null;
@@ -27,9 +30,54 @@ export interface KycApplicationDetail {
     filePath: string;
     mimeType: string;
     sizeBytes: number;
+    verificationStatus?: string;
+    createdAt?: Date;
   }>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface KycDocumentLike {
+  id: string;
+  documentType?: string | null;
+  type?: string | null;
+  filePath: string;
+  fileMimeType?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  sizeBytes?: number | null;
+  verificationStatus?: string | null;
+  createdAt?: Date | null;
+  uploadedAt?: Date | null;
+  [key: string]: unknown;
+}
+
+function formatKycDocument(doc: KycDocumentLike) {
+  return {
+    id: doc.id,
+    type: doc.documentType ?? doc.type,
+    filePath: doc.filePath,
+    mimeType: doc.fileMimeType ?? doc.mimeType,
+    sizeBytes: doc.fileSize ?? doc.sizeBytes,
+    verificationStatus: doc.verificationStatus ?? 'PENDING',
+    createdAt: doc.createdAt ?? doc.uploadedAt,
+  };
+}
+
+function formatKycApplication(kyc: {
+  user?: { email?: string } | null;
+  documents?: KycDocumentLike[];
+  [key: string]: unknown;
+} | null, userEmail?: string) {
+  if (!kyc) return null;
+  const user = kyc.user as { email?: string } | undefined;
+  const email = userEmail ?? user?.email;
+  return {
+    ...kyc,
+    userEmail: email,
+    applicantEmail: email,
+    documents: (kyc.documents ?? []).map(formatKycDocument),
+  } as KycApplicationDetail;
 }
 
 export const kycService = {
@@ -47,17 +95,20 @@ export const kycService = {
         throw new AppError('User not found', 404);
       }
 
-      // Check for existing active KYC application
+      // Check for existing active or approved KYC application
       const existingKyc = await prisma.kycApplication.findFirst({
         where: {
           userId: input.userId,
           status: {
-            in: ['PENDING', 'UNDER_REVIEW'],
+            in: ['PENDING', 'UNDER_REVIEW', 'APPROVED'],
           },
         },
       });
 
       if (existingKyc) {
+        if (existingKyc.status === 'APPROVED') {
+          throw new AppError('Your KYC is already approved. You do not need to submit again.', 409);
+        }
         throw new AppError('You already have an active KYC application', 409);
       }
 
@@ -69,10 +120,10 @@ export const kycService = {
           documents: {
             create: input.documents.map((doc) => ({
               userId: input.userId,
-              type: doc.type,
+              documentType: doc.type,
               filePath: doc.filePath,
-              mimeType: doc.mimeType,
-              sizeBytes: doc.sizeBytes,
+              fileMimeType: doc.mimeType,
+              fileSize: doc.sizeBytes,
               version: 1,
             })),
           },
@@ -81,10 +132,10 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
             },
           },
         },
@@ -92,11 +143,14 @@ export const kycService = {
 
       logger.info({ userId: input.userId, kycId: kyc.id }, 'KYC application submitted');
 
-      return kyc as KycApplicationDetail;
+      return { ...kyc, userEmail: user.email, applicantEmail: user.email, documents: kyc.documents.map((d: { id: string; documentType: string; filePath: string; fileMimeType: string; fileSize: number }) => ({ id: d.id, type: d.documentType, filePath: d.filePath, mimeType: d.fileMimeType, sizeBytes: d.fileSize, verificationStatus: 'PENDING', createdAt: new Date() })) } as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId: input.userId }, 'Failed to submit KYC');
-      throw new AppError('Failed to submit KYC application', 500);
+      throw new AppError(
+        `Failed to submit KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -108,23 +162,69 @@ export const kycService = {
       const kyc = await prisma.kycApplication.findFirst({
         where: { userId },
         orderBy: { createdAt: 'desc' },
-        include: {
-          documents: {
-            select: {
-              id: true,
-              type: true,
-              filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+          include: {
+            documents: {
+              select: {
+                id: true,
+                documentType: true,
+                filePath: true,
+                fileMimeType: true,
+                fileSize: true,
+                verificationStatus: true,
+                createdAt: true,
+              },
             },
+            user: {
+              select: { email: true },
+            },
+            ocrResults: true,
+            ocrExtractions: {
+              orderBy: { createdAt: 'desc' },
+            },
+            extractionVerification: true,
+            faceVerification: true,
+            submissionFile: true,
           },
-        },
       });
 
-      return kyc as KycApplicationDetail | null;
+      if (!kyc) return null;
+
+      return {
+        ...formatKycApplication(kyc)!,
+        ocrResults: kyc.ocrResults || [],
+        ocrExtractions: kyc.ocrExtractions || [],
+        extractionVerification: kyc.extractionVerification || null,
+        faceVerification: kyc.faceVerification || null,
+        ocrFullName: kyc.ocrFullName,
+        ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
+        ocrDateOfBirth: kyc.ocrDateOfBirth,
+        ocrGender: kyc.ocrGender,
+        ocrAddress: kyc.ocrAddress,
+        confirmedFullName: kyc.confirmedFullName,
+        confirmedCitizenshipNumber: kyc.confirmedCitizenshipNumber,
+        confirmedDateOfBirth: kyc.confirmedDateOfBirth,
+        confirmedGender: kyc.confirmedGender,
+        confirmedAddress: kyc.confirmedAddress,
+        confirmedPhoneNumber: kyc.confirmedPhoneNumber,
+        confirmedEmail: kyc.confirmedEmail,
+        processingStatus: kyc.processingStatus,
+        ocrFrontStatus: kyc.ocrFrontStatus,
+        ocrBackStatus: kyc.ocrBackStatus,
+        faceStatus: kyc.faceStatus,
+        ocrProcessingError: kyc.ocrProcessingError,
+        faceProcessingError: kyc.faceProcessingError,
+        workflowStage: kyc.workflowStage,
+        faceVerificationStatus: kyc.faceVerificationStatus,
+        ocrProcessingStatus: kyc.ocrProcessingStatus,
+        queuedForManualReview: kyc.queuedForManualReview,
+      } as unknown as KycApplicationDetail;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to get KYC status');
-      throw new AppError('Failed to fetch KYC status', 500);
+      throw new AppError(
+        `Failed to fetch KYC status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -139,10 +239,12 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
           user: {
@@ -156,6 +258,14 @@ export const kycService = {
               },
             },
           },
+          ocrResults: true,
+          ocrExtractions: {
+            orderBy: { createdAt: 'desc' },
+          },
+          extractionVerification: true,
+          faceVerification: true,
+          verificationReport: true,
+          submissionFile: true,
         },
       });
 
@@ -163,11 +273,44 @@ export const kycService = {
         throw new AppError('KYC application not found', 404);
       }
 
-      return kyc as unknown as KycApplicationDetail;
+      return {
+        ...formatKycApplication(kyc),
+        ocrResults: kyc.ocrResults || [],
+        ocrExtractions: kyc.ocrExtractions || [],
+        extractionVerification: kyc.extractionVerification || null,
+        faceVerification: kyc.faceVerification || null,
+        verificationReport: kyc.verificationReport || null,
+        submissionFile: kyc.submissionFile || null,
+        ocrFullName: kyc.ocrFullName,
+        ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
+        ocrDateOfBirth: kyc.ocrDateOfBirth,
+        ocrGender: kyc.ocrGender,
+        ocrAddress: kyc.ocrAddress,
+        confirmedFullName: kyc.confirmedFullName,
+        confirmedCitizenshipNumber: kyc.confirmedCitizenshipNumber,
+        confirmedDateOfBirth: kyc.confirmedDateOfBirth,
+        confirmedGender: kyc.confirmedGender,
+        confirmedAddress: kyc.confirmedAddress,
+        confirmedPhoneNumber: kyc.confirmedPhoneNumber,
+        confirmedEmail: kyc.confirmedEmail,
+        processingStatus: kyc.processingStatus,
+        ocrFrontStatus: kyc.ocrFrontStatus,
+        ocrBackStatus: kyc.ocrBackStatus,
+        faceStatus: kyc.faceStatus,
+        ocrProcessingError: kyc.ocrProcessingError,
+        faceProcessingError: kyc.faceProcessingError,
+        workflowStage: kyc.workflowStage,
+        faceVerificationStatus: kyc.faceVerificationStatus,
+        ocrProcessingStatus: kyc.ocrProcessingStatus,
+        queuedForManualReview: kyc.queuedForManualReview,
+      } as unknown as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to get KYC by ID');
-      throw new AppError('Failed to fetch KYC application', 500);
+      throw new AppError(
+        `Failed to fetch KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -179,9 +322,9 @@ export const kycService = {
     offset: number = 0,
     status?: string,
     search?: string
-  ): Promise<{ applications: any[]; total: number }> {
+  ): Promise<{ applications: (KycApplicationDetail | null)[]; total: number }> {
     try {
-      const where: any = {};
+      const where: Prisma.KycApplicationWhereInput = {};
 
       if (status) {
         where.status = status;
@@ -214,8 +357,12 @@ export const kycService = {
             documents: {
               select: {
                 id: true,
-                type: true,
+                documentType: true,
                 filePath: true,
+                fileMimeType: true,
+                fileSize: true,
+                verificationStatus: true,
+                createdAt: true,
               },
             },
           },
@@ -226,10 +373,17 @@ export const kycService = {
         prisma.kycApplication.count({ where }),
       ]);
 
-      return { applications, total };
+      return {
+        applications: applications.map((a: Parameters<typeof formatKycApplication>[0]) => formatKycApplication(a)),
+        total,
+      };
     } catch (error) {
+      if (error instanceof AppError) throw error;
       logger.error({ err: error }, 'Failed to list KYC applications');
-      throw new AppError('Failed to fetch KYC applications', 500);
+      throw new AppError(
+        `Failed to fetch KYC applications: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -255,10 +409,12 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -283,10 +439,12 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -303,11 +461,14 @@ export const kycService = {
         'KYC application approved'
       );
 
-      return updated as KycApplicationDetail;
+      return formatKycApplication(updated) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to approve KYC');
-      throw new AppError('Failed to approve KYC application', 500);
+      throw new AppError(
+        `Failed to approve KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -337,10 +498,12 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -366,10 +529,12 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -387,11 +552,14 @@ export const kycService = {
         'KYC application rejected'
       );
 
-      return updated as KycApplicationDetail;
+      return formatKycApplication(updated) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to reject KYC');
-      throw new AppError('Failed to reject KYC application', 500);
+      throw new AppError(
+        `Failed to reject KYC application: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
     }
   },
 
@@ -417,10 +585,12 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -446,10 +616,12 @@ export const kycService = {
           documents: {
             select: {
               id: true,
-              type: true,
+              documentType: true,
               filePath: true,
-              mimeType: true,
-              sizeBytes: true,
+              fileMimeType: true,
+              fileSize: true,
+              verificationStatus: true,
+              createdAt: true,
             },
           },
         },
@@ -467,11 +639,34 @@ export const kycService = {
         'KYC resubmission requested'
       );
 
-      return updated as KycApplicationDetail;
+      return formatKycApplication(updated) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to request resubmission');
       throw new AppError('Failed to request resubmission', 500);
     }
+  },
+
+  async submitKycWithConfirmedData(kycApplicationId: string, data: {
+    confirmedCitizenshipNumber?: string,
+    confirmedFullName?: string,
+    confirmedDateOfBirth?: string,
+    confirmedGender?: string,
+    confirmedAddress?: string,
+    confirmedPhoneNumber?: string,
+    confirmedEmail?: string,
+    confirmedOccupation?: string,
+    confirmedEmployer?: string,
+    confirmedMonthlyIncome?: number,
+    confirmedMaritalStatus?: string,
+    confirmedEducationLevel?: string
+  }) {
+    return await prisma.kycApplication.update({
+      where: { id: kycApplicationId },
+      data: {
+        ...data,
+        status: 'UNDER_REVIEW'
+      }
+    });
   },
 };

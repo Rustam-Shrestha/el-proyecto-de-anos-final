@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuthService } from '../services/authService';
-import { AuthUser, LoginRequest } from '../types/auth';
+import type { AuthUser, LoginRequest } from '../types/auth';
 
 export const useAuth = () => {
-  const navigate = useNavigate();
   const service = useAuthService();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,9 +53,15 @@ export const useAuth = () => {
     setLoading(true);
     try {
       await service.logout();
-      setUser(null);
-      navigate('/auth/login');
+    } catch {
+      // still clear local state even if API fails
     } finally {
+      setUser(null);
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("userData");
+      localStorage.removeItem("clientDetails");
       setLoading(false);
     }
   };

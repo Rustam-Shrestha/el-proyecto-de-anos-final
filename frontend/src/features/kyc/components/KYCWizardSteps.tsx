@@ -20,7 +20,7 @@ export const KYCWizardSteps = ({ currentStep, steps }: KYCWizardStepsProps) => {
                     ? "bg-green-500 text-white"
                     : isActive
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                    : "bg-gray-200 text-gray-500  "
                 }`}
               >
                 {isCompleted ? (
@@ -34,10 +34,10 @@ export const KYCWizardSteps = ({ currentStep, steps }: KYCWizardStepsProps) => {
               <span
                 className={`hidden text-sm font-medium sm:inline ${
                   isActive
-                    ? "text-blue-600 dark:text-blue-400"
+                    ? "text-blue-600 "
                     : isCompleted
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-gray-500 dark:text-gray-400"
+                    ? "text-green-600 "
+                    : "text-gray-500 "
                 }`}
               >
                 {label}
@@ -46,7 +46,7 @@ export const KYCWizardSteps = ({ currentStep, steps }: KYCWizardStepsProps) => {
             {index < steps.length - 1 ? (
               <div
                 className={`mx-3 h-0.5 w-8 sm:w-12 ${
-                  isCompleted ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
+                  isCompleted ? "bg-green-500" : "bg-gray-200 "
                 }`}
               />
             ) : null}

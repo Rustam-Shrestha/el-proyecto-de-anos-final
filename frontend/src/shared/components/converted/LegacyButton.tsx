@@ -17,7 +17,7 @@ const variantClassMap: Record<ButtonVariant, string> = {
   primary: "text-white bg-primary border-none",
   secondary: "text-primary border-2 border-primary bg-white",
   outline: "text-[#1F2635] border-2 border-[#D0D5DD] bg-white",
-  danger: "text-white bg-red-600 border-none"
+  danger: "text-white bg-danger-600 border-none"
 };
 
 export const LegacyButton = memo(

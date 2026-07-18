@@ -55,7 +55,11 @@ const TableRow = memo(({ row, columns, rowIndex, fitContentColumns = false }) =>
           >
             {column.render
               ? column.render(row[column.accessor], row, rowIndex)
-              : (column.accessor ? row[column.accessor] : null) || "N/A"}
+              : column.accessor
+                ? (typeof row[column.accessor] === "object" && row[column.accessor] !== null
+                    ? JSON.stringify(row[column.accessor])
+                    : row[column.accessor] ?? "N/A")
+                : "N/A"}
           </td>
         );
       })}

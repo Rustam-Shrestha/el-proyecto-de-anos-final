@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAppSelector } from "@hooks/reduxHooks";
 import { selectIsAuthenticated, selectUser } from "@store/slices/authSlice";
 import RegisterForm from "@features/auth/components/RegisterForm";
@@ -11,21 +11,28 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
-      navigate("/app/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate, user?.id]);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-color)] px-4 py-10 text-[var(--text-color)] transition-colors dark:bg-[#10211a]">
+    <div className="min-h-screen bg-[var(--bg-color)] px-4 py-10 text-[var(--text-color)] transition-colors [#10211a]">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl items-center justify-center">
-        <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-xl transition-colors dark:bg-[#18251f] sm:p-8">
+        <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-xl transition-colors [#18251f] sm:p-8">
           <div className="mb-6 space-y-2 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">CMS Access</p>
             <h1 className="text-3xl font-semibold text-[var(--text-color)]">Create Account</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-300">Register to continue</p>
+            <p className="text-sm text-gray-500 ">Register to continue</p>
           </div>
 
           <RegisterForm />
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-gray-500">Already have an account? </span>
+            <Link to="/login" className="text-blue-600 hover:underline font-medium">
+              Login
+            </Link>
+          </div>
         </div>
       </div>
     </div>

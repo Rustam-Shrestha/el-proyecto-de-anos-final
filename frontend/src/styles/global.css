@@ -2,8 +2,8 @@
 
 .layout-shell {
   min-height: 100vh;
-  background: linear-gradient(180deg, var(--green-footer) 0%, var(--bg-color) 48%, #f7faf7 100%);
-  color: var(--text-color);
+  background: #ffffff;
+  color: #1a1a1a;
 }
 
 .layout-main {
@@ -12,11 +12,12 @@
 }
 
 .panel {
-  background: var(--surface-color);
+  background: #ffffff;
   border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid #e0e0e0;
   padding: 1rem;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  color: #1a1a1a;
 }
 
 .panel-head {
@@ -45,7 +46,7 @@ button {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(8, 31, 18, 0.42);
+  background: rgba(0, 0, 0, 0.3);
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -53,11 +54,20 @@ button {
 
 .modal-card {
   width: min(420px, 92vw);
+  max-height: 90vh;
   border-radius: 14px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   padding: 1rem;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-card > div:last-child {
+  overflow-y: auto;
+  flex: 1;
 }
 
 .modal-head {
@@ -76,8 +86,8 @@ button {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at top, #edf6ef, #f8fbf8 52%, #e5eee7);
-  color: var(--text-color);
+  background: #ffffff;
+  color: #1a1a1a;
 }
 
 .auth-form {

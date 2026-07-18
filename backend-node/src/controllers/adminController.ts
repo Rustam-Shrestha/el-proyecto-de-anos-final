@@ -311,7 +311,7 @@ export const getAuditLogs = async (
     const endDate = (req.query.endDate as string) || undefined;
 
     // Build where clause
-    const where: Record<string, unknown> = {};
+    const where: { action?: string; userId?: string; createdAt?: { gte?: Date; lte?: Date } } = {};
 
     if (action) {
       where.action = action;

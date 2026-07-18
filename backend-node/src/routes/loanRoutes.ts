@@ -7,6 +7,7 @@ import {
   listLoansSchema,
   getLoanSchema,
   loanReviewSchema,
+  calculateRiskSchema,
 } from '@/routes/loanSchemas';
 import {
   applyForLoan,
@@ -14,8 +15,16 @@ import {
   listLoans,
   reviewLoan,
 } from '@/controllers/loanController';
+import { calculateRiskScore } from '@/controllers/riskScoringController';
 
 const loanRouter = Router();
+
+loanRouter.post(
+  '/calculate-risk',
+  authenticate,
+  validate(calculateRiskSchema),
+  calculateRiskScore
+);
 
 loanRouter.post(
   '/apply',

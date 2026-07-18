@@ -10,7 +10,7 @@ export const apiResponse = {
     success: false,
     message,
     statusCode,
-    ...(details && { details }),
+    ...(details !== undefined ? { details } : {}),
   }),
 
   paginated: <T,>(

@@ -23,7 +23,7 @@ import { env } from '@/config/env';
 
 const documentStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
-    const userId = (req as any).user?.id ?? 'unknown';
+    const userId = req.user ? req.user.id : 'unknown';
     const documentType = req.body?.documentType ?? 'OTHER';
     const dir = path.join(process.cwd(), env.UPLOAD_DIR, `user-${userId}`, documentType);
     fs.mkdirSync(dir, { recursive: true });
@@ -55,7 +55,7 @@ documentRouter.post(
   '/upload',
   authenticate,
   (req, res, next) => {
-    documentUpload.single('file')(req, res, (err: unknown) => {
+    documentUpload.single('document')(req, res, (err: unknown) => {
       if (err) return next(err);
       next();
     });
@@ -83,7 +83,7 @@ documentRouter.post(
   '/:documentId/replace',
   authenticate,
   (req, res, next) => {
-    documentUpload.single('file')(req, res, (err: unknown) => {
+    documentUpload.single('document')(req, res, (err: unknown) => {
       if (err) return next(err);
       next();
     });

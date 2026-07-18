@@ -1,19 +1,22 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
+import { Prisma } from '@prisma/client';
 
 export interface EmploymentInput {
-  jobTitle: string;
+  occupationJobTitle: string;
   employmentStartDate: string;
-  declaredAnnualIncome: number;
+  annualIncome: number;
+  employerName?: string;
+  dependentsCount?: number;
 }
 
 export const employmentService = {
   async saveEmploymentInfo(userId: string, data: EmploymentInput) {
     try {
-      const startDate = new Date(data.employmentStartDate);
+      const startDate = data.employmentStartDate ? new Date(data.employmentStartDate) : null;
 
-      if (isNaN(startDate.getTime())) {
+      if (data.employmentStartDate && isNaN(startDate!.getTime())) {
         throw new AppError('Invalid employment start date', 400);
       }
 
@@ -21,14 +24,22 @@ export const employmentService = {
         where: { userId },
         create: {
           userId,
-          jobTitle: data.jobTitle,
+          occupationJobTitle: data.occupationJobTitle,
+          employmentStatus: 'EMPLOYED',
           employmentStartDate: startDate,
-          declaredAnnualIncome: data.declaredAnnualIncome,
+          monthlyGrossIncome: new Prisma.Decimal(data.annualIncome / 12),
+          annualIncome: new Prisma.Decimal(data.annualIncome),
+          dependentsCount: data.dependentsCount ?? 0,
+          employerName: data.employerName ?? null,
         },
         update: {
-          jobTitle: data.jobTitle,
+          occupationJobTitle: data.occupationJobTitle,
+          employmentStatus: 'EMPLOYED',
           employmentStartDate: startDate,
-          declaredAnnualIncome: data.declaredAnnualIncome,
+          monthlyGrossIncome: new Prisma.Decimal(data.annualIncome / 12),
+          annualIncome: new Prisma.Decimal(data.annualIncome),
+          dependentsCount: data.dependentsCount ?? 0,
+          employerName: data.employerName ?? null,
         },
       });
 

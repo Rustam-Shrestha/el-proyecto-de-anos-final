@@ -2,14 +2,8 @@ import type { Request, Response, NextFunction } from 'express';
 import { documentService } from '@/services/documentService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
+import { getRelativePath } from '@/utils/pathUtils';
 import { DocumentType, DocumentVerificationStatus } from '@prisma/client';
-
-function getRelativePath(filePath: string): string {
-  return filePath
-    .replace(process.cwd(), '')
-    .replace(/\\/g, '/')
-    .replace(/^\//, '');
-}
 
 export const uploadDocument = async (
   req: Request,
@@ -17,7 +11,7 @@ export const uploadDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -72,7 +66,7 @@ export const getKycDocuments = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -94,7 +88,7 @@ export const getDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -116,7 +110,7 @@ export const verifyDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -156,7 +150,7 @@ export const replaceDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;
@@ -211,7 +205,7 @@ export const deleteDocument = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(apiResponse.error('Authentication required', 401));
       return;

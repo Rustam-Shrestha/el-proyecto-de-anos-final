@@ -33,7 +33,10 @@ export const Modal = memo(({ title, open, onClose, description, size = "xl", chi
         style={{
           maxWidth: selectedSize.width,
           maxHeight: selectedSize.maxHeight,
-          width: "100%"
+          width: "100%",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column"
         }}
       >
         <div className="modal-head">
@@ -45,7 +48,7 @@ export const Modal = memo(({ title, open, onClose, description, size = "xl", chi
             X
           </button>
         </div>
-        <div>{children}</div>
+        <div style={{ overflowY: "auto", flex: 1 }}>{children}</div>
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ const AccessDeniedPage = () => {
           {fromPath ? ` You tried to access: ${fromPath}` : ""}
         </p>
         <div className="mt-4">
-          <Link className="underline" to="/app/dashboard">
+          <Link className="underline" to="/dashboard">
             Go back to dashboard
           </Link>
         </div>

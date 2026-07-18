@@ -53,8 +53,8 @@ const UserProfile = () => {
 
   const toggleSearch = () => setShowSearch((prev) => !prev);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     closeProfileDropdown();
     navigate("/login");
   };
@@ -116,22 +116,22 @@ const UserProfile = () => {
             <ul className="divide-y" style={{ borderColor: 'var(--border-color)' }}>
               <li
                 onClick={handleThemeClick}
-                className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 :bg-gray-700"
               >
                 <ColorIcon /> Change Theme
               </li>
               <li
                 onClick={toggleDarkMode}
-                className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 :bg-gray-700"
               >
                 <MoonIcon /> {darkMode ? "Light Mode" : "Dark Mode"}
               </li>
-              <li className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
+              <li className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 :bg-gray-700">
                 <GroupUserIcon /> Switch Client
               </li>
               <li
                 onClick={handleLogout}
-                className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-100 :bg-gray-700"
               >
                 <LogoutIcon /> Log out
               </li>

@@ -32,8 +32,8 @@ const MobileNav = ({
   const formattedHours = hours % 12 || 12;
   const formattedMinutes = now.getMinutes().toString().padStart(2, "0");
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
     onCloseMobileMenu();
   };
@@ -121,7 +121,7 @@ const MobileNav = ({
           </button>
           <button
             onClick={handleLogout}
-            className="w-full text-left py-2 px-3 text-sm hover:bg-red-50 dark:hover:bg-red-950/40 rounded"
+            className="w-full text-left py-2 px-3 text-sm hover:bg-danger-50 rounded"
             style={{ color: 'var(--red)' }}
           >
             Logout

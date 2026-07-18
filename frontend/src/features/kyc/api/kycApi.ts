@@ -10,7 +10,7 @@ import type {
   DocumentType,
 } from "@shared/types/common";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_FASTAPI_URL || "http://localhost:8000";
 
 export interface KYCStatusResponse {
   kyc_application_id: string;
@@ -191,7 +191,7 @@ export const useKYCList = (page: number, limit: number, status?: string) => {
       };
     },
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 3,
   });
 };
 
@@ -209,7 +209,7 @@ export const useGetKYCDetails = (id: string) => {
     },
     enabled: Boolean(id),
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 3,
   });
 };
 
@@ -227,7 +227,7 @@ export const useGetMyKYCStatus = () => {
       return data;
     },
     staleTime: 5 * 60 * 1000,
-    retry: true,
+    retry: 1,
   });
 };
 
@@ -239,7 +239,6 @@ export const useSubmitKYCMutation = () => {
     mutationFn: async (payload: FormData) => {
       setUploadProgress(0);
       const { data } = await apiClient.post<SubmitKYCResponse>("/kyc/submit", payload, {
-        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (event) => {
           if (event.total) {
             setUploadProgress(Math.round((event.loaded / event.total) * 100));
@@ -278,15 +277,12 @@ export const useUploadDocumentMutation = () => {
     }) => {
       const formData = new FormData();
       formData.append("kycId", kycId);
-      formData.append("type", documentType);
+      formData.append("documentType", documentType);
       formData.append("document", file);
 
       const { data } = await apiClient.post<ApiResponse<KYCDocument>>(
         "/kyc/documents/upload",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        formData
       );
       return data.data;
     },
@@ -320,7 +316,7 @@ export const useRejectKYCMutation = () => {
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const { data } = await apiClient.patch<KYCDetailsApiResponse>(
         `/kyc/${id}/reject`,
-        { reason }
+        { rejectionReason: reason }
       );
       return "success" in data ? data.data : data;
     },
@@ -370,10 +366,7 @@ export const useReplaceDocumentMutation = () => {
 
       const { data } = await apiClient.post<ApiResponse<KYCDocument>>(
         `/kyc/documents/${id}/replace`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        formData
       );
       return data.data;
     },

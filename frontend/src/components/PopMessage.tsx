@@ -71,7 +71,7 @@ const WarningIcon = () => (
 const Toast = ({ text, type }) => (
   <div
     className={`fixed z-[9999999999999] flex items-center bottom-5 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg text-sm font-semibold pop-message
-      ${type === "success" ? "bg-primary text-white" : type === "error" ? "bg-red text-white" : "bg-yellow-500 text-white"}
+      ${type === "success" ? "bg-primary text-white" : type === "error" ? "bg-danger-600 text-white" : "bg-yellow-500 text-white"}
     `}
   >
     <span className="mr-2">

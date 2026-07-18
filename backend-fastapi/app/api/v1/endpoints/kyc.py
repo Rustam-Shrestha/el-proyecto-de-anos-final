@@ -13,9 +13,10 @@ All endpoints are async and use the SQLAlchemy async session.
 import logging
 import os
 import uuid
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -23,8 +24,25 @@ from app.config import settings
 from app.models import KYCApplication, Document, OCRResult, FaceVerification, User
 from app.db import get_async_session
 
+
+def resolve_image_path(image_path: str) -> str:
+    p = Path(image_path)
+    if p.exists():
+        return image_path
+    candidates = [
+        p,
+        Path(settings.UPLOAD_DIR) / p,
+        Path("backend-node") / p,
+        Path("..") / "backend-node" / p,
+        Path("..") / p,
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c.resolve())
+    return image_path
+
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/kyc", tags=["kyc"])
+router = APIRouter(prefix="/kyc", tags=["kyc"])
 
 # Lazy-load ML services to avoid startup dependency conflicts
 ocr_service = None
@@ -225,6 +243,118 @@ async def verify_face(
 
     except Exception as e:
         await session.rollback()
+        logger.error("Face verification failed: %s", str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="Face verification failed")
+
+
+@router.post("/ocr/citizenship")
+async def ocr_citizenship(
+    image_path: str = Body(...),
+    document_type: str = Body(...),
+) -> dict:
+    """
+    Extract OCR data from a citizenship document image (stateless).
+    Accepts a file path to an image already on disk and returns extracted data.
+    The caller (Express backend) is responsible for saving results to its own DB.
+
+    Args:
+        image_path (str): Absolute path to the image file on disk.
+        document_type (str): Type of document ('citizenship_front', 'citizenship_back', etc.).
+
+    Returns:
+        dict: {
+            "extracted_data": {...},
+            "overall_confidence": float,
+            "raw_text": str,
+            "language_detected": str
+        }
+
+    Raises:
+        HTTPException 400: Document type not supported or image not found.
+        HTTPException 500: OCR processing failed.
+    """
+    try:
+        resolved = resolve_image_path(image_path)
+        result = await get_ocr_service().processor.process_image_async(resolved)
+        response = {
+            "extracted_data": result["structured_data"],
+            "overall_confidence": result["confidence_score"],
+            "raw_text": result["raw_text"],
+            "language_detected": result["language_detected"],
+        }
+        if result.get("error"):
+            response["error"] = result["error"]
+        return response
+    except FileNotFoundError:
+        raise HTTPException(status_code=400, detail="Image file not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("OCR processing failed: %s", str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="OCR processing failed")
+
+
+@router.post("/face/verify")
+async def verify_face_stateless(
+    citizenship_photo: str = Body(...),
+    selfie_photo: str = Body(...),
+) -> dict:
+    """
+    Verify face match between selfie and ID document photo (stateless).
+    Accepts file paths to images already on disk and returns match results.
+    The caller (Express backend) is responsible for saving results to its own DB.
+
+    Args:
+        citizenship_photo (str): Absolute path to the citizenship/ID document photo.
+        selfie_photo (str): Absolute path to the selfie photo.
+
+    Returns:
+        dict: {
+            "similarity_score": float,
+            "status": "MATCH" | "POSSIBLE_MATCH" | "LOW_CONFIDENCE" | "MISMATCH",
+            "recommendation": "APPROVE" | "REVIEW" | "REJECT"
+        }
+
+    Raises:
+        HTTPException 400: Image file not found or face detection failed.
+        HTTPException 500: Face verification failed.
+    """
+    try:
+        face_svc = get_face_service()
+        resolved_selfie = resolve_image_path(selfie_photo)
+        resolved_citizen = resolve_image_path(citizenship_photo)
+        verification = await face_svc.verify_face_match_async(
+            selfie_path=resolved_selfie,
+            id_document_path=resolved_citizen,
+            kyc_application_id="stateless",
+            session=None,
+        )
+
+        if verification.is_match:
+            status = "MATCH"
+            recommendation = "APPROVE"
+        elif verification.distance < 0.5:
+            status = "POSSIBLE_MATCH"
+            recommendation = "REVIEW"
+        elif verification.distance < 0.6:
+            status = "LOW_CONFIDENCE"
+            recommendation = "REVIEW"
+        else:
+            status = "MISMATCH"
+            recommendation = "REJECT"
+
+        similarity_score = max(0.0, 1.0 - verification.distance)
+
+        return {
+            "similarity_score": similarity_score,
+            "status": status,
+            "recommendation": recommendation,
+        }
+    except FileNotFoundError:
+        raise HTTPException(status_code=400, detail="Image file not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
         logger.error("Face verification failed: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Face verification failed")
 
