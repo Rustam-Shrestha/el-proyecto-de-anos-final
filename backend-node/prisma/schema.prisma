@@ -19,6 +19,11 @@ enum DocumentType {
   BANK_STATEMENT
   EXISTING_LOAN
   COLLATERAL
+  SALARY_SLIP
+  BUSINESS_REG
+  INCOME_CERT
+  PAN
+  PENSION_LETTER
 
   @@schema("auth")
 }
@@ -88,17 +93,20 @@ model User {
   role   Role   @relation(fields: [roleId], references: [id])
 
   // Relations
-  profile           Profile?
-  sessions          Session[]
-  auditLogs         AuditLog[]
-  kycApplications   KycApplication[]
-  documents         Document[]
-  employmentInfo    EmploymentInfo?
-  borrowerFeatures  BorrowerFeatures?
-  loanFeatures      LoanFeatures?
-  loanApplications  LoanApplication[]
-  reviewedLoans     LoanApplication[] @relation("LoanReviewer")
-  verifiedDocuments Document[]        @relation("DocumentVerifier")
+  profile              Profile?
+  sessions             Session[]
+  auditLogs            AuditLog[]
+  kycApplications      KycApplication[]
+  documents            Document[]
+  employmentInfo       EmploymentInfo?
+  borrowerFeatures     BorrowerFeatures?
+  loanFeatures         LoanFeatures?
+  loanApplications     LoanApplication[]
+  reviewedLoans        LoanApplication[] @relation("LoanReviewer")
+  verifiedDocuments    Document[]        @relation("DocumentVerifier")
+  financialDocuments   FinancialDocument[]
+  portfolioVerification PortfolioVerification?
+  loanAccounts         LoanAccount[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -430,6 +438,110 @@ model DocumentVersion {
   @@schema("auth")
 }
 
+// Financial documents for portfolio verification (separate from KYC documents)
+model FinancialDocument {
+  id                        String   @id @default(cuid())
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  documentType              String   // SALARY_SLIP, BANK_STATEMENT, BUSINESS_REG, INCOME_CERT, PAN, PENSION_LETTER, OTHER
+  filePath                  String
+  fileMimeType              String?
+  fileSize                  Int?
+  originalName              String?
+
+  // OCR Processing
+  ocrStatus                 String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  ocrData                   Json?    // Raw extracted text as JSON
+  ocrConfidence             Float?   // 0-1
+  ocrErrorMessage           String?
+
+  // Verification
+  verificationStatus        String   @default("PENDING") // PENDING, VERIFIED, REJECTED, FLAGGED
+  adminNotes                String?
+  verifiedBy                String?
+  verifiedAt                DateTime?
+
+  // Expiry Tracking
+  isExpired                 Boolean  @default(false)
+  expiryDate                DateTime?
+
+  isDeleted                 Boolean  @default(false)
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([userId])
+  @@index([verificationStatus])
+  @@index([documentType])
+  @@map("financial_documents")
+  @@schema("auth")
+}
+
+// Portfolio verification status and admin review
+model PortfolioVerification {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  verificationStatus        String   @default("INCOMPLETE") // INCOMPLETE, PENDING_REVIEW, VERIFIED, REJECTED
+
+  // Calculated Metrics
+  loanToIncomeRatio         Decimal? @db.Decimal(5, 2)
+  emiToIncomeRatio          Decimal? @db.Decimal(5, 2)
+  incomePerDependent        Decimal? @db.Decimal(12, 2)
+  employmentStabilityScore  Int?
+  ageCategory               String?
+
+  // Risk Assessment
+  overallRiskScore          Int?     // 0-100
+  riskLevel                 String?  // LOW, MEDIUM, HIGH
+
+  // Admin Review
+  flagsCount                Int      @default(0)
+  flagDetails               Json?    // Array of flag objects
+  adminNotes                String?
+  reviewedBy                String?
+  reviewedAt                DateTime?
+
+  lastUpdated               DateTime @default(now())
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([userId])
+  @@index([verificationStatus])
+  @@map("portfolio_verifications")
+  @@schema("auth")
+}
+
+// Active/closed loan accounts for portfolio evolution
+model LoanAccount {
+  id                        String   @id @default(cuid())
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  loanId                    String?  // FK to LoanApplication
+  principalAmount           Decimal  @db.Decimal(12, 2)
+  outstandingBalance        Decimal  @db.Decimal(12, 2)
+  monthlyEMI                Decimal  @db.Decimal(10, 2)
+  status                    String   @default("ACTIVE") // ACTIVE, CLOSED, DEFAULT, PAID_OFF
+  startDate                 DateTime
+  expectedEndDate           DateTime?
+  closedAt                  DateTime?
+
+  isActive                  Boolean  @default(true)
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([isActive])
+  @@map("loan_accounts")
+  @@schema("auth")
+}
+
 // Employment information for borrower income assessment
 model EmploymentInfo {
   id                        String   @id @default(cuid())
@@ -448,6 +560,15 @@ model EmploymentInfo {
 
   // HOME CREDIT MAPPING: Dependent Count
   dependentsCount           Int      @default(0)         // CNT_CHILDREN
+
+  // Self-Employed / Business Fields
+  businessName              String?
+  businessType              String?  // Retail, Service, Manufacturing, etc.
+
+  // Student Fields
+  institutionName           String?
+  educationLevel            String?  // HighSchool, Bachelor, Master, PhD
+  expectedGraduationDate    DateTime?
 
   // Calculated Fields (Home Credit Derived)
   employmentTenureMonths    Int?
@@ -470,21 +591,26 @@ model LoanFeatures {
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   loanApplicationId         String?  // FK to active loan
 
-  // HOME CREDIT MAPPING: Loan Features
+  // HOME CREDIT MAPPING: Core Features
   requestedLoanAmount       Decimal  @db.Decimal(12, 2)  // AMT_CREDIT
   loanTenureMonths          Int
   calculatedEMI             Decimal  @db.Decimal(10, 2)  // AMT_ANNUITY
+  daysBirth                 Int?     // Calculated: -age_in_days
+  daysEmployed              Int?     // Calculated: -employment_tenure_in_days
+  occupationType            String?  // Maps to OCCUPATION_TYPE
+  cntChildren               Int?     // Maps to CNT_CHILDREN
 
   // Derived Features (Home Credit Model)
   creditIncomePercent       Decimal  @db.Decimal(5, 2)   // AMT_CREDIT / AMT_INCOME × 100
   annuityIncomePercent      Decimal  @db.Decimal(5, 2)   // (EMI×12) / AMT_INCOME × 100
+  incomePerPerson           Decimal  @db.Decimal(12, 2)  // Income / (1 + dependents)
+  daysEmployedPercent       Decimal? @db.Decimal(5, 2)   // employment_days / age_days × 100
+  employmentStability       Boolean  @default(false)     // 1 if > 5 years
+  ageCategory               Int      @default(0)         // 1 if 25-60
 
   // Additional From Portfolio
   totalDebtObligations      Decimal  @db.Decimal(12, 2)  // Sum of all EMIs
   debtToIncomeRatio         Decimal  @db.Decimal(5, 2)   // (Debt + EMI) / Income × 100
-
-  // Calculated Safety Metrics
-  incomePerPerson           Decimal  @db.Decimal(12, 2)  // Income / (1 + dependents)
   availableMonthlyCapacity  Decimal  @db.Decimal(10, 2)  // Income - expenses - existing debt
 
   // Risk Assessment

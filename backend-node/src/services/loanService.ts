@@ -25,6 +25,17 @@ export const loanService = {
         throw new AppError('You must have an approved KYC before applying for a loan', 400);
       }
 
+      const portfolio = await prisma.portfolioVerification.findUnique({
+        where: { userId },
+      });
+
+      if (!portfolio || portfolio.verificationStatus !== 'VERIFIED') {
+        throw new AppError(
+          'Your financial portfolio must be verified before applying for a loan. Complete your employment info and document upload, then wait for admin verification.',
+          400
+        );
+      }
+
       const emi = riskService.calculateEmi(data.requestedAmount, data.tenureMonths);
 
       const { riskScore, riskLevel, features } = await riskService.computeRiskScore(

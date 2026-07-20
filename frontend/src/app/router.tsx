@@ -20,6 +20,8 @@ const LoanOfficerDashboardPage = lazy(() => import("@features/loans/pages/LoanOf
 const ReportsPage = lazy(() => import("@features/dashboard/pages/ReportsPage"));
 const DashboardPage = lazy(() => import("@pages/DashboardPage"));
 const PortfolioPage = lazy(() => import("@features/loans/pages/PortfolioPage"));
+const PortfolioAdminListPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminListPage"));
+const PortfolioAdminDetailPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminDetailPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 
 export const router = createBrowserRouter([
@@ -115,6 +117,22 @@ export const router = createBrowserRouter([
             element: (
               <RoleProtectedRoute requiredRoles={["user", "admin"]}>
                 <PortfolioPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "portfolio/admin",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+                <PortfolioAdminListPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "portfolio/admin/:userId",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+                <PortfolioAdminDetailPage />
               </RoleProtectedRoute>
             )
           },

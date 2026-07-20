@@ -5,6 +5,7 @@ import kycRouter from '@/routes/kycRoutes';
 import adminRouter from '@/routes/adminRoutes';
 import loanRouter from '@/routes/loanRoutes';
 import employmentRouter from '@/routes/employmentRoutes';
+import portfolioRouter from '@/routes/portfolioRoutes';
 
 export const apiRouter = Router();
 
@@ -24,6 +25,7 @@ apiRouter.use('/kyc', kycRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/loan', loanRouter);
 apiRouter.use('/employment', employmentRouter);
+apiRouter.use('/portfolio', portfolioRouter);
 // apiRouter.use('/audit', auditRoutes);   // TODO: implement audit routes
 
 export default apiRouter;
