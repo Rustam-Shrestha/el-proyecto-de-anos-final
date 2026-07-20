@@ -7,6 +7,7 @@ import {
   useUploadDocumentMutation,
   useDeleteDocumentMutation,
   useGetVerificationStatus,
+  useSubmitPortfolioMutation,
 } from "@features/loans/api/portfolioApi";
 import { Button } from "@shared/components/Button";
 import { FileUploadField } from "@shared/components/FileUploadField";
@@ -82,6 +83,7 @@ const PortfolioPage = () => {
   const saveMutation = useSaveEmploymentMutation();
   const uploadMutation = useUploadDocumentMutation();
   const deleteMutation = useDeleteDocumentMutation();
+  const submitMutation = useSubmitPortfolioMutation();
 
   const [step, setStep] = useState<Step>("income-type");
   const [formData, setFormData] = useState<FormData>({
@@ -124,7 +126,7 @@ const PortfolioPage = () => {
           ? employment.expectedGraduationDate.split("T")[0]
           : "",
       });
-      if (employment.employmentStatus) {
+      if (employment.employmentStatus && step === "income-type") {
         setStep("details");
       }
     }
@@ -251,6 +253,17 @@ const PortfolioPage = () => {
     [deleteMutation, toast]
   );
 
+  const handleSubmitPortfolio = async () => {
+    try {
+      await submitMutation.mutateAsync();
+      toast.success("Portfolio submitted for admin review");
+      navigate("/dashboard");
+    } catch (error) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      toast.error(apiError.response?.data?.message || "Failed to submit portfolio");
+    }
+  };
+
   const mapDocType = (dt: string): DocumentType => {
     const known = Object.values(DocumentType);
     return known.includes(dt as DocumentType) ? (dt as DocumentType) : DocumentType.OTHER;
@@ -259,9 +272,9 @@ const PortfolioPage = () => {
   const getDocForType = (docType: string): DocEntry | undefined =>
     docList.find((d) => d.documentType === docType);
 
-  const getDocFile = (docType: string): File | null => {
+  const getDocUploadedUrl = (docType: string): string | null => {
     const doc = getDocForType(docType);
-    return doc ? (null as unknown as File) : null;
+    return doc ? "uploaded" : null;
   };
 
   const isLoading = empLoading || docsLoading;
@@ -569,7 +582,7 @@ const PortfolioPage = () => {
                     const doc = getDocForType("SALARY_SLIP");
                     if (doc) handleDeleteDocument(doc.id);
                   }}
-                  currentFile={getDocFile("SALARY_SLIP")}
+                  uploadedUrl={getDocUploadedUrl("SALARY_SLIP")}
                   isUploading={uploadMutation.isPending}
                   isRequired
                 />
@@ -583,7 +596,7 @@ const PortfolioPage = () => {
                     const doc = getDocForType("BANK_STATEMENT");
                     if (doc) handleDeleteDocument(doc.id);
                   }}
-                  currentFile={getDocFile("BANK_STATEMENT")}
+                  uploadedUrl={getDocUploadedUrl("BANK_STATEMENT")}
                   isUploading={uploadMutation.isPending}
                   isRequired
                 />
@@ -597,7 +610,7 @@ const PortfolioPage = () => {
                     const doc = getDocForType("INCOME_CERT");
                     if (doc) handleDeleteDocument(doc.id);
                   }}
-                  currentFile={getDocFile("INCOME_CERT")}
+                  uploadedUrl={getDocUploadedUrl("INCOME_CERT")}
                   isUploading={uploadMutation.isPending}
                 />
               </>
@@ -615,7 +628,7 @@ const PortfolioPage = () => {
                     const doc = getDocForType("BUSINESS_REG");
                     if (doc) handleDeleteDocument(doc.id);
                   }}
-                  currentFile={getDocFile("BUSINESS_REG")}
+                  uploadedUrl={getDocUploadedUrl("BUSINESS_REG")}
                   isUploading={uploadMutation.isPending}
                 />
                 <FileUploadField
@@ -628,7 +641,7 @@ const PortfolioPage = () => {
                     const doc = getDocForType("BANK_STATEMENT");
                     if (doc) handleDeleteDocument(doc.id);
                   }}
-                  currentFile={getDocFile("BANK_STATEMENT")}
+                  uploadedUrl={getDocUploadedUrl("BANK_STATEMENT")}
                   isUploading={uploadMutation.isPending}
                 />
                 <FileUploadField
@@ -641,7 +654,7 @@ const PortfolioPage = () => {
                     const doc = getDocForType("INCOME_CERT");
                     if (doc) handleDeleteDocument(doc.id);
                   }}
-                  currentFile={getDocFile("INCOME_CERT")}
+                  uploadedUrl={getDocUploadedUrl("INCOME_CERT")}
                   isUploading={uploadMutation.isPending}
                 />
                 <FileUploadField
@@ -654,7 +667,7 @@ const PortfolioPage = () => {
                     const doc = getDocForType("PAN");
                     if (doc) handleDeleteDocument(doc.id);
                   }}
-                  currentFile={getDocFile("PAN")}
+                  uploadedUrl={getDocUploadedUrl("PAN")}
                   isUploading={uploadMutation.isPending}
                 />
               </>
@@ -755,11 +768,22 @@ const PortfolioPage = () => {
               Back
             </Button>
             <div className="flex items-center gap-3">
-              {!isComplete ? (
+              {currentStatus === "PENDING_REVIEW" ? (
+                <p className="text-xs text-yellow-600">Portfolio is already under review</p>
+              ) : isComplete ? null : (
                 <p className="text-xs text-gray-400">Your portfolio will be submitted for admin verification</p>
-              ) : null}
-              <Button type="button" onClick={() => navigate("/dashboard")}>
-                {isComplete ? "Go to Dashboard" : "Submit for Review"}
+              )}
+              <Button
+                type="button"
+                onClick={currentStatus === "PENDING_REVIEW" ? () => navigate("/dashboard") : isComplete ? () => navigate("/dashboard") : handleSubmitPortfolio}
+                isLoading={submitMutation.isPending}
+                disabled={currentStatus === "PENDING_REVIEW" || submitMutation.isPending}
+              >
+                {currentStatus === "PENDING_REVIEW"
+                  ? "Go to Dashboard"
+                  : isComplete
+                    ? "Go to Dashboard"
+                    : "Submit for Review"}
               </Button>
             </div>
           </div>

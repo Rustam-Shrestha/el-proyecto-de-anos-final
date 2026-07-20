@@ -3,6 +3,7 @@ import { portfolioVerificationService } from '@/services/portfolioVerificationSe
 import { financialDocumentService } from '@/services/financialDocumentService';
 import { employmentService } from '@/services/employmentService';
 import { loanAccountService } from '@/services/loanAccountService';
+import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
 
 export const getPortfolioSummary = async (
@@ -99,6 +100,43 @@ export const getVerificationReport = async (
     const report = await portfolioVerificationService.generateVerificationReport(user.id);
 
     res.json(apiResponse.success('Verification report generated', report));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const submitPortfolio = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const employment = await employmentService.getEmploymentInfo(user.id);
+    if (!employment) {
+      res.status(400).json(apiResponse.error('Please complete your employment details first', 400));
+      return;
+    }
+
+    const updated = await portfolioVerificationService.updateVerificationStatus(user.id, 'PENDING_REVIEW');
+
+    await portfolioVerificationService.calculatePortfolioMetrics(user.id);
+    await portfolioVerificationService.detectAnomalies(user.id);
+
+    await auditService.log({
+      userId: user.id,
+      action: 'SUBMIT_PORTFOLIO',
+      metadata: { verificationStatus: 'PENDING_REVIEW' },
+      ip: req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(apiResponse.success('Portfolio submitted for review', updated));
   } catch (error) {
     next(error);
   }

@@ -99,8 +99,9 @@ export const portfolioVerificationService = {
       return portfolio;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, userId }, 'Failed to calculate portfolio metrics');
-      throw new AppError('Failed to calculate portfolio metrics', 500);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error, userId }, `Failed to calculate portfolio metrics: ${message}`);
+      throw new AppError('Failed to calculate portfolio metrics', 500, { cause: message });
     }
   },
 
@@ -195,8 +196,9 @@ export const portfolioVerificationService = {
       return { flags, flagsCount: flags.length };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, userId }, 'Failed to detect anomalies');
-      throw new AppError('Failed to detect anomalies', 500);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error, userId }, `Failed to detect anomalies: ${message}`);
+      throw new AppError('Failed to detect anomalies', 500, { cause: message });
     }
   },
 
@@ -224,8 +226,9 @@ export const portfolioVerificationService = {
       return updated;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, userId }, 'Failed to update verification status');
-      throw new AppError('Failed to update verification status', 500);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error, userId }, `Failed to update verification status: ${message}`);
+      throw new AppError('Failed to update verification status', 500, { cause: message });
     }
   },
 
@@ -257,8 +260,9 @@ export const portfolioVerificationService = {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, userId }, 'Failed to get portfolio summary');
-      throw new AppError('Failed to get portfolio summary', 500);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error, userId }, `Failed to get portfolio summary: ${message}`);
+      throw new AppError('Failed to get portfolio summary', 500, { cause: message });
     }
   },
 
@@ -314,8 +318,9 @@ export const portfolioVerificationService = {
       return report;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, userId }, 'Failed to generate verification report');
-      throw new AppError('Failed to generate verification report', 500);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error, userId }, `Failed to generate verification report: ${message}`);
+      throw new AppError('Failed to generate verification report', 500, { cause: message });
     }
   },
 
@@ -352,8 +357,9 @@ export const portfolioVerificationService = {
       return { items, total, page, limit };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error }, 'Failed to list pending verifications');
-      throw new AppError('Failed to list pending verifications', 500);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error }, `Failed to list pending verifications: ${message}`);
+      throw new AppError('Failed to list pending verifications', 500, { cause: message });
     }
   },
 };

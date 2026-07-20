@@ -29,6 +29,7 @@ import {
   getPortfolioMetrics,
   getVerificationReport,
   getLoanHistory,
+  submitPortfolio,
 } from '@/controllers/portfolioController';
 
 import {
@@ -133,6 +134,12 @@ portfolioRouter.delete(
 );
 
 // ─── Portfolio Routes ───────────────────────────────────────────
+portfolioRouter.post(
+  '/submit',
+  authenticate,
+  submitPortfolio
+);
+
 portfolioRouter.get(
   '/summary',
   authenticate,

@@ -345,6 +345,21 @@ export const useVerifyPortfolioMutation = () => {
   });
 };
 
+export const useSubmitPortfolioMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await apiClient.post<ApiResponse<PortfolioVerification>>(
+        "/portfolio/submit"
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+    },
+  });
+};
+
 export const useVerifyFinancialDocumentMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
