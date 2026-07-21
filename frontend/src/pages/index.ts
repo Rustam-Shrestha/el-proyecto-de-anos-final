@@ -23,3 +23,7 @@ export { default as UserListAdminPage } from './admin/UserListAdminPage';
 export { default as KycListAdminPage } from './admin/KycListAdminPage';
 export { default as AuditLogsPage } from './admin/AuditLogsPage';
 export { default as DocumentStatsPage } from './admin/DocumentStatsPage';
+
+export { default as FinancialDocumentUpload } from './portfolio/FinancialDocumentUpload';
+export { default as DocumentStatusList } from './portfolio/DocumentStatusList';
+export { default as AdminDocumentVerification } from './portfolio/AdminDocumentVerification';
