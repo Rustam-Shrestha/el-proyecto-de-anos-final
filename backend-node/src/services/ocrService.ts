@@ -103,3 +103,33 @@ export const ocrService = {
     }
   }
 };
+
+export async function callFinancialDocumentOcr(
+  imagePath: string,
+  documentType: string,
+): Promise<{ fullText: string; confidence: number; textLines: string[] }> {
+  if (!OCR_ENABLED) {
+    throw new Error('OCR is disabled');
+  }
+
+  await waitForFastAPIReady();
+
+  try {
+    const response = await axios.post(`${FASTAPI_URL}/api/v1/financial/ocr`, {
+      image_path: imagePath,
+      document_type: documentType,
+    }, { timeout: OCR_TIMEOUT_MS });
+
+    return {
+      fullText: (response.data.full_text as string) || '',
+      confidence: (response.data.confidence as number) || 0,
+      textLines: (response.data.text_lines as string[]) || [],
+    };
+  } catch (error: unknown) {
+    const apiError = error as { response?: { status?: number }; message?: string };
+    if (apiError.response?.status === 404) {
+      throw new Error('Financial OCR endpoint not available on FastAPI');
+    }
+    throw error;
+  }
+}

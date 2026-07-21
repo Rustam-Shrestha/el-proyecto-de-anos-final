@@ -18,8 +18,10 @@ import {
   uploadFinancialDocument,
   listFinancialDocuments,
   getFinancialDocument,
+  getDocumentStatus,
   deleteFinancialDocument,
   getDocumentSummary,
+  adminListDocuments,
   adminVerifyFinancialDocument,
 } from '@/controllers/financialDocumentController';
 
@@ -126,6 +128,13 @@ portfolioRouter.get(
   getFinancialDocument
 );
 
+portfolioRouter.get(
+  '/documents/:id/status',
+  authenticate,
+  validate(documentIdParamSchema),
+  getDocumentStatus
+);
+
 portfolioRouter.delete(
   '/documents/:id',
   authenticate,
@@ -220,6 +229,13 @@ portfolioRouter.get(
 );
 
 // ─── Admin Document Verification ─────────────────────────────────
+portfolioRouter.get(
+  '/admin/documents',
+  authenticate,
+  authorize('ADMIN', 'REVIEWER'),
+  adminListDocuments
+);
+
 portfolioRouter.patch(
   '/admin/documents/:id/verify',
   authenticate,

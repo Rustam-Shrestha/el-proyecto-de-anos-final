@@ -20,7 +20,7 @@ export const verifyFinancialDocumentSchema = z.object({
     id: z.string(),
   }),
   body: z.object({
-    verificationStatus: z.enum(['VERIFIED', 'REJECTED', 'FLAGGED']),
+    verificationStatus: z.enum(['VERIFIED', 'REJECTED', 'FLAGGED_REVIEW', 'REQUEST_RESUBMISSION']),
     adminNotes: z.string().optional(),
   }),
 });

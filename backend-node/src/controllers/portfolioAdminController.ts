@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { portfolioVerificationService } from '@/services/portfolioVerificationService';
-import { employmentService } from '@/controllers/employmentController';
+import { employmentService } from '@/services/employmentService';
 import { auditService } from '@/services/auditService';
 import { financialDocumentService } from '@/services/financialDocumentService';
 import { apiResponse } from '@/utils/apiResponse';

@@ -4,6 +4,9 @@ import { portfolioVerificationService } from '@/services/portfolioVerificationSe
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
 import { getRelativePath } from '@/utils/pathUtils';
+import { prisma } from '@/config/database';
+import { logger } from '@/config/logger';
+import { queueOcrJob } from '@/jobs/ocrProcessingJob';
 
 export const uploadFinancialDocument = async (
   req: Request,
@@ -33,6 +36,8 @@ export const uploadFinancialDocument = async (
       originalName: req.file.originalname,
     });
 
+    queueOcrJob(result.id);
+
     await auditService.log({
       userId: user.id,
       action: 'UPLOAD_FINANCIAL_DOC',
@@ -47,7 +52,13 @@ export const uploadFinancialDocument = async (
     });
 
     res.status(201).json(
-      apiResponse.success('Financial document uploaded successfully', result)
+      apiResponse.success('Financial document uploaded successfully', {
+        id: result.id,
+        documentType: result.documentType,
+        ocrStatus: result.ocrStatus,
+        createdAt: result.createdAt,
+        message: 'Document uploaded. OCR processing started.',
+      })
     );
   } catch (error) {
     if (req.file) {
@@ -154,6 +165,123 @@ export const getDocumentSummary = async (
   }
 };
 
+export const getDocumentStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json(apiResponse.error('Authentication required', 401));
+      return;
+    }
+
+    const { id } = req.params as { id: string };
+    const document = await financialDocumentService.getDocumentById(id);
+
+    if (document.userId !== user.id && user.role !== 'ADMIN' && user.role !== 'REVIEWER') {
+      res.status(403).json(apiResponse.error('You do not have access to this document', 403));
+      return;
+    }
+
+    res.json(apiResponse.success('Document status retrieved', {
+      id: document.id,
+      documentType: document.documentType,
+      ocrStatus: document.ocrStatus,
+      ocrConfidence: document.ocrConfidence,
+      verificationStatus: document.verificationStatus,
+      flagCount: document.flagCount,
+      anomalyFlags: document.anomalyFlags,
+      extractedFields: document.extractedFields,
+      comparisonResult: document.comparisonResult,
+      isExpired: document.isExpired,
+    }));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const adminListDocuments = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { status, page = '1', limit = '20' } = req.query as Record<string, string>;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: Record<string, unknown> = { isDeleted: false };
+    if (status) {
+      if (status === 'FLAGGED') {
+        where.verificationStatus = 'FLAGGED_REVIEW';
+      } else {
+        where.verificationStatus = status;
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.financialDocument.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: { select: { fullName: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limitNum,
+        skip,
+      }),
+      prisma.financialDocument.count({ where }),
+    ]);
+
+    res.json(apiResponse.paginated('Documents retrieved', items, pageNum, limitNum, total));
+  } catch (error) {
+    next(error);
+  }
+};
+
+async function updatePortfolioCountersAfterVerify(userId: string): Promise<void> {
+  try {
+    const docs = await prisma.financialDocument.findMany({
+      where: { userId, isDeleted: false },
+    });
+    const uploaded = docs.length;
+    const verified = docs.filter((d) => d.verificationStatus === 'VERIFIED').length;
+    const flagged = docs.filter((d) => d.anomalyFlags.length > 0 || d.verificationStatus === 'FLAGGED_REVIEW').length;
+    const allVerified = uploaded > 0 && verified === uploaded;
+
+    await prisma.portfolioVerification.upsert({
+      where: { userId },
+      create: {
+        userId,
+        documentsUploaded: uploaded,
+        documentsVerified: verified,
+        documentsFlagged: flagged,
+        allDocumentsVerified: allVerified,
+        canProceedToLoan: allVerified,
+        verificationStatus: allVerified ? 'VERIFIED' : 'PENDING_VERIFICATION',
+      },
+      update: {
+        documentsUploaded: uploaded,
+        documentsVerified: verified,
+        documentsFlagged: flagged,
+        allDocumentsVerified: allVerified,
+        canProceedToLoan: allVerified,
+        verificationStatus: allVerified ? 'VERIFIED' : 'PENDING_VERIFICATION',
+      },
+    });
+  } catch (error) {
+    logger.error({ err: error, userId }, 'Failed to update portfolio counters after verify');
+  }
+}
+
 export const adminVerifyFinancialDocument = async (
   req: Request,
   res: Response,
@@ -171,14 +299,22 @@ export const adminVerifyFinancialDocument = async (
 
     const result = await financialDocumentService.verifyDocument(
       id,
-      verificationStatus,
+      verificationStatus === 'REQUEST_RESUBMISSION' ? 'REJECTED' : verificationStatus,
       adminNotes,
       user.id
     );
 
+    if (verificationStatus === 'REQUEST_RESUBMISSION') {
+      await prisma.financialDocument.update({
+        where: { id },
+        data: { adminNotes: adminNotes || 'Admin requested resubmission' },
+      });
+    }
+
     const doc = await financialDocumentService.getDocumentById(id);
     await portfolioVerificationService.calculatePortfolioMetrics(doc.userId);
     await portfolioVerificationService.detectAnomalies(doc.userId);
+    await updatePortfolioCountersAfterVerify(doc.userId);
 
     await auditService.log({
       userId: user.id,

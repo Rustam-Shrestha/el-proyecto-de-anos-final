@@ -455,9 +455,17 @@ model FinancialDocument {
   ocrData                   Json?    // Raw extracted text as JSON
   ocrConfidence             Float?   // 0-1
   ocrErrorMessage           String?
+  ocrRawText                String?  @db.Text // Full raw OCR text output as-is
+  ocrProcessedAt            DateTime?
+
+  // Extracted & Normalized Fields
+  extractedFields           Json?    // { documentType, extractedData: { salary, date, employer, ... }, confidence: {...} }
+  comparisonResult          Json?    // { salaryMatch: { matched, declared, extracted, diff }, ... }
+  anomalyFlags              String[] @default([]) // ["SALARY_MISMATCH", "EMPLOYER_MISMATCH", ...]
+  flagCount                 Int      @default(0)
 
   // Verification
-  verificationStatus        String   @default("PENDING") // PENDING, VERIFIED, REJECTED, FLAGGED
+  verificationStatus        String   @default("PENDING") // PENDING, VERIFIED, REJECTED, FLAGGED_REVIEW
   adminNotes                String?
   verifiedBy                String?
   verifiedAt                DateTime?
@@ -484,7 +492,14 @@ model PortfolioVerification {
   userId                    String   @unique
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  verificationStatus        String   @default("INCOMPLETE") // INCOMPLETE, PENDING_REVIEW, VERIFIED, REJECTED
+  verificationStatus        String   @default("INCOMPLETE") // INCOMPLETE, PENDING_REVIEW, PENDING_VERIFICATION, VERIFIED, REJECTED
+
+  // Document Counters
+  documentsUploaded         Int      @default(0)
+  documentsVerified         Int      @default(0)
+  documentsFlagged          Int      @default(0)
+  allDocumentsVerified      Boolean  @default(false)
+  canProceedToLoan          Boolean  @default(false)
 
   // Calculated Metrics
   loanToIncomeRatio         Decimal? @db.Decimal(5, 2)
