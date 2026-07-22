@@ -99,9 +99,10 @@ export const portfolioVerificationService = {
       return portfolio;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ err: error, userId }, `Failed to calculate portfolio metrics: ${message}`);
-      throw new AppError('Failed to calculate portfolio metrics', 500, { cause: message });
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      const detail = `Portfolio metrics calculation failed for user ${userId}. Root cause: ${cause}`;
+      logger.error({ err: error, userId }, detail);
+      throw new AppError(detail, 500, { cause });
     }
   },
 
@@ -196,9 +197,10 @@ export const portfolioVerificationService = {
       return { flags, flagsCount: flags.length };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ err: error, userId }, `Failed to detect anomalies: ${message}`);
-      throw new AppError('Failed to detect anomalies', 500, { cause: message });
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      const detail = `Anomaly detection failed for user ${userId}. Root cause: ${cause}`;
+      logger.error({ err: error, userId }, detail);
+      throw new AppError(detail, 500, { cause });
     }
   },
 
@@ -226,9 +228,10 @@ export const portfolioVerificationService = {
       return updated;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ err: error, userId }, `Failed to update verification status: ${message}`);
-      throw new AppError('Failed to update verification status', 500, { cause: message });
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      const detail = `Portfolio verification status update failed for user ${userId}. Root cause: ${cause}`;
+      logger.error({ err: error, userId }, detail);
+      throw new AppError(detail, 500, { cause });
     }
   },
 
@@ -260,9 +263,10 @@ export const portfolioVerificationService = {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ err: error, userId }, `Failed to get portfolio summary: ${message}`);
-      throw new AppError('Failed to get portfolio summary', 500, { cause: message });
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      const detail = `Portfolio summary retrieval failed for user ${userId}. Root cause: ${cause}`;
+      logger.error({ err: error, userId }, detail);
+      throw new AppError(detail, 500, { cause });
     }
   },
 
@@ -318,9 +322,10 @@ export const portfolioVerificationService = {
       return report;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ err: error, userId }, `Failed to generate verification report: ${message}`);
-      throw new AppError('Failed to generate verification report', 500, { cause: message });
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      const detail = `Verification report generation failed for user ${userId}. Root cause: ${cause}`;
+      logger.error({ err: error, userId }, detail);
+      throw new AppError(detail, 500, { cause });
     }
   },
 
@@ -357,9 +362,10 @@ export const portfolioVerificationService = {
       return { items, total, page, limit };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ err: error }, `Failed to list pending verifications: ${message}`);
-      throw new AppError('Failed to list pending verifications', 500, { cause: message });
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      const detail = `Failed to list pending verifications. Root cause: ${cause}`;
+      logger.error({ err: error }, detail);
+      throw new AppError(detail, 500, { cause });
     }
   },
 };

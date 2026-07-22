@@ -83,8 +83,9 @@ export const employmentService = {
       return employment;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, userId }, 'Failed to save employment info');
-      throw new AppError('Failed to save employment information', 500);
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error, userId }, `Failed to save employment info: ${cause}`);
+      throw new AppError(`Failed to save employment information for user ${userId}. Root cause: ${cause}`, 500, { cause });
     }
   },
 
@@ -97,8 +98,9 @@ export const employmentService = {
       return employment;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      logger.error({ err: error, userId }, 'Failed to fetch employment info');
-      throw new AppError('Failed to fetch employment information', 500);
+      const cause = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error, userId }, `Failed to fetch employment info: ${cause}`);
+      throw new AppError(`Failed to fetch employment information for user ${userId}. Root cause: ${cause}`, 500, { cause });
     }
   },
 

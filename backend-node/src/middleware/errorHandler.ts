@@ -28,7 +28,7 @@ export const errorHandler = (
   const response = apiResponse.error(
     message,
     statusCode,
-    env.NODE_ENV === 'development' ? details : undefined
+    details // Always include error details so frontend gets the root cause
   );
 
   res.status(statusCode).json(response);
