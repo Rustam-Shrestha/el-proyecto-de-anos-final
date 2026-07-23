@@ -1,6 +1,13 @@
+import asyncio
 import os
+import sys
+
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['TF_USE_LEGACY_KERAS'] = '1'
+os.environ['FLAGS_use_mkldnn'] = '0'
+
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 import logging
 from contextlib import asynccontextmanager

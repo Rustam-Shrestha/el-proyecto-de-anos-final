@@ -3,13 +3,27 @@ import { logger } from '@/config/logger';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { documentExtractionService } from '@/services/documentExtractionService';
-import { financialDocumentService } from '@/services/financialDocumentService';
-import { callFinancialDocumentOcr } from '@/services/ocrService';
+import { callFinancialDocumentOcr, callFinancialDocumentExtraction } from '@/services/ocrService';
+import type { ExtractionResult as ApiExtractionResult } from '@/services/ocrService';
 
 interface OcrResult {
   fullText: string;
   textLines: string[];
   confidence: number;
+}
+
+interface ProcessedExtraction {
+  ocrResult: OcrResult;
+  extractedFields: Record<string, unknown>;
+  transactions?: Array<{
+    date: string | null;
+    description: string;
+    type: 'debit' | 'credit';
+    amount: number | null;
+    balance: number | null;
+    balanceMismatch: boolean;
+  }>;
+  bankMeta?: Record<string, unknown>;
 }
 
 const activeJobs = new Set<string>();
@@ -58,6 +72,34 @@ async function runOcrOnDocument(filePath: string, documentType: string): Promise
   }
 }
 
+async function runDocumentExtraction(filePath: string, documentType: string): Promise<ProcessedExtraction> {
+  const absolutePath = path.resolve(filePath);
+  if (!existsSync(absolutePath)) {
+    throw new Error(`File not found at path: ${filePath}`);
+  }
+
+  try {
+    const result = await callFinancialDocumentExtraction(absolutePath, documentType);
+    return {
+      ocrResult: {
+        fullText: result.rawExtractedText || '',
+        textLines: (result.rawExtractedText || '').split('\n').filter((l: string) => l.trim()),
+        confidence: result.parsingConfidence ?? 0.5,
+      },
+      extractedFields: result as unknown as Record<string, unknown>,
+      transactions: result.transactions,
+      bankMeta: result.bankMeta,
+    };
+  } catch {
+    logger.warn({ filePath, documentType }, 'FastAPI extraction unavailable, falling back to OCR-only');
+    const ocrResult = await runOcrOnDocument(filePath, documentType);
+    return {
+      ocrResult,
+      extractedFields: {},
+    };
+  }
+}
+
 export async function processOcrJob(documentId: string): Promise<void> {
   if (activeJobs.has(documentId)) {
     logger.info({ documentId }, 'OCR job already running for this document');
@@ -83,34 +125,97 @@ export async function processOcrJob(documentId: string): Promise<void> {
       setTimeout(() => reject(new Error('OCR processing timed out')), JOB_TIMEOUT_MS),
     );
 
-    const ocrPromise = runOcrOnDocument(doc.filePath, doc.documentType);
-    const ocrResult = await Promise.race([ocrPromise, timeoutPromise]).catch(async (err) => {
-      logger.error({ err, documentId }, 'OCR processing failed');
+    const isBankStatement = doc.documentType === 'BANK_STATEMENT';
+    let extractionPromise: Promise<ProcessedExtraction>;
+
+    if (isBankStatement) {
+      extractionPromise = runDocumentExtraction(doc.filePath, doc.documentType);
+    } else {
+      extractionPromise = runOcrOnDocument(doc.filePath, doc.documentType).then((ocrResult) => ({
+        ocrResult,
+        extractedFields: {},
+      }));
+    }
+
+    const processed = await Promise.race([extractionPromise, timeoutPromise]).catch(async (err) => {
+      logger.error({ err, documentId }, 'Document processing failed');
       await prisma.financialDocument.update({
         where: { id: documentId },
         data: {
           ocrStatus: 'FAILED',
-          ocrErrorMessage: err instanceof Error ? err.message : 'OCR processing failed',
+          ocrErrorMessage: err instanceof Error ? err.message : 'Processing failed',
         },
       });
       return null;
     });
 
-    if (!ocrResult) {
+    if (!processed) {
       activeJobs.delete(documentId);
       return;
     }
 
+    const { ocrResult, extractedFields: apiExtractedFields, transactions, bankMeta } = processed;
+
     const normalized = documentExtractionService.normalizeOcrOutput(ocrResult, doc.documentType);
 
     const extracted = documentExtractionService.extractFinancialFields(normalized);
+
+    if (isBankStatement && transactions && transactions.length > 0) {
+      const totalCredits = transactions
+        .filter((t) => t.type === 'credit' && t.amount)
+        .reduce((s, t) => s + (t.amount || 0), 0);
+      const totalDebits = transactions
+        .filter((t) => t.type === 'debit' && t.amount)
+        .reduce((s, t) => s + (t.amount || 0), 0);
+      const salaryTxn = transactions.find(
+        (t) => t.description && /salary|payroll|wages/i.test(t.description)
+      );
+
+      extracted.extractedData = {
+        ...extracted.extractedData,
+        transactionCount: transactions.length,
+        totalCredits,
+        totalDebits,
+        netCashFlow: totalCredits - totalDebits,
+        salaryDepositDetected: !!salaryTxn,
+        salaryAmountDetected: salaryTxn?.amount || null,
+        largestSingleDeposit: Math.max(
+          ...transactions.filter((t) => t.type === 'credit' && t.amount).map((t) => t.amount || 0),
+          0
+        ) || null,
+      };
+      extracted.confidence = {
+        ...extracted.confidence,
+        transactionCount: transactions.length > 0 ? 0.95 : 0,
+        salaryDepositDetected: salaryTxn ? 0.85 : 0,
+        salaryAmountDetected: salaryTxn?.amount ? 0.85 : 0,
+      };
+    }
 
     const employment = await prisma.employmentInfo.findUnique({ where: { userId: doc.userId } });
     const comparison = documentExtractionService.compareWithDeclaration(extracted, employment);
 
     const flags = documentExtractionService.generateAnomalyFlags(comparison, extracted, ocrResult.confidence);
 
+    if (isBankStatement && Boolean(apiExtractedFields?.needsManualMapping)) {
+      flags.flagList.push('NEEDS_MANUAL_MAPPING');
+      flags.count += 1;
+      flags.details.push({
+        type: 'NEEDS_MANUAL_MAPPING',
+        severity: 'HIGH',
+        message: 'Bank statement column headers could not be mapped automatically',
+      });
+    }
+
     const verificationStatus = flags.count > 0 ? 'FLAGGED_REVIEW' : 'PENDING';
+
+    const storedExtractedFields = isBankStatement
+      ? {
+          ...apiExtractedFields,
+          extractedData: extracted.extractedData,
+          confidence: extracted.confidence,
+        }
+      : (extracted as unknown as Record<string, unknown>);
 
     await prisma.financialDocument.update({
       where: { id: documentId },
@@ -120,7 +225,7 @@ export async function processOcrJob(documentId: string): Promise<void> {
         ocrRawText: ocrResult.fullText,
         ocrData: ocrResult.fullText ? { fullText: ocrResult.fullText, confidence: ocrResult.confidence } : undefined,
         ocrConfidence: ocrResult.confidence,
-        extractedFields: extracted as unknown as Record<string, unknown>,
+        extractedFields: storedExtractedFields,
         comparisonResult: comparison as unknown as Record<string, unknown>,
         anomalyFlags: flags.flagList,
         flagCount: flags.count,

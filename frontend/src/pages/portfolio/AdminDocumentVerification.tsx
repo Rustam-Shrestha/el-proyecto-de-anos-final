@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { portfolioService } from '../../services/portfolioService';
-import type { FinancialDocument } from '../../types/financial';
+import type { FinancialDocument, BankTransaction, BankMeta } from '../../types/financial';
 
 const FILTERS = ['', 'PENDING', 'FLAGGED', 'VERIFIED', 'REJECTED'] as const;
 const FILTER_LABELS: Record<string, string> = { '': 'All', PENDING: 'Pending', FLAGGED: 'Flagged', VERIFIED: 'Verified', REJECTED: 'Rejected' };
@@ -208,6 +208,15 @@ export default function AdminDocumentVerification() {
               </div>
             )}
 
+            {selectedDoc.documentType === 'BANK_STATEMENT' && selectedDoc.extractedFields?.transactions && selectedDoc.extractedFields.transactions.length > 0 && (
+              <BankStatementView
+                bankMeta={selectedDoc.extractedFields.bankMeta || {} as BankMeta}
+                transactions={selectedDoc.extractedFields.transactions}
+                parsingConfidence={selectedDoc.extractedFields.parsingConfidence}
+                needsManualMapping={selectedDoc.extractedFields.needsManualMapping}
+              />
+            )}
+
             <div style={{ marginBottom: 12 }}>
               <h4 style={{ margin: '0 0 6px', fontSize: 14 }}>Admin Notes</h4>
               <textarea
@@ -280,6 +289,93 @@ function DocInfo({ label, value }: { label: string; value: string }) {
     <div style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 }}>
       <span style={{ fontWeight: 500, minWidth: 130, color: '#6b7280' }}>{label}:</span>
       <span>{value}</span>
+    </div>
+  );
+}
+
+function BankStatementView({ bankMeta, transactions, parsingConfidence, needsManualMapping }: {
+  bankMeta: BankMeta;
+  transactions: BankTransaction[];
+  parsingConfidence?: number;
+  needsManualMapping?: boolean;
+}) {
+  const formatAmount = (v: number | null | undefined) => {
+    if (v == null) return '-';
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'NPR', maximumFractionDigits: 2 }).format(v);
+  };
+
+  const mismatchCount = transactions.filter((t) => t.balanceMismatch).length;
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <h4 style={{ margin: 0, fontSize: 14 }}>Bank Statement Summary</h4>
+        {needsManualMapping && (
+          <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 500, background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' }}>
+            Needs Manual Mapping
+          </span>
+        )}
+        {parsingConfidence != null && (
+          <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 500, background: parsingConfidence > 0.8 ? '#d1fae5' : '#fef3c7', color: parsingConfidence > 0.8 ? '#065f46' : '#92400e' }}>
+            Confidence: {Math.round(parsingConfidence * 100)}%
+          </span>
+        )}
+      </div>
+
+      {bankMeta && Object.keys(bankMeta).length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 8, fontSize: 12 }}>
+          {bankMeta.bankName && <span><strong>Bank:</strong> {bankMeta.bankName}</span>}
+          {bankMeta.accountHolder && <span><strong>Holder:</strong> {bankMeta.accountHolder}</span>}
+          {bankMeta.accountNumber && <span><strong>A/C:</strong> {bankMeta.accountNumber}</span>}
+          {bankMeta.openingBalance != null && <span><strong>Open Bal:</strong> {formatAmount(bankMeta.openingBalance)}</span>}
+          {bankMeta.closingBalance != null && <span><strong>Close Bal:</strong> {formatAmount(bankMeta.closingBalance)}</span>}
+          {bankMeta.currency && <span><strong>Curr:</strong> {bankMeta.currency}</span>}
+        </div>
+      )}
+
+      {mismatchCount > 0 && (
+        <div style={{ padding: '6px 10px', background: '#fef2f2', borderRadius: 6, color: '#991b1b', fontSize: 12, marginBottom: 8 }}>
+          ⚠ {mismatchCount} transaction{mismatchCount > 1 ? 's' : ''} with balance mismatch detected
+        </div>
+      )}
+
+      <div style={{ maxHeight: 300, overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead>
+            <tr style={{ background: '#f9fafb', position: 'sticky', top: 0 }}>
+              <th style={thStyle}>Date</th>
+              <th style={thStyle}>Description</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Debit</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Credit</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
+              <th style={thStyle}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((txn, i) => (
+              <tr key={i} style={{
+                borderBottom: '1px solid #e5e7eb',
+                background: txn.balanceMismatch ? '#fef2f2' : 'transparent',
+              }}>
+                <td style={tdStyle}>{txn.date || '-'}</td>
+                <td style={{ ...tdStyle, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={txn.description}>
+                  {txn.description || '-'}
+                </td>
+                <td style={{ ...tdStyle, textAlign: 'right', color: txn.type === 'debit' ? '#dc2626' : 'inherit' }}>
+                  {txn.type === 'debit' ? formatAmount(txn.amount) : '-'}
+                </td>
+                <td style={{ ...tdStyle, textAlign: 'right', color: txn.type === 'credit' ? '#059669' : 'inherit' }}>
+                  {txn.type === 'credit' ? formatAmount(txn.amount) : '-'}
+                </td>
+                <td style={{ ...tdStyle, textAlign: 'right' }}>{txn.balance != null ? formatAmount(txn.balance) : '-'}</td>
+                <td style={tdStyle}>
+                  {txn.balanceMismatch ? <span style={{ color: '#dc2626' }}>⚠ Mismatch</span> : <span style={{ color: '#10b981' }}>✓ OK</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

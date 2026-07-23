@@ -133,3 +133,58 @@ export async function callFinancialDocumentOcr(
     throw error;
   }
 }
+
+export interface ExtractionResult {
+  sourceType: string;
+  extractionMethod: string;
+  bankMeta: {
+    bankName?: string;
+    accountHolder?: string;
+    accountNumber?: string;
+    fromDate?: string;
+    toDate?: string;
+    openingBalance?: number;
+    closingBalance?: number;
+    currency?: string;
+    [key: string]: unknown;
+  };
+  transactions: Array<{
+    date: string | null;
+    description: string;
+    type: 'debit' | 'credit';
+    amount: number | null;
+    balance: number | null;
+    balanceMismatch: boolean;
+  }>;
+  parsingConfidence: number;
+  needsManualMapping: boolean;
+  rawExtractedText: string;
+  rawTableData: unknown[][];
+  [key: string]: unknown;
+}
+
+export async function callFinancialDocumentExtraction(
+  filePath: string,
+  documentType: string,
+): Promise<ExtractionResult> {
+  if (!OCR_ENABLED) {
+    throw new Error('OCR is disabled');
+  }
+
+  await waitForFastAPIReady();
+
+  try {
+    const response = await axios.post(`${FASTAPI_URL}/api/v1/financial/ocr/extract-document`, {
+      file_path: filePath,
+      document_type: documentType,
+    }, { timeout: OCR_TIMEOUT_MS });
+
+    return response.data as ExtractionResult;
+  } catch (error: unknown) {
+    const apiError = error as { response?: { status?: number }; message?: string };
+    if (apiError.response?.status === 404) {
+      throw new Error('Financial document extraction endpoint not available on FastAPI');
+    }
+    throw error;
+  }
+}

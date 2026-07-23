@@ -13,7 +13,9 @@ Usage:
 """
 
 import asyncio
+import io
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -35,6 +37,9 @@ class FinancialDocumentProcessor:
 
     async def process_image_async(self, image_path: str) -> Dict:
         """Run OCR on a financial document image asynchronously.
+
+        Supports both images (.jpg, .png, etc.) and PDFs.
+        PDFs are rendered to images internally via PyMuPDF.
 
         Args:
             image_path: Absolute path to the image file.
@@ -59,44 +64,73 @@ class FinancialDocumentProcessor:
         result = await loop.run_in_executor(None, self._process_sync, image_path)
         return result
 
+    @staticmethod
+    def _pdf_to_images(pdf_path: str) -> list:
+        try:
+            import fitz
+        except ImportError:
+            raise ImportError("PyMuPDF (fitz) is required to OCR PDF files")
+
+        doc = fitz.open(pdf_path)
+        images = []
+        for page_num in range(doc.page_count):
+            page = doc[page_num]
+            pix = page.get_pixmap(dpi=200)
+            img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            images.append(img)
+        doc.close()
+        return images
+
     def _process_sync(self, image_path: str) -> Dict:
         """Synchronous OCR processing pipeline.
 
-        1. Load and preprocess image (grayscale, CLAHE, resize).
-        2. Run EasyOCR text detection/recognition.
-        3. Filter low-confidence results.
-        4. Return raw text + confidence.
+        1. Load file (PDF → render to images, image → load directly).
+        2. Preprocess (grayscale, CLAHE, resize).
+        3. Run EasyOCR text detection/recognition.
+        4. Filter low-confidence results.
+        5. Return raw text + confidence.
         """
         try:
-            preprocessed = self._preprocess_image(image_path)
-            logger.debug("Image preprocessed: %s", image_path)
+            path = Path(image_path)
+            ext = path.suffix.lower()
 
-            ocr_results = self.reader.readtext(preprocessed, detail=1, paragraph=False)
+            if ext == ".pdf":
+                page_images = self._pdf_to_images(image_path)
+            else:
+                page_images = [cv2.imread(image_path)]
+                if page_images[0] is None:
+                    raise ValueError(f"Cannot load image: {image_path}")
 
-            lines = []
-            confidences = []
-            for bbox, text, confidence in ocr_results:
-                if confidence >= self.CONFIDENCE_THRESHOLD:
-                    lines.append(text)
-                    confidences.append(confidence)
+            all_lines = []
+            all_confidences = []
 
-            full_text = "\n".join(lines)
+            for img in page_images:
+                preprocessed = self._preprocess_image_array(img)
+                ocr_results = self.reader.readtext(preprocessed, detail=1, paragraph=False)
+
+                for bbox, text, confidence in ocr_results:
+                    if confidence >= self.CONFIDENCE_THRESHOLD:
+                        all_lines.append(text)
+                        all_confidences.append(confidence)
+
+            full_text = "\n".join(all_lines)
             avg_confidence = (
-                sum(confidences) / len(confidences)
-                if confidences
+                sum(all_confidences) / len(all_confidences)
+                if all_confidences
                 else 0.0
             )
 
             logger.info(
                 "Financial OCR complete: %d lines, confidence=%.2f",
-                len(lines),
+                len(all_lines),
                 avg_confidence,
             )
 
             return {
                 "full_text": full_text,
                 "confidence": min(avg_confidence, 1.0),
-                "text_lines": lines,
+                "text_lines": all_lines,
             }
 
         except Exception as e:
@@ -110,29 +144,23 @@ class FinancialDocumentProcessor:
                 "error": str(e),
             }
 
-    def _preprocess_image(self, image_path: str) -> np.ndarray:
-        """Improve OCR accuracy with standard image preprocessing.
-
-        - Convert to grayscale
-        - Resize if too wide (keep aspect ratio, max 720px width)
-        - Apply CLAHE for contrast enhancement
-        """
-        image = cv2.imread(image_path)
-        if image is None:
-            raise ValueError(f"Cannot load image: {image_path}")
-
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
+    @staticmethod
+    def _preprocess_image_array(img: np.ndarray) -> np.ndarray:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         height, width = gray.shape
         if width > 720:
             scale = 720 / width
             new_height = int(height * scale)
             gray = cv2.resize(gray, (720, new_height), interpolation=cv2.INTER_AREA)
-
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        gray = clahe.apply(gray)
+        return clahe.apply(gray)
 
-        return gray
+    def _preprocess_image(self, image_path: str) -> np.ndarray:
+        """Legacy method — kept for backward compatibility."""
+        image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"Cannot load image: {image_path}")
+        return self._preprocess_image_array(image)
 
 
 class FinancialOcrService:

@@ -375,6 +375,82 @@ function extractSenderName(normalized: NormalizedOutput): string | null {
   return extractName(normalized);
 }
 
+function detectSalaryDeposit(normalized: NormalizedOutput): boolean {
+  const salaryPatterns = [/salary/i, /payroll/i, /wages/i, /salary credit/i, /monthly salary/i];
+  for (const line of normalized.rawLines) {
+    if (salaryPatterns.some((p) => p.test(line))) return true;
+  }
+  return false;
+}
+
+function extractSalaryAmount(normalized: NormalizedOutput): number | null {
+  const salaryContextPatterns = [
+    /salary\s*(?:credit)?\s*:?\s*(?:rs\.?\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+    /(?:salary|payroll|wages)\D*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+  ];
+  for (const pattern of salaryContextPatterns) {
+    const match = normalized.cleanedText.match(pattern);
+    if (match) {
+      const num = parseInt(match[1].replace(/,/g, ''), 10);
+      if (!isNaN(num) && num > 0 && num < 10000000) return num;
+    }
+  }
+  return null;
+}
+
+function extractTotalCredits(normalized: NormalizedOutput): number | null {
+  const creditLines = normalized.rawLines.filter((l) =>
+    /credit|deposit|received/i.test(l) && /\d{4,}/.test(l)
+  );
+  if (creditLines.length === 0) return null;
+  let total = 0;
+  for (const line of creditLines) {
+    const nums = line.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})?/g);
+    if (nums) {
+      for (const n of nums) {
+        const val = parseInt(n.replace(/,/g, ''), 10);
+        if (val > 0 && val < 10000000) total += val;
+      }
+    }
+  }
+  return total > 0 ? total : null;
+}
+
+function extractTotalDebits(normalized: NormalizedOutput): number | null {
+  const debitLines = normalized.rawLines.filter((l) =>
+    /debit|withdraw|paid|payment/i.test(l) && /\d{4,}/.test(l)
+  );
+  if (debitLines.length === 0) return null;
+  let total = 0;
+  for (const line of debitLines) {
+    const nums = line.match(/\d{1,3}(?:,\d{3})*(?:\.\d{2})?/g);
+    if (nums) {
+      for (const n of nums) {
+        const val = parseInt(n.replace(/,/g, ''), 10);
+        if (val > 0 && val < 10000000) total += val;
+      }
+    }
+  }
+  return total > 0 ? total : null;
+}
+
+function extractLargestDeposit(normalized: NormalizedOutput): number | null {
+  const depositPattern = /(?:deposit|credit|salary)\s*:?\s*(?:rs\.?\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/gi;
+  let largest = null;
+  let match;
+  while ((match = depositPattern.exec(normalized.cleanedText)) !== null) {
+    const num = parseInt(match[1].replace(/,/g, ''), 10);
+    if (!isNaN(num) && num > 0 && num < 10000000) {
+      if (largest === null || num > largest) largest = num;
+    }
+  }
+  return largest;
+}
+
+function countTransactions(normalized: NormalizedOutput): number {
+  return normalized.rawLines.filter((l) => /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(l)).length;
+}
+
 export const documentExtractionService = {
   normalizeOcrOutput(ocrResult: OcrResult, documentType: string): NormalizedOutput {
     const fullText = normalizeNepaliNumber(ocrResult.fullText);
@@ -433,12 +509,28 @@ export const documentExtractionService = {
           ? Math.round(deposits.reduce((a, b) => a + b, 0) / deposits.length)
           : null;
 
+        const salaryDepositDetected = detectSalaryDeposit(normalized);
+        const salaryAmountDetected = salaryDepositDetected
+          ? extractSalaryAmount(normalized) || avgDeposit
+          : null;
+        const totalCredits = extractTotalCredits(normalized);
+        const totalDebits = extractTotalDebits(normalized);
+        const largestDeposit = extractLargestDeposit(normalized);
+        const transactionCount = countTransactions(normalized);
+
         extracted.extractedData = {
           accountHolderName,
           accountNumber,
           bankName,
           deposits: deposits.length,
           averageMonthlyDeposit: avgDeposit,
+          salaryDepositDetected,
+          salaryAmountDetected,
+          totalCredits,
+          totalDebits,
+          largestSingleDeposit: largestDeposit,
+          transactionCount,
+          netCashFlow: totalCredits !== null && totalDebits !== null ? totalCredits - totalDebits : null,
         };
 
         extracted.confidence = {
@@ -447,6 +539,10 @@ export const documentExtractionService = {
           bankName: bankName ? 0.88 : 0,
           deposits: deposits.length > 0 ? 0.78 : 0,
           averageMonthlyDeposit: avgDeposit ? 0.80 : 0,
+          salaryDepositDetected: salaryDepositDetected ? 0.75 : 0,
+          salaryAmountDetected: salaryAmountDetected ? 0.75 : 0,
+          totalCredits: totalCredits ? 0.70 : 0,
+          totalDebits: totalDebits ? 0.70 : 0,
         };
         break;
       }
@@ -571,13 +667,27 @@ export const documentExtractionService = {
       case 'BANK_STATEMENT': {
         const declaredSalary = employment?.monthlyGrossIncome ? Number(employment.monthlyGrossIncome) : null;
         const avgDeposit = extracted.extractedData.averageMonthlyDeposit as number | null;
+        const salaryAmountDetected = extracted.extractedData.salaryAmountDetected as number | null;
+
+        const salaryForComparison = salaryAmountDetected || avgDeposit;
 
         comparison.salaryMatch = {
-          matched: isSimilar(declaredSalary, avgDeposit, 0.25),
+          matched: isSimilar(declaredSalary, salaryForComparison, 0.25),
           declared: declaredSalary,
-          extracted: avgDeposit,
-          differencePercent: calculateDifference(declaredSalary, avgDeposit),
-          confidence: extracted.confidence.averageMonthlyDeposit || 0,
+          extracted: salaryForComparison,
+          differencePercent: calculateDifference(declaredSalary, salaryForComparison),
+          confidence: salaryAmountDetected
+            ? (extracted.confidence.salaryAmountDetected || 0)
+            : (extracted.confidence.averageMonthlyDeposit || 0),
+        };
+
+        const salaryDetected = extracted.extractedData.salaryDepositDetected as boolean;
+
+        comparison.salaryPresenceMatch = {
+          matched: salaryDetected || !declaredSalary,
+          declared: declaredSalary ? 'Salary declared' : 'No declared salary',
+          extracted: salaryDetected ? 'Salary deposit detected in statement' : 'No salary deposit detected',
+          confidence: extracted.confidence.salaryDepositDetected || 0,
         };
 
         const extractedName = extracted.extractedData.accountHolderName as string | null;
@@ -611,6 +721,28 @@ export const documentExtractionService = {
 
   generateAnomalyFlags(comparison: ComparisonResult, extracted: ExtractionResult, overallOcrConfidence: number): FlagResult {
     const flags: FlagDetail[] = [];
+
+    if (comparison.salaryPresenceMatch && !comparison.salaryPresenceMatch.matched) {
+      flags.push({
+        type: 'SALARY_NOT_FOUND_IN_STATEMENT',
+        severity: 'HIGH',
+        message: 'Declared income/salary not found in bank statement deposits',
+      });
+    }
+
+    if (comparison.salaryMatch && comparison.salaryMatch.declared && comparison.salaryMatch.extracted) {
+      const diff = calculateDifference(
+        comparison.salaryMatch.declared as number,
+        comparison.salaryMatch.extracted as number
+      );
+      if (diff > 15) {
+        flags.push({
+          type: 'DECLARED_INCOME_DEPOSIT_MISMATCH',
+          severity: diff > 25 ? 'HIGH' : 'MEDIUM',
+          message: `Declared income (${comparison.salaryMatch.declared}) and detected deposit (${comparison.salaryMatch.extracted}) differ by ${diff}%`,
+        });
+      }
+    }
 
     if (comparison.salaryMatch && !comparison.salaryMatch.matched) {
       flags.push({

@@ -1,3 +1,24 @@
+export interface BankTransaction {
+  date: string | null;
+  description: string;
+  type: 'debit' | 'credit';
+  amount: number | null;
+  balance: number | null;
+  balanceMismatch: boolean;
+}
+
+export interface BankMeta {
+  bankName?: string;
+  accountHolder?: string;
+  accountNumber?: string;
+  fromDate?: string;
+  toDate?: string;
+  openingBalance?: number;
+  closingBalance?: number;
+  currency?: string;
+  [key: string]: unknown;
+}
+
 export interface FinancialDocument {
   id: string;
   userId: string;
@@ -33,9 +54,18 @@ export interface FinancialDocument {
 }
 
 export interface ExtractedFields {
-  documentType: string;
-  extractedData: Record<string, string | number | null>;
-  confidence: Record<string, number>;
+  documentType?: string;
+  extractedData?: Record<string, string | number | null | boolean>;
+  confidence?: Record<string, number>;
+  sourceType?: string;
+  extractionMethod?: string;
+  bankMeta?: BankMeta;
+  transactions?: BankTransaction[];
+  parsingConfidence?: number;
+  needsManualMapping?: boolean;
+  rawExtractedText?: string;
+  rawTableData?: unknown[][];
+  [key: string]: unknown;
 }
 
 export interface ComparisonResult {
@@ -43,6 +73,7 @@ export interface ComparisonResult {
   employerMatch?: ComparisonField;
   dateMatch?: ComparisonField;
   nameMatch?: ComparisonField;
+  salaryPresenceMatch?: ComparisonField;
   [key: string]: ComparisonField | undefined;
 }
 
