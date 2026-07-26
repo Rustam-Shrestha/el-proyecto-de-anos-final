@@ -1,17 +1,18 @@
 import asyncio
 import logging
 import os
-import time
 from pathlib import Path
-from typing import Optional
 
 import cv2
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Disable OneDNN to avoid "Filter not found in OneDnnContext" error in fused conv ops
 os.environ["FLAGS_use_mkldnn"] = "0"
+os.environ["FLAGS_set_cpu_numa_arena_num"] = "1"
+os.environ["GLOG_minloglevel"] = "2"
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "1"
+os.environ["PADDLEX_LOG_LEVEL"] = "ERROR"
 
 
 class OcrExtractor:
@@ -33,10 +34,8 @@ class OcrExtractor:
 
     def _check_paddle(self) -> bool:
         try:
-            import paddle
-            paddle.set_flags({"FLAGS_use_mkldnn": 0})
             from paddleocr import PaddleOCR
-            self._paddle_reader = PaddleOCR(use_angle_cls=False, lang='en', show_log=False, use_gpu=False)
+            self._paddle_reader = PaddleOCR(lang='en', use_textline_orientation=False)
             logger.info("PaddleOCR loaded successfully")
             return True
         except Exception as e:
@@ -118,14 +117,15 @@ class OcrExtractor:
         loop = asyncio.get_event_loop()
 
         def _sync():
-            results = self._paddle_reader.ocr(img, cls=False)
+            results = self._paddle_reader.predict(img)
             if not results or not results[0]:
                 return {"full_text": "", "text_lines": [], "confidence": 0.0}
+            r = results[0]
+            rec_texts = r.get('rec_texts', [])
+            rec_scores = r.get('rec_scores', [])
             lines = []
             confs = []
-            for line in results[0]:
-                text = line[1][0]
-                conf = line[1][1]
+            for text, conf in zip(rec_texts, rec_scores):
                 if conf >= 0.3:
                     lines.append(text)
                     confs.append(conf)

@@ -5,6 +5,7 @@ import sys
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['TF_USE_LEGACY_KERAS'] = '1'
 os.environ['FLAGS_use_mkldnn'] = '0'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -25,7 +26,7 @@ except Exception:
 logger = logging.getLogger(__name__)
 
 # Global model state
-_models_ready = {"ocr": False, "face": False}
+_models_ready = {"ocr": False, "face": False, "ocr_paddle": False}
 
 
 @asynccontextmanager
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Loading AI models before accepting requests...")
     _models_ready["ocr"] = False
+    _models_ready["ocr_paddle"] = False
     _models_ready["face"] = False
 
     try:
@@ -45,6 +47,14 @@ async def lifespan(app: FastAPI):
         logger.info("EasyOCR ready")
     except Exception as e:
         logger.warning("EasyOCR pre-load failed: %s", e)
+
+    try:
+        from app.extraction.ocr_extractor import OcrExtractor
+        _ = OcrExtractor()
+        _models_ready["ocr_paddle"] = True
+        logger.info("PaddleOCR ready")
+    except Exception as e:
+        logger.warning("PaddleOCR pre-load failed: %s", e)
 
     try:
         from app.services.identity_service import face_service
