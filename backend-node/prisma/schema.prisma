@@ -107,6 +107,12 @@ model User {
   financialDocuments   FinancialDocument[]
   portfolioVerification PortfolioVerification?
   loanAccounts         LoanAccount[]
+  bankStatements       BankStatement[]
+  transactions         Transaction[]
+  financialProfile     FinancialProfile?
+  loanAssessments      LoanAssessment[]
+  nluQueries           NluQuery[]
+  chatConversations    ChatConversation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -684,5 +690,156 @@ model LoanApplication {
   @@index([userId])
   @@index([status])
   @@map("loan_applications")
+  @@schema("auth")
+}
+
+// ==========================================
+// FinGuard Financial Analysis Module
+// ==========================================
+
+// Bank Statement upload metadata
+model BankStatement {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bankName           String?
+  accountNumber      String?
+  accountHolderName  String?
+  statementFromDate  DateTime?
+  statementToDate    DateTime?
+  openingBalance     Decimal? @db.Decimal(15, 2)
+  closingBalance     Decimal? @db.Decimal(15, 2)
+
+  filePath           String?
+  fileChecksum       String?  @unique
+  parsingStatus      String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  errorMessage       String?
+
+  transactions       Transaction[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId])
+  @@index([parsingStatus])
+  @@map("bank_statements")
+  @@schema("auth")
+}
+
+// Extracted transactions from bank statements
+model Transaction {
+  id                String   @id @default(cuid())
+  bankStatementId   String
+  bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  transactionDate   DateTime
+  description       String?
+  debit             Decimal? @db.Decimal(15, 2)
+  credit            Decimal? @db.Decimal(15, 2)
+  balance           Decimal? @db.Decimal(15, 2)
+  transactionType   String?  // SALARY, BILL_PAYMENT, TRANSFER, etc.
+  category          String?  // INCOME, EXPENSE, SAVINGS, INVESTMENT
+  confidenceScore   Float    @default(1.0)
+
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([bankStatementId])
+  @@index([transactionDate])
+  @@index([category])
+  @@map("transactions")
+  @@schema("auth")
+}
+
+// Aggregated financial profile per user
+model FinancialProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  totalStatements       Int      @default(0)
+  dateRangeStart        DateTime?
+  dateRangeEnd          DateTime?
+  avgMonthlyIncome      Decimal? @db.Decimal(15, 2)
+  avgMonthlyExpense     Decimal? @db.Decimal(15, 2)
+  totalIncome           Decimal? @db.Decimal(15, 2)
+  totalExpense          Decimal? @db.Decimal(15, 2)
+  totalSavings          Decimal? @db.Decimal(15, 2)
+  savingsRate           Float?
+  debtToIncomeRatio     Float?
+  incomeStabilityScore  Float?   // 0-100
+  creditScoreEstimate   Int?     // 300-900
+
+  lastUpdated           DateTime @default(now())
+
+  @@index([userId])
+  @@map("financial_profiles")
+  @@schema("auth")
+}
+
+// Loan eligibility assessments
+model LoanAssessment {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  requestedAmount     Decimal  @db.Decimal(15, 2)
+  loanTenureMonths    Int?
+  interestRateAssumed Float    @default(10.5)
+  eligibleAmount      Decimal? @db.Decimal(15, 2)
+  maxMonthlyEmi       Decimal? @db.Decimal(15, 2)
+  recommendedTenure   Int?
+  eligibilityScore    Float?   // 0-100
+  riskLevel           String?  // LOW, MEDIUM, HIGH, REJECTED
+  recommendation      String?
+  assessmentDetails   Json?    // Detailed reasoning breakdown
+
+  createdAt           DateTime @default(now())
+
+  @@index([userId])
+  @@map("loan_assessments")
+  @@schema("auth")
+}
+
+// NLU query logs for debugging & learning
+model NluQuery {
+  id                String   @id @default(cuid())
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  rawQuestion       String   @db.Text
+  intent            String?  // LOAN_ELIGIBILITY, INCOME_ANALYSIS, etc.
+  extractedEntities Json?
+  generatedSql      String?  @db.Text
+  queryResult       Json?
+  response          String?  @db.Text
+  processingTimeMs  Int?
+  errorMessage      String?
+
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@map("nlu_queries")
+  @@schema("auth")
+}
+
+// Chat conversation history
+model ChatConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sessionId String?
+  messages  Json?    // [{role, content, timestamp}]
+  context   Json?    // {focusedLoanAmount, focusedTenure, etc.}
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("chat_conversations")
   @@schema("auth")
 }
