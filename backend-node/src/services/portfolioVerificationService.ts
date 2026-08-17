@@ -2,6 +2,7 @@ import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { Prisma } from '@prisma/client';
+import { notificationService } from '@/services/notificationService';
 
 export const portfolioVerificationService = {
   async calculatePortfolioMetrics(userId: string) {
@@ -224,6 +225,25 @@ export const portfolioVerificationService = {
       });
 
       logger.info({ userId, status, reviewedBy }, 'Portfolio verification status updated');
+
+      if (status === 'VERIFIED' || status === 'REJECTED') {
+        await notificationService.create({
+          userId,
+          type: status === 'VERIFIED' ? 'PORTFOLIO_APPROVED' : 'PORTFOLIO_REJECTED',
+          title:
+            status === 'VERIFIED'
+              ? 'Portfolio Verified'
+              : 'Portfolio Verification Rejected',
+          message:
+            status === 'VERIFIED'
+              ? 'Your financial portfolio has been verified. You can now apply for a loan.'
+              : `Your portfolio verification was not approved.${adminNotes ? ` Reason: ${adminNotes}` : ''}`,
+          relatedEntityType: 'PortfolioVerification',
+          actionUrl: status === 'VERIFIED' ? '/loans/apply' : '/portfolio',
+          priority: status === 'REJECTED' ? 'CRITICAL' : 'HIGH',
+          metadata: { status, reviewedBy: reviewedBy ?? null, adminNotes: adminNotes ?? null },
+        });
+      }
 
       return updated;
     } catch (error) {

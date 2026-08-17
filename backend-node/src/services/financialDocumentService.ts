@@ -1,6 +1,7 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
+import { notificationService } from '@/services/notificationService';
 
 export interface FinancialDocumentInput {
   userId: string;
@@ -153,6 +154,26 @@ export const financialDocumentService = {
       });
 
       logger.info({ documentId, status, verifiedBy }, 'Financial document verification updated');
+
+      if (status === 'VERIFIED' || status === 'REJECTED') {
+        await notificationService.create({
+          userId: document.userId,
+          type: status === 'VERIFIED' ? 'DOCUMENT_VERIFIED' : 'DOCUMENT_FLAGGED',
+          title:
+            status === 'VERIFIED'
+              ? 'Document Verified'
+              : 'Document Flagged for Review',
+          message:
+            status === 'VERIFIED'
+              ? 'Your financial document has been verified successfully.'
+              : `A document was flagged.${adminNotes ? ` Reason: ${adminNotes}` : ''}`,
+          relatedEntityType: 'FinancialDocument',
+          relatedEntityId: documentId,
+          actionUrl: '/portfolio',
+          priority: status === 'REJECTED' ? 'HIGH' : 'NORMAL',
+          metadata: { status, verifiedBy: verifiedBy ?? null, adminNotes: adminNotes ?? null },
+        });
+      }
 
       return updated;
     } catch (error) {

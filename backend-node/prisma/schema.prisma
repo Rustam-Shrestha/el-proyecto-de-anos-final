@@ -113,6 +113,8 @@ model User {
   loanAssessments      LoanAssessment[]
   nluQueries           NluQuery[]
   chatConversations    ChatConversation[]
+  notifications        Notification[]
+  notificationPreference NotificationPreference?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -841,5 +843,97 @@ model ChatConversation {
   @@index([userId])
   @@index([sessionId])
   @@map("chat_conversations")
+  @@schema("auth")
+}
+
+// Notification types
+enum NotificationType {
+  KYC_SUBMITTED
+  KYC_APPROVED
+  KYC_REJECTED
+  KYC_PENDING_REVIEW
+  PORTFOLIO_SUBMITTED
+  PORTFOLIO_APPROVED
+  PORTFOLIO_REJECTED
+  DOCUMENT_UPLOADED
+  DOCUMENT_FLAGGED
+  DOCUMENT_VERIFIED
+  LOAN_APPLICATION_SUBMITTED
+  LOAN_APPROVED
+  LOAN_REJECTED
+  LOAN_UNDER_REVIEW
+  LOAN_DISBURSED
+  LOAN_REPAYMENT_DUE
+  LOAN_REPAYMENT_OVERDUE
+  LOAN_REPAYMENT_REMINDER
+  SYSTEM_ALERT
+  ADMIN_ACTION_REQUIRED
+  DOCUMENT_EXPIRING_SOON
+
+  @@schema("auth")
+}
+
+// Notification status
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+
+  @@schema("auth")
+}
+
+// In-app notification
+model Notification {
+  id                 String             @id @default(cuid())
+  userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type               NotificationType
+  title              String
+  message            String             @db.Text
+  description        String?            @db.Text
+
+  relatedEntityType  String?
+  relatedEntityId    String?
+  actionUrl          String?
+
+  status             NotificationStatus @default(UNREAD)
+  priority           String             @default("NORMAL") // LOW, NORMAL, HIGH, CRITICAL
+  metadata           Json?
+
+  createdAt          DateTime           @default(now())
+  readAt             DateTime?
+  archivedAt         DateTime?
+  expiresAt          DateTime?
+
+  emailSent          Boolean            @default(false)
+  smsSent            Boolean            @default(false)
+
+  @@index([userId, status, createdAt])
+  @@index([type, createdAt])
+  @@map("notifications")
+  @@schema("auth")
+}
+
+// User notification preferences
+model NotificationPreference {
+  id                          String   @id @default(cuid())
+  userId                      String   @unique
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailNotificationsEnabled   Boolean  @default(true)
+  smsNotificationsEnabled     Boolean  @default(false)
+  inAppNotificationsEnabled   Boolean  @default(true)
+
+  kycNotifications            Boolean  @default(true)
+  portfolioNotifications      Boolean  @default(true)
+  loanNotifications           Boolean  @default(true)
+  documentNotifications       Boolean  @default(true)
+  systemNotifications         Boolean  @default(true)
+
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@map("notification_preferences")
   @@schema("auth")
 }

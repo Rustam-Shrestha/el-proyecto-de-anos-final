@@ -3,6 +3,7 @@ import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { riskService } from '@/services/riskService';
 import { LoanPurpose, LoanStatus, Prisma } from '@prisma/client';
+import { notificationService } from '@/services/notificationService';
 
 export interface ApplyLoanInput {
   requestedAmount: number;
@@ -215,6 +216,21 @@ export const loanService = {
         { loanId, reviewerId, action },
         `Loan application ${action.toLowerCase()}`
       );
+
+      await notificationService.create({
+        userId: updated.userId,
+        type: action === 'APPROVED' ? 'LOAN_APPROVED' : 'LOAN_REJECTED',
+        title: action === 'APPROVED' ? 'Loan Application Approved' : 'Loan Application Rejected',
+        message:
+          action === 'APPROVED'
+            ? `Your loan application has been approved. Disbursement will occur within 2-3 business days.`
+            : `Your loan application was not approved.${notes ? ` Reason: ${notes}` : ''}`,
+        relatedEntityType: 'LoanApplication',
+        relatedEntityId: loanId,
+        actionUrl: `/loans/${loanId}`,
+        priority: 'CRITICAL',
+        metadata: { status: action, notes: notes ?? null, requestedAmount: loan.requestedAmount },
+      });
 
       return updated;
     } catch (error) {

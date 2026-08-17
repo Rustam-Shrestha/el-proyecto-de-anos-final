@@ -11,6 +11,7 @@ import transactionRouter from '@/routes/transactionRoutes';
 import financialRouter from '@/routes/financialRoutes';
 import chatbotRouter from '@/routes/chatbotRoutes';
 import loanAssessmentRouter from '@/routes/loanAssessmentRoutes';
+import notificationRouter from '@/routes/notificationRoutes';
 
 export const apiRouter = Router();
 
@@ -38,6 +39,7 @@ apiRouter.use('/transactions', transactionRouter);
 apiRouter.use('/financial', financialRouter);
 apiRouter.use('/chat', chatbotRouter);
 apiRouter.use('/loan-assessment', loanAssessmentRouter);
+apiRouter.use('/notifications', notificationRouter);
 
 // apiRouter.use('/audit', auditRoutes);   // TODO: implement audit routes
 

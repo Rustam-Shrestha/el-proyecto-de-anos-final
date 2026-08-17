@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Menu, LogOut, UserCircle2 } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { useAuth } from "@store/hooks";
 import { Button } from "@components/common/Button";
 import { resolveAvatarUrl } from "@shared/lib/avatar";
+import { NotificationBell } from "@features/notifications/components/NotificationBell";
 
 type NavbarProps = {
   onToggleSidebar: () => void;
@@ -20,6 +21,30 @@ const displayName: string = useMemo(() => {
     await logout();
     window.location.href = "/login";
   };
+
+  const initials = useMemo(() => {
+    const name = displayName.trim();
+    if (!name) return "U";
+    const parts = name.split(/\s+/);
+    const first = parts[0]?.[0] ?? "";
+    const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+    return (first + last).toUpperCase();
+  }, [displayName]);
+
+  const avatarBg = useMemo(() => {
+    const colors = [
+      "bg-red-500", "bg-blue-500", "bg-green-500", "bg-purple-500",
+      "bg-yellow-500", "bg-pink-500", "bg-indigo-500", "bg-cyan-500",
+    ];
+    const index = (displayName.charCodeAt(0) || 0) % colors.length;
+    return colors[index];
+  }, [displayName]);
+
+  const roleLabel = useMemo(() => {
+    const role = userData?.role;
+    if (!role) return "Account";
+    return role.charAt(0) + role.slice(1).toLowerCase();
+  }, [userData?.role]);
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
@@ -40,12 +65,13 @@ const displayName: string = useMemo(() => {
         </div>
 
         <div className="relative flex items-center gap-3">
+          <NotificationBell />
           <button
             type="button"
             onClick={() => setOpenMenu((value) => !value)}
             className="flex items-center gap-3 rounded-full border border-gray-200 bg-white px-2 py-1 pr-3 text-left text-gray-900 shadow-sm transition-colors hover:bg-gray-50"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--green-footer)] text-[var(--green-background)]">
+            <span className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarBg}`}>
               {userData?.avatarUrl ? (
                 <img
                   src={typeof userData.avatarUrl === "string" ? resolveAvatarUrl(userData.avatarUrl) || undefined : undefined}
@@ -53,12 +79,12 @@ const displayName: string = useMemo(() => {
                   className="h-full w-full rounded-full object-cover"
                 />
               ) : (
-                <UserCircle2 className="h-5 w-5" />
+                initials
               )}
             </span>
             <span className="hidden sm:block">
               <span className="block text-sm font-semibold leading-4">{displayName}</span>
-              <span className="block text-xs text-gray-500">Account</span>
+              <span className="block text-xs text-gray-500">{roleLabel}</span>
             </span>
           </button>
 
