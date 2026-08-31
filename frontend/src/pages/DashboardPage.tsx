@@ -1,14 +1,8 @@
-// @ts-nocheck
-import { memo, useMemo, useState, type ChangeEvent } from "react";
-import { Navigate, Link } from "react-router-dom";
-import InputField from "@components/common/InputField";
-import Modal from "@components/common/Modal";
-import { PrimaryButton } from "@components/common/Button";
-import TableView from "@components/common/TableView";
+import { memo } from "react";
+import { Navigate } from "react-router-dom";
 import useAuth from "@hooks/useAuth";
 import { normalizeRole } from "@shared/utils/roleUtils";
 import { UserDashboard } from "@features/dashboard/pages/UserDashboard";
-import { Users, FileText, CreditCard } from "lucide-react";
 
 const DashboardPage = () => {
   const { userData } = useAuth();
@@ -16,150 +10,8 @@ const DashboardPage = () => {
 
   if (role === "admin") return <Navigate to="/dashboard/admin" replace />;
   if (role === "reviewer") return <Navigate to="/dashboard/loans" replace />;
-  if (role === "user") return <UserDashboard />;
-  const [showModal, setShowModal] = useState(false);
-  const [query, setQuery] = useState<string>("");
-  const [newName, setNewName] = useState("");
-  const [newEmail, setNewEmail] = useState("");
 
-  const rows = useMemo(
-    () => [
-      { id: 1, name: "Admin User", email: "admin@example.com", role: "admin" },
-      { id: 2, name: "Manager User", email: "manager@example.com", role: "manager" },
-      { id: 3, name: "Staff User", email: "staff@example.com", role: "staff" }
-    ],
-    []
-  );
-
-  const filteredRows = rows.filter((row) => {
-    const text = query.toLowerCase();
-    return row.name.toLowerCase().includes(text) || row.email.toLowerCase().includes(text);
-  });
-
-  const quickLinks = [
-    { label: "Admin Dashboard", to: "/dashboard/admin", description: "System overview for admins" },
-    { label: "Users", to: "/dashboard/users", description: "Manage users and access" },
-    { label: "KYC", to: "/dashboard/kyc", description: "Review KYC applications" },
-    { label: "Submit KYC", to: "/dashboard/kyc-submit", description: "Start a new submission" },
-    { label: "KYC Status", to: "/dashboard/kyc-status", description: "Check application status" },
-    { label: "Profile", to: "/dashboard/profile", description: "Update your account" },
-    { label: "Reports", to: "/dashboard/reports", description: "Open reporting views" },
-  ];
-
-  return (
-    <section className="space-y-6">
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
-          <p className="text-sm font-medium uppercase tracking-[0.22em] text-[var(--green-icon)]">Overview</p>
-          <h2 className="mt-2 text-3xl font-semibold text-gray-900 ">
-            Welcome, {userData?.email || "User"}
-          </h2>
-          <p className="mt-2 text-sm text-gray-500 ">Dashboard</p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[
-            { label: "Total Users", value: "—", icon: Users },
-            { label: "KYC Applications", value: "—", icon: FileText },
-            { label: "Revenue", value: "—", icon: CreditCard },
-          ].map((card) => {
-            const Icon = card.icon;
-            return (
-              <article
-                key={card.label}
-                className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  "
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 ">{card.label}</p>
-                    <p className="mt-3 text-3xl font-semibold text-gray-900 ">{card.value}</p>
-                  </div>
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
-            <h3 className="text-lg font-semibold text-gray-900 ">Recent Activity</h3>
-            <div className="mt-4 space-y-3 text-sm text-gray-500 ">
-              <p>No activity yet.</p>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 ">Quick Actions</h3>
-                <p className="mt-1 text-sm text-gray-500 ">Jump to the pages that already exist in the router.</p>
-              </div>
-              <PrimaryButton label="Add User" onClick={() => setShowModal(true)} />
-            </div>
-            <div className="mt-4">
-              <InputField
-                name="search"
-                label="Search"
-                placeholder="Search by name or email"
-                value={query}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)}
-              />
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {quickLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  to={link.to}
-                  className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-[var(--green-icon)] hover:bg-white   :bg-gray-800"
-                >
-                  <span className="block text-sm font-semibold text-gray-900 ">{link.label}</span>
-                  <span className="mt-1 block text-xs text-gray-500 ">{link.description}</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-gray-900 ">Users Snapshot</h3>
-            <Link to="/dashboard/users" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-              User Access
-            </Link>
-          </div>
-
-          <TableView
-            columns={[
-              { accessor: "id", label: "#", width: 2 },
-              { accessor: "name", label: "Name", width: 8 },
-              { accessor: "email", label: "Email", width: 8 },
-              { accessor: "role", label: "Role", width: 6 }
-            ]}
-            rows={filteredRows}
-            totalCount={filteredRows.length}
-            currentPage={1}
-            pageSize={10}
-            onPageChange={() => {}}
-            onFilterChange={() => {}}
-            loading={false}
-          />
-        </section>
-
-        {showModal && (
-          <Modal title="Create ERP User" size="md" onClose={() => { setShowModal(false); setNewName(""); setNewEmail(""); }}>
-            <div className="grid gap-3">
-              <InputField name="name" label="Name" placeholder="Full name" value={newName} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)} />
-              <InputField name="email" label="Email" placeholder="Email" value={newEmail} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)} />
-              <div className="flex justify-end">
-                <PrimaryButton label="Save" onClick={() => { setShowModal(false); setNewName(""); setNewEmail(""); }} />
-              </div>
-            </div>
-          </Modal>
-        )}
-    </section>
-  );
+  return <UserDashboard />;
 };
 
 export default memo(DashboardPage);

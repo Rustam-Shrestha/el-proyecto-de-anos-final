@@ -11,7 +11,7 @@ interface Props {
 
 const STAGE_LABELS: Record<string, string> = {
   VALIDATING_FACE: "Verifying your face...",
-  AWAITING_OCR: "Face verified! Extracting document data...",
+  AWAITING_OCR: "Face verified. Continuing to the review step...",
   AWAITING_USER_CONFIRMATION: "Processing complete — review your data",
   COMPLETE: "All done!",
 };
@@ -112,9 +112,9 @@ export const Step2Processing = ({ kycApplicationId, _uploadedFiles, onComplete, 
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Step 2: Processing Your Documents</h2>
+      <h2 className="text-lg font-semibold mb-4">Step 2: Face Verification</h2>
       <p className="text-sm text-gray-600 mb-4">
-        We verify your face first, then extract document data in the background.
+        We verify your face against the submitted ID photo before continuing.
       </p>
 
       {pollStatus === "idle" && (

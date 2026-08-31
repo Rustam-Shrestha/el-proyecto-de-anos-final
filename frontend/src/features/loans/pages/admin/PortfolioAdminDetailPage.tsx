@@ -27,7 +27,7 @@ const PortfolioAdminDetailPage = () => {
     try {
       await verifyPortfolioMutation.mutateAsync({ userId, verificationStatus: status, adminNotes });
       toast.success(`Portfolio ${status.toLowerCase()}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to update portfolio status");
     }
   };
@@ -40,7 +40,7 @@ const PortfolioAdminDetailPage = () => {
         adminNotes: docNotes[documentId],
       });
       toast.success(`Document ${status.toLowerCase()}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to verify document");
     }
   };
@@ -57,7 +57,7 @@ const PortfolioAdminDetailPage = () => {
     );
   }
 
-  const { summary, report } = detail;
+  const { summary } = detail;
   const emp = summary.employment;
   const ver = summary.verification;
 

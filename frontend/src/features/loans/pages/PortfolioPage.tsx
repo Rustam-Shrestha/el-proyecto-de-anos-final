@@ -29,24 +29,12 @@ const INCOME_TYPES: { value: IncomeType; label: string; description: string }[] 
   { value: "RETIRED", label: "Retired", description: "I am retired and may have pension income" },
 ];
 
-const EMPLOYMENT_STATUS_OPTIONS = [
-  "EMPLOYED", "SELF_EMPLOYED", "BUSINESS", "STUDENT", "UNEMPLOYED", "RETIRED", "OTHER",
-];
-
 const BUSINESS_TYPE_OPTIONS = [
   "Retail", "Service", "Manufacturing", "Technology", "Agriculture", "Construction", "Transportation", "Freelance", "Other",
 ];
 
 const EDUCATION_LEVEL_OPTIONS = [
   "HighSchool", "Bachelor", "Master", "PhD", "Diploma",
-];
-
-const INCOME_SOURCE_OPTIONS = [
-  { value: "SALARY", label: "Salary" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "PENSION", label: "Pension" },
-  { value: "STIPEND", label: "Stipend" },
-  { value: "OTHER", label: "Other" },
 ];
 
 interface FormData {
@@ -222,9 +210,8 @@ const PortfolioPage = () => {
 
       const needsDocs = formData.employmentStatus === "EMPLOYED" || formData.employmentStatus === "SELF_EMPLOYED";
       setStep(needsDocs ? "documents" : "review");
-    } catch (error) {
-      const apiError = error as { response?: { data?: { message?: string } } };
-      toast.error(apiError.response?.data?.message || "Failed to save employment information");
+    } catch {
+      toast.error("Failed to save employment information");
     }
   };
 
@@ -262,11 +249,6 @@ const PortfolioPage = () => {
       const apiError = error as { response?: { data?: { message?: string } } };
       toast.error(apiError.response?.data?.message || "Failed to submit portfolio");
     }
-  };
-
-  const mapDocType = (dt: string): DocumentType => {
-    const known = Object.values(DocumentType);
-    return known.includes(dt as DocumentType) ? (dt as DocumentType) : DocumentType.OTHER;
   };
 
   const getDocForType = (docType: string): DocEntry | undefined =>

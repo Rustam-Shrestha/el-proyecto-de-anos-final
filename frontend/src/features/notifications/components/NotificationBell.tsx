@@ -49,8 +49,8 @@ export const NotificationBell = () => {
   const unreadCount = data?.unreadCount ?? 0;
 
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+    const handleClick = (event: globalThis.MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as globalThis.Node)) {
         setIsOpen(false);
       }
     };

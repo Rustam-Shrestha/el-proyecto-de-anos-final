@@ -13,9 +13,16 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
   const [openMenu, setOpenMenu] = useState(false);
   const { userData, logout } = useAuth();
 
-const displayName: string = useMemo(() => {
-  return userData?.name || 'User';
-}, [userData]);
+  const displayName: string = useMemo(() => {
+    const rawName =
+      userData?.fullName ||
+      userData?.name ||
+      userData?.firstName ||
+      userData?.email?.split('@')[0] ||
+      'User';
+
+    return rawName.trim() || 'User';
+  }, [userData]);
 
   const handleLogout = async () => {
     await logout();

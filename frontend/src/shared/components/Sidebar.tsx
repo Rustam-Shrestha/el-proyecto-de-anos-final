@@ -63,10 +63,10 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-gray-200 bg-white px-4 py-5 text-gray-900 shadow-2xl transition-transform duration-300    lg:static lg:translate-x-0 lg:shadow-none ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
     >
       <div className="mb-6 flex items-center justify-between lg:justify-start">
-        <div>
+        {/* <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green-icon)]">Navigation</p>
           <h2 className="text-lg font-semibold text-gray-900 ">Workspace</h2>
-        </div>
+        </div> */}
         <button
           type="button"
           onClick={onClose}
