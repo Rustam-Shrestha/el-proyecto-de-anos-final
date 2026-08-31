@@ -146,20 +146,8 @@ async def upload_documents(
         session.add(document)
         await session.flush()
 
-        # If citizenship document, trigger OCR asynchronously
-        if document_type in ["citizenship_front", "citizenship_back"]:
-            try:
-                ocr_result = await get_ocr_service().process_document(
-                    image_path=file_path,
-                    kyc_application_id=str(kyc_app.id),
-                    document_type=document_type,
-                    session=session,
-                )
-                logger.info("OCR processing triggered for document: %s", document.id)
-            except Exception as e:
-                logger.error("OCR processing failed: %s", str(e))
-                # Continue anyway - OCR failure doesn't block upload
-
+        # OCR-based data extraction is intentionally disabled in the active KYC flow.
+        # Only face verification remains in use; legacy text extraction is isolated out of the live path.
         await session.commit()
 
         return {

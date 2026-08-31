@@ -214,139 +214,21 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
           }
         }
 
-        // STEP 3: OCR in background (only if face succeeded)
-        if (faceSucceeded) {
-          await prisma.kycApplication.update({
-            where: { id: result.id },
-            data: { ocrProcessingStatus: 'EXTRACTING' },
-          });
+        // OCR extraction is intentionally disabled. Only face verification is required.
+        // The user provides all identity details manually in the form; legacy OCR logic has been moved out of the active flow.
+        await prisma.kycApplication.update({
+          where: { id: result.id },
+          data: {
+            ocrProcessingStatus: 'SKIPPED',
+            ocrFrontStatus: 'SKIPPED',
+            ocrBackStatus: 'SKIPPED',
+            processingStatus: 'DONE',
+            workflowStage: 'COMPLETE',
+            queuedForManualReview: false,
+          },
+        });
 
-          // OCR Front
-          if (frontDoc && process.env.OCR_ENABLED !== 'false') {
-            await prisma.kycApplication.update({
-              where: { id: result.id },
-              data: { ocrFrontStatus: 'PROCESSING' },
-            });
-            const frontPath = resolveAbsolutePath(frontDoc.filePath);
-            const ocrFront = await ocrService.extractCitizenshipData(frontPath, 'CITIZENSHIP_FRONT');
-
-            if (ocrFront.error) {
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { ocrFrontStatus: 'FAILED', ocrProcessingError: ocrFront.error, ocrProcessingStatus: 'FAILED' },
-              });
-            } else {
-              await prisma.ocrResult.create({
-                data: {
-                  kycApplicationId: result.id,
-                  documentType: 'CITIZENSHIP_FRONT',
-                  rawOcrText: ocrFront.rawText,
-                  extractedData: ocrFront.extractedData,
-                  overallConfidence: ocrFront.overallConfidence,
-                },
-              });
-              await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_FRONT', ocrFront);
-              const prefill: Record<string, string | undefined> = {};
-              if (ocrFront.extractedData.name) prefill.ocrFullName = String(ocrFront.extractedData.name);
-              if (ocrFront.extractedData.citizenship_number) prefill.ocrCitizenshipNumber = String(ocrFront.extractedData.citizenship_number);
-              if (ocrFront.extractedData.dob) prefill.ocrDateOfBirth = String(ocrFront.extractedData.dob);
-              if (ocrFront.extractedData.gender) prefill.ocrGender = String(ocrFront.extractedData.gender);
-              if (ocrFront.extractedData.address) prefill.ocrAddress = String(ocrFront.extractedData.address);
-              if (Object.keys(prefill).length > 0) {
-                await prisma.kycApplication.update({ where: { id: result.id }, data: { ...prefill, ocrFrontStatus: 'DONE' } });
-              } else {
-                await prisma.kycApplication.update({ where: { id: result.id }, data: { ocrFrontStatus: 'DONE' } });
-              }
-            }
-          }
-
-          // OCR Back
-          if (backDoc && process.env.OCR_ENABLED !== 'false') {
-            await prisma.kycApplication.update({
-              where: { id: result.id },
-              data: { ocrBackStatus: 'PROCESSING' },
-            });
-            const backPath = resolveAbsolutePath(backDoc.filePath);
-            const ocrBack = await ocrService.extractCitizenshipData(backPath, 'CITIZENSHIP_BACK');
-
-            if (ocrBack.error) {
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { ocrBackStatus: 'FAILED', ocrProcessingError: ocrBack.error },
-              });
-            } else {
-              await prisma.ocrResult.create({
-                data: {
-                  kycApplicationId: result.id,
-                  documentType: 'CITIZENSHIP_BACK',
-                  rawOcrText: ocrBack.rawText,
-                  extractedData: ocrBack.extractedData,
-                  overallConfidence: ocrBack.overallConfidence,
-                },
-              });
-              await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_BACK', ocrBack);
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { ocrBackStatus: 'DONE' },
-              });
-            }
-          }
-
-          // Determine OCR final status
-          const appAfterOcr = await prisma.kycApplication.findUnique({ where: { id: result.id } });
-          if (appAfterOcr) {
-            const ocrFrontDone = appAfterOcr.ocrFrontStatus === 'DONE' || appAfterOcr.ocrFrontStatus === 'FAILED' || !frontDoc;
-            const ocrBackDone = appAfterOcr.ocrBackStatus === 'DONE' || appAfterOcr.ocrBackStatus === 'FAILED' || !backDoc;
-            const ocrAnyFailed = appAfterOcr.ocrFrontStatus === 'FAILED' || appAfterOcr.ocrBackStatus === 'FAILED';
-            const ocrAllDone = appAfterOcr.ocrFrontStatus === 'DONE' && (!backDoc || appAfterOcr.ocrBackStatus === 'DONE');
-
-            let ocrStatus = 'EXTRACTED';
-            if (ocrAnyFailed && ocrAllDone) ocrStatus = 'PARTIAL';
-            else if (ocrAnyFailed) ocrStatus = 'PARTIAL';
-            else if (!ocrFrontDone && !ocrBackDone) ocrStatus = 'FAILED';
-
-            await prisma.kycApplication.update({
-              where: { id: result.id },
-              data: {
-                ocrProcessingStatus: ocrStatus,
-                workflowStage: 'AWAITING_USER_CONFIRMATION',
-              },
-            });
-
-            if (ocrStatus === 'PARTIAL' || ocrStatus === 'FAILED') {
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { queuedForManualReview: true },
-              });
-              await prisma.manualReviewQueue.create({
-                data: {
-                  kycApplicationId: result.id,
-                  reason: ocrStatus === 'FAILED' ? 'OCR_PROCESSING_ERROR' : 'PARTIAL_EXTRACTION',
-                  details: appAfterOcr.ocrProcessingError || 'OCR completed with partial results',
-                  priority: 'NORMAL',
-                },
-              });
-            }
-          }
-        }
-
-        // Final status
-        const finalApp = await prisma.kycApplication.findUnique({ where: { id: result.id } });
-        if (finalApp) {
-          const allDone = finalApp.faceStatus !== 'PENDING' && finalApp.faceStatus !== 'PROCESSING' &&
-            (!frontDoc || finalApp.ocrFrontStatus !== 'PENDING') && finalApp.ocrFrontStatus !== 'PROCESSING' &&
-            (!backDoc || finalApp.ocrBackStatus !== 'PENDING') && finalApp.ocrBackStatus !== 'PROCESSING';
-          const anyFailed = finalApp.faceStatus === 'FAILED' || finalApp.ocrFrontStatus === 'FAILED' || finalApp.ocrBackStatus === 'FAILED';
-          await prisma.kycApplication.update({
-            where: { id: result.id },
-            data: {
-              processingStatus: anyFailed ? 'FAILED' : allDone ? 'DONE' : 'PROCESSING',
-              workflowStage: allDone ? 'COMPLETE' : finalApp.workflowStage,
-            },
-          });
-        }
-
-        logger.info({ kycId: result.id }, 'Background face-first processing complete');
+        logger.info({ kycId: result.id }, 'Background face verification complete; OCR step intentionally skipped');
       } catch (bgError: unknown) {
         logger.error({ err: bgError, kycId: result.id }, 'Background face-first processing failed');
         await prisma.kycApplication.update({

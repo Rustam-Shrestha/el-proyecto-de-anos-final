@@ -2,7 +2,8 @@ import axios, { type AxiosResponse } from 'axios';
 import { logger } from '@/config/logger';
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
-const OCR_ENABLED = process.env.OCR_ENABLED !== 'false';
+const OCR_ENABLED = process.env.OCR_ENABLED === 'true';
+const FINANCIAL_OCR_ENABLED = process.env.FINANCIAL_OCR_ENABLED === 'true';
 const OCR_TIMEOUT_MS = parseInt(process.env.OCR_TIMEOUT_MS || '60000', 10);
 const READY_CHECK_INTERVAL_MS = 2000;
 const READY_MAX_WAIT_MS = parseInt(process.env.READY_MAX_WAIT_MS || '120000', 10);
@@ -108,8 +109,8 @@ export async function callFinancialDocumentOcr(
   imagePath: string,
   documentType: string,
 ): Promise<{ fullText: string; confidence: number; textLines: string[] }> {
-  if (!OCR_ENABLED) {
-    throw new Error('OCR is disabled');
+  if (!FINANCIAL_OCR_ENABLED) {
+    throw new Error('Financial document OCR is disabled');
   }
 
   await waitForFastAPIReady();
@@ -167,8 +168,8 @@ export async function callFinancialDocumentExtraction(
   filePath: string,
   documentType: string,
 ): Promise<ExtractionResult> {
-  if (!OCR_ENABLED) {
-    throw new Error('OCR is disabled');
+  if (!FINANCIAL_OCR_ENABLED) {
+    throw new Error('Financial document extraction is disabled');
   }
 
   await waitForFastAPIReady();

@@ -31,41 +31,14 @@ _models_ready = {"ocr": False, "face": False, "ocr_paddle": False}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting FastAPI application...")
+    logger.info("Starting FastAPI application without OCR model preloading...")
     await init_db()
     logger.info("Database initialized successfully")
 
-    logger.info("Loading AI models before accepting requests...")
     _models_ready["ocr"] = False
     _models_ready["ocr_paddle"] = False
     _models_ready["face"] = False
-
-    try:
-        from app.services.ocr_service import ocr_service
-        _ = ocr_service.processor.ocr
-        _models_ready["ocr"] = True
-        logger.info("EasyOCR ready")
-    except Exception as e:
-        logger.warning("EasyOCR pre-load failed: %s", e)
-
-    try:
-        from app.extraction.ocr_extractor import OcrExtractor
-        _ = OcrExtractor()
-        _models_ready["ocr_paddle"] = True
-        logger.info("PaddleOCR ready")
-    except Exception as e:
-        logger.warning("PaddleOCR pre-load failed: %s", e)
-
-    try:
-        from app.services.identity_service import face_service
-        from deepface import DeepFace
-        DeepFace.build_model("Facenet")
-        _models_ready["face"] = True
-        logger.info("DeepFace Facenet ready")
-    except Exception as e:
-        logger.warning("DeepFace pre-load failed: %s", e)
-
-    logger.info("All AI models loaded — server ready")
+    logger.info("FastAPI OCR and text extraction are disabled in the active flow; only face matching remains enabled in the product path.")
     yield
     logger.info("Shutting down FastAPI application...")
 

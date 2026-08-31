@@ -55,9 +55,9 @@ export const uploadFinancialDocument = async (
       apiResponse.success('Financial document uploaded successfully', {
         id: result.id,
         documentType: result.documentType,
-        ocrStatus: result.ocrStatus,
+        ocrStatus: 'SKIPPED',
         createdAt: result.createdAt,
-        message: 'Document uploaded. OCR processing started.',
+        message: 'Document uploaded. Face-match KYC remains active; financial text extraction is disabled for this flow and the record is kept for manual review.',
       })
     );
   } catch (error) {

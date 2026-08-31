@@ -28,6 +28,21 @@ interface ProcessedExtraction {
 
 const activeJobs = new Set<string>();
 const JOB_TIMEOUT_MS = 120000;
+const FINANCIAL_TEXT_EXTRACTION_ENABLED = process.env.FINANCIAL_TEXT_EXTRACTION_ENABLED === 'true';
+
+function buildManualFinancialSummary(documentType: string): Record<string, unknown> {
+  return {
+    documentType,
+    status: 'MANUAL_REVIEW_ONLY',
+    summary: 'Text extraction and document parsing are disabled. Financial review is based on the submitted profile details and manual verification.',
+    extractedData: {
+      documentType,
+      source: 'manual-entry',
+      incomeSummary: null,
+    },
+    confidence: { overall: 0 },
+  };
+}
 
 async function runLocalOcrFallback(filePath: string): Promise<OcrResult> {
   try {
@@ -109,17 +124,35 @@ export async function processOcrJob(documentId: string): Promise<void> {
   activeJobs.add(documentId);
 
   try {
-    await prisma.financialDocument.update({
-      where: { id: documentId },
-      data: { ocrStatus: 'PROCESSING' },
-    });
-
     const doc = await prisma.financialDocument.findUnique({ where: { id: documentId } });
     if (!doc || doc.isDeleted) {
       logger.warn({ documentId }, 'Document not found or deleted, aborting OCR');
       activeJobs.delete(documentId);
       return;
     }
+
+    if (!FINANCIAL_TEXT_EXTRACTION_ENABLED) {
+      const summary = buildManualFinancialSummary(doc.documentType);
+      await prisma.financialDocument.update({
+        where: { id: documentId },
+        data: {
+          ocrStatus: 'SKIPPED',
+          verificationStatus: 'PENDING',
+          ocrData: { status: 'manual-review-only' },
+          extractedFields: summary,
+          comparisonResult: { manualReview: true, summary: 'OCR disabled; manual verification only' },
+          ocrErrorMessage: 'Financial text extraction disabled for this flow.',
+        },
+      });
+      logger.info({ documentId, documentType: doc.documentType }, 'Financial document processing skipped: text extraction disabled');
+      activeJobs.delete(documentId);
+      return;
+    }
+
+    await prisma.financialDocument.update({
+      where: { id: documentId },
+      data: { ocrStatus: 'PROCESSING' },
+    });
 
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('OCR processing timed out')), JOB_TIMEOUT_MS),

@@ -8,6 +8,35 @@ import { logger } from '@/config/logger';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 
+const readStatementTextFast = async (filePath: string, mimeType: string): Promise<string> => {
+  const buffer = await fs.readFile(filePath);
+  const ext = filePath.split('.').pop()?.toLowerCase() || '';
+  const isTextLike = ['txt', 'csv', 'tsv', 'dat', 'log'].includes(ext) || ['text/plain', 'text/csv', 'application/csv', 'application/vnd.ms-excel'].includes(mimeType);
+
+  if (isTextLike) {
+    return buffer.toString('utf-8');
+  }
+
+  if (['xls', 'xlsx', 'ods'].includes(ext)) {
+    try {
+      const xlsx = await import('xlsx');
+      const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true, raw: false, dense: false });
+      const rows: string[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const sheetText = xlsx.utils.sheet_to_csv(sheet, { blankrows: false, FS: ',', RS: '\n' });
+        if (sheetText?.trim()) rows.push(sheetText);
+      }
+      return rows.join('\n');
+    } catch (error) {
+      logger.warn({ filePath, error: error instanceof Error ? error.message : String(error) }, 'Excel parsing fallback to raw text');
+      return buffer.toString('utf-8');
+    }
+  }
+
+  return buffer.toString('utf-8');
+};
+
 export const uploadStatement = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = req.user;
@@ -23,6 +52,7 @@ export const uploadStatement = async (req: Request, res: Response, next: NextFun
 
     const fileBuffer = await fs.readFile(req.file.path);
     const fileChecksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    const text = await readStatementTextFast(req.file.path, req.file.mimetype);
 
     const existing = await prisma.bankStatement.findUnique({ where: { fileChecksum } });
     if (existing) {
@@ -31,7 +61,6 @@ export const uploadStatement = async (req: Request, res: Response, next: NextFun
       return;
     }
 
-    const text = fileBuffer.toString('utf-8');
     if (!text || text.trim().length < 50) {
       await fs.unlink(req.file.path).catch(() => {});
       res.status(400).json(apiResponse.error('Could not extract text from the file. Ensure it is a valid PDF/Excel with text layer.', 400));
