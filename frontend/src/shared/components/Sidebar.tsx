@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase } from "lucide-react";
+import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase, MessageSquareText, Sparkles } from "lucide-react";
 import { useAuth } from "@store/hooks";
 import { normalizeRole } from "@shared/utils/roleUtils";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
@@ -20,6 +20,8 @@ const userItems: MenuItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "KYC Status", path: "/dashboard/kyc-status", icon: ShieldCheck },
   { label: "Financial Profile", path: "/dashboard/portfolio", icon: Briefcase },
+  { label: "Financial Assistant", path: "/dashboard/finguard", icon: Sparkles },
+  { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
   { label: "Apply for Loan", path: "/dashboard/loans/apply", icon: HandCoins },
   { label: "My Loans", path: "/dashboard/loans/status", icon: FileBarChart2 },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
@@ -37,6 +39,7 @@ const adminItems: MenuItem[] = [
 const reviewerItems: MenuItem[] = [
   { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
+  { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
 ];
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {

@@ -36,6 +36,7 @@ const NavBar: React.FC = () => {
           <Link to={ROUTES.PROFILE.VIEW}>Profile</Link>
           <Link to={ROUTES.KYC.STATUS}>KYC</Link>
           <Link to={ROUTES.DOCUMENTS.LIST}>Documents</Link>
+          <Link to="/dashboard/chat">Messages</Link>
           {(user.role === 'ADMIN' || user.role === 'REVIEWER') && (<Link to={ROUTES.ADMIN.DASHBOARD}>Admin</Link>)}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginLeft: 'auto', fontWeight: 600 }}>
             <span style={{ display: 'inline-flex', width: 28, height: 28, borderRadius: '50%', background: '#0f172a', color: 'white', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>

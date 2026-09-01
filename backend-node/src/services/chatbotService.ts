@@ -69,7 +69,227 @@ class LoanEligibilityCalculator {
   }
 }
 
+type ConversationMessage = {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  senderId?: string;
+  senderRole?: string;
+};
+
+const normalizeMessages = (raw: unknown): ConversationMessage[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is ConversationMessage => Boolean(item && typeof item === 'object' && 'content' in item));
+};
+
+const resolveParticipants = (context: unknown): string[] => {
+  if (typeof context !== 'object' || context === null) return [];
+  const value = context as { participants?: unknown };
+  if (Array.isArray(value.participants)) {
+    return value.participants.filter((entry): entry is string => typeof entry === 'string');
+  }
+  return [];
+};
+
 export const chatbotService = {
+  async listParticipants(userId: string) {
+    const requester = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: { select: { name: true } } },
+    });
+
+    const targetRoles = requester?.role?.name === 'USER' ? ['ADMIN', 'REVIEWER'] : ['USER'];
+
+    const users = await prisma.user.findMany({
+      where: { isDeleted: false, role: { name: { in: targetRoles } } },
+      select: {
+        id: true,
+        email: true,
+        role: { select: { name: true } },
+        profile: { select: { fullName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return users
+      .filter((user) => user.id !== userId)
+      .map((user) => ({
+        id: user.id,
+        email: user.email,
+        fullName: user.profile?.fullName || user.email.split('@')[0],
+        role: user.role.name,
+      }));
+  },
+
+  async createOrOpenConversation(userId: string, participantId: string) {
+    if (userId === participantId) {
+      throw new AppError('You cannot start a chat with yourself.', 400);
+    }
+
+    const participant = await prisma.user.findUnique({
+      where: { id: participantId },
+      select: { id: true, email: true, role: { select: { name: true } }, profile: { select: { fullName: true } } },
+    });
+
+    if (!participant) {
+      throw new AppError('Participant not found.', 404);
+    }
+
+    const existing = await prisma.chatConversation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const found = existing.find((entry) => {
+      const participants = resolveParticipants(entry.context);
+      return participants.includes(participantId);
+    });
+
+    if (found && found.sessionId) {
+      return {
+        conversationId: found.sessionId,
+        participant: { id: participant.id, email: participant.email, fullName: participant.profile?.fullName || participant.email.split('@')[0], role: participant.role.name },
+        created: false,
+      };
+    }
+
+    const conversationId = `conv_${Date.now()}_${userId.slice(-6)}_${participantId.slice(-6)}`;
+    const context = { participants: [userId, participantId], type: 'loan_review' };
+
+    await prisma.$transaction([
+      prisma.chatConversation.create({
+        data: {
+          userId,
+          sessionId: conversationId,
+          messages: [],
+          context,
+        },
+      }),
+      prisma.chatConversation.create({
+        data: {
+          userId: participantId,
+          sessionId: conversationId,
+          messages: [],
+          context,
+        },
+      }),
+    ]);
+
+    return {
+      conversationId,
+      participant: { id: participant.id, email: participant.email, fullName: participant.profile?.fullName || participant.email.split('@')[0], role: participant.role.name },
+      created: true,
+    };
+  },
+
+  async listConversations(userId: string) {
+    const rows = await prisma.chatConversation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const conversations = await Promise.all(
+      rows.map(async (row) => {
+        const participants = resolveParticipants(row.context);
+        const otherUserId = participants.find((id) => id !== userId) || row.sessionId?.split('_').slice(-1)[0] || null;
+        const otherUser = otherUserId
+          ? await prisma.user.findUnique({
+              where: { id: otherUserId },
+              select: {
+                id: true,
+                email: true,
+                role: { select: { name: true } },
+                profile: { select: { fullName: true } },
+              },
+            })
+          : null;
+
+        const messages = normalizeMessages(row.messages);
+        const lastMessage = [...messages].reverse().find(Boolean);
+
+        return {
+          conversationId: row.sessionId || row.id,
+          participant: otherUser
+            ? {
+                id: otherUser.id,
+                email: otherUser.email,
+                fullName: otherUser.profile?.fullName || otherUser.email.split('@')[0],
+                role: otherUser.role.name,
+              }
+            : null,
+          lastMessage: lastMessage?.content || 'No messages yet',
+          updatedAt: row.updatedAt,
+        };
+      })
+    );
+
+    return conversations.filter((conversation) => conversation.participant !== null);
+  },
+
+  async getMessagesForConversation(userId: string, conversationId: string) {
+    const row = await prisma.chatConversation.findFirst({
+      where: { userId, sessionId: conversationId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!row) {
+      throw new AppError('Conversation not found.', 404);
+    }
+
+    return {
+      conversationId,
+      messages: normalizeMessages(row.messages),
+    };
+  },
+
+  async sendMessage(userId: string, conversationId: string, content: string) {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      throw new AppError('Message is required.', 400);
+    }
+
+    const rows = await prisma.chatConversation.findMany({
+      where: { sessionId: conversationId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!rows.length) {
+      throw new AppError('Conversation not found.', 404);
+    }
+
+    const isParticipant = rows.some((row) => row.userId === userId);
+    if (!isParticipant) {
+      throw new AppError('You are not part of this conversation.', 403);
+    }
+
+    const timestamp = new Date().toISOString();
+    const message: ConversationMessage = {
+      role: 'user',
+      content: trimmed,
+      timestamp,
+      senderId: userId,
+    };
+
+    await prisma.$transaction(
+      rows.map((row) => {
+        const messages = normalizeMessages(row.messages);
+        return prisma.chatConversation.update({
+          where: { id: row.id },
+          data: {
+            messages: [...messages, message],
+            updatedAt: new Date(),
+          },
+        });
+      })
+    );
+
+    return {
+      conversationId,
+      message,
+      messages: rows.flatMap((row) => normalizeMessages(row.messages)).concat(message),
+    };
+  },
+
   async processQuery(userId: string, message: string, sessionId: string): Promise<{
     intent: string;
     extractedEntities: Record<string, unknown>;

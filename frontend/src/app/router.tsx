@@ -23,6 +23,7 @@ const FinguardDashboardPage = lazy(() => import("@features/finguard/pages/Fingua
 const PortfolioPage = lazy(() => import("@features/loans/pages/PortfolioPage"));
 const PortfolioAdminListPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminListPage"));
 const PortfolioAdminDetailPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminDetailPage"));
+const ChatPage = lazy(() => import("@pages/chat/ChatPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 
 export const router = createBrowserRouter([
@@ -150,6 +151,14 @@ export const router = createBrowserRouter([
             element: (
               <RoleProtectedRoute requiredRoles={["user", "admin"]}>
                 <LoanStatusPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "chat",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer"]}>
+                <ChatPage />
               </RoleProtectedRoute>
             )
           },

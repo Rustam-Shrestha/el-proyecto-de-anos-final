@@ -21,6 +21,16 @@ export const RoleProtectedRoute = ({ children, requiredRoles, fallback }: RolePr
     return <Navigate to="/login" replace />;
   }
 
+  if (!currentRole) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-color)] p-6">
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-600">
+          Loading access permissions...
+        </div>
+      </div>
+    );
+  }
+
   if (!allowedRoles.includes(currentRole)) {
     return fallback ?? <AccessDeniedPage />;
   }

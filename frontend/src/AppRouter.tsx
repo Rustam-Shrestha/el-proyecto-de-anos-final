@@ -20,6 +20,7 @@ const AppRouter: React.FC = () => (
         <Route path="/auth/verify-email/:token" element={<Pages.VerifyEmailPage />} />
 
         <Route path={ROUTES.DASHBOARD} element={<div>Dashboard (placeholder)</div>} />
+        <Route path={ROUTES.CHAT.INDEX} element={<Pages.ChatPage />} />
 
         <Route path={ROUTES.PROFILE.VIEW} element={<Pages.ProfilePage />} />
         <Route path={ROUTES.PROFILE.EDIT} element={<Pages.EditProfilePage />} />

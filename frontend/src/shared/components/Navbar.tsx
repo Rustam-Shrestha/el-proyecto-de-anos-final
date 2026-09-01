@@ -102,6 +102,9 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
                 <p className="text-xs text-gray-500">{userData?.email || "Signed in user"}</p>
               </div>
               <div className="my-2 h-px bg-gray-100" />
+              <a href="/dashboard/chat" className="flex w-full items-center justify-start rounded-lg px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100">
+                Messages
+              </a>
               <Button variant="ghost" className="w-full justify-start px-3 py-2 text-sm text-gray-700" onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout

@@ -27,3 +27,4 @@ export { default as DocumentStatsPage } from './admin/DocumentStatsPage';
 export { default as FinancialDocumentUpload } from './portfolio/FinancialDocumentUpload';
 export { default as DocumentStatusList } from './portfolio/DocumentStatusList';
 export { default as AdminDocumentVerification } from './portfolio/AdminDocumentVerification';
+export { default as ChatPage } from './chat/ChatPage';
