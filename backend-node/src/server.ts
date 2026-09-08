@@ -6,6 +6,7 @@ import { logger } from '@/config/logger';
 import { app } from '@/app';
 import { prisma } from '@/config/database';
 import { chatbotService } from '@/services/chatbotService';
+import { setIO } from '@/config/socket';
 
 const PORT = env.PORT;
 const httpServer = http.createServer(app);
@@ -15,6 +16,7 @@ const io = new Server(httpServer, {
     credentials: true,
   },
 });
+setIO(io);
 
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token as string | undefined;

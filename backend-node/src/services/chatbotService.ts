@@ -283,9 +283,11 @@ export const chatbotService = {
       })
     );
 
+    const participants = [...new Set(rows.flatMap((r) => resolveParticipants(r.context)).concat(rows.map((r) => r.userId)))];
     return {
       conversationId,
       message,
+      participants,
       messages: rows.flatMap((row) => normalizeMessages(row.messages)).concat(message),
     };
   },

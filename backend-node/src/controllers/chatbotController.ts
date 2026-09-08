@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { chatbotService } from '@/services/chatbotService';
 import { apiResponse } from '@/utils/apiResponse';
+import { getIO } from '@/config/socket';
 
 export const askQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -125,6 +126,32 @@ export const sendChatMessage = async (req: Request, res: Response, next: NextFun
     const { conversationId } = req.params as { conversationId: string };
     const { content } = req.body as { content: string };
     const payload = await chatbotService.sendMessage(user.id, conversationId, content);
+    // Broadcast via socket so recipient gets real-time update without polling
+    const io = getIO();
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('chat:message', {
+        conversationId,
+        message: payload.message,
+      });
+      // Also notify participants via their user rooms (covers recipients who haven't joined the conversation room yet)
+      try {
+        const participants = (payload as unknown as { participants?: string[] })?.participants;
+        if (Array.isArray(participants)) {
+          participants.forEach((pid: string) => {
+            io.to(`user:${pid}`).emit('chat:message', {
+              conversationId,
+              message: payload.message,
+            });
+            io.to(`user:${pid}`).emit('chat:conversation_updated', { conversationId });
+          });
+        } else {
+          // Fallback: emit to sender's user room at least
+          io.to(`user:${user.id}`).emit('chat:conversation_updated', { conversationId });
+        }
+      } catch {
+        // non-fatal
+      }
+    }
     res.status(201).json(apiResponse.success('Message sent', payload));
   } catch (error) {
     next(error);
