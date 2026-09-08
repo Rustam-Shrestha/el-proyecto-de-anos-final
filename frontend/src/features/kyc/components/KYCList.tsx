@@ -1,131 +1,59 @@
 import { memo, useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, RefreshCcw, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { useKYCApplications } from "@features/kyc/api/kycApi";
 import { KYCDetailsModal } from "@features/kyc/components/KYCDetailsModal";
 import type { KYCApplication } from "@shared/types/common";
-
-const statusBadgeClasses: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800  ",
-  APPROVED: "bg-green-100 text-green-800  ",
-  REJECTED: "bg-danger-100 text-red-800",
-  UNDER_REVIEW: "bg-blue-100 text-blue-800  ",
-  RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800  ",
-};
+import StatusBadge from "@shared/components/StatusBadge";
+import ErrorState from "@shared/components/ErrorState";
+import EmptyState from "@shared/components/EmptyState";
+import { Button } from "@shared/components/Button";
+import Card from "@shared/components/Card";
 
 const formatDate = (value?: string) => {
   if (!value) return "--";
   const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "--"
-    : new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }).format(date);
+  return Number.isNaN(date.getTime()) ? "--" : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
 };
 
-type KYCListProps = {
-  status: string;
-};
+type KYCListProps = { status: string };
 
 const KYCList = ({ status }: KYCListProps) => {
   const [page, setPage] = useState(1);
   const limit = 10;
   const [selectedApplication, setSelectedApplication] = useState<KYCApplication | null>(null);
-
   const applicationsQuery = useKYCApplications(page, limit, status);
-
   const applications = applicationsQuery.data?.applications ?? [];
   const totalPages = Math.max(1, Math.ceil((applicationsQuery.data?.total ?? 0) / limit));
 
-  if (applicationsQuery.isLoading) {
-    return <SkeletonLoader count={6} type="table" />;
-  }
-
-  if (applicationsQuery.isError) {
-    return (
-      <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
-        <div className="flex items-start gap-3">
-          <XCircle className="mt-0.5 h-5 w-5" />
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold">Failed to load KYC applications</h3>
-            <p className="mt-1 text-sm opacity-90">Please try again.</p>
-            <button
-              type="button"
-              onClick={() => applicationsQuery.refetch()}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-danger-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-danger-700"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!applications.length) {
-    return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500 shadow-sm   ">
-        <p className="text-base font-medium text-gray-900 ">No applications found</p>
-        <p className="mt-2 text-sm">Try a different filter or refresh later.</p>
-      </div>
-    );
-  }
+  if (applicationsQuery.isLoading) return <SkeletonLoader count={6} type="table" />;
+  if (applicationsQuery.isError) return <ErrorState message="Failed to load KYC applications" onRetry={() => applicationsQuery.refetch()} />;
+  if (!applications.length) return <EmptyState title="No applications found" description="Try a different filter or refresh later." />;
 
   return (
     <>
-      <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm  ">
+      <Card padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 ">
-            <thead className="bg-gray-50 ">
+          <table className="min-w-full">
+            <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
-                  Applicant Email
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
-                  Status
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
-                  Applied Date
-                </th>
-                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 ">
-                  Actions
-                </th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-[#0F172A]">Applicant Email</th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-[#0F172A]">Status</th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-[#0F172A]">Applied Date</th>
+                <th className="px-4 py-3 text-right text-[13px] font-semibold text-[#0F172A]">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 ">
+            <tbody className="divide-y divide-[#E2E8F0]">
               {applications.map((application) => (
-                <tr
-                  key={application.id}
-                  className="transition-colors hover:bg-gray-50 :bg-gray-800/60"
-                >
-                  <td className="px-6 py-4 text-sm text-gray-900 ">
-                    {application.applicantEmail ?? application.userEmail ?? "--"}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        statusBadgeClasses[application.status] ?? statusBadgeClasses.PENDING
-                      }`}
-                    >
-                      {application.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 ">
-                    {formatDate(application.appliedAt ?? application.submittedAt)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedApplication(application)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100   :bg-gray-800"
-                        aria-label={`View ${application.applicantEmail ?? "application"}`}
-                      >
+                <tr key={application.id} className="hover:bg-[#F8FAFC]">
+                  <td className="px-4 py-3 text-sm text-[#0F172A]">{application.applicantEmail ?? application.userEmail ?? "--"}</td>
+                  <td className="px-4 py-3 text-sm"><StatusBadge status={application.status} /></td>
+                  <td className="px-4 py-3 text-sm text-[#64748B]">{formatDate(application.appliedAt ?? application.submittedAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end">
+                      <Button variant="ghost" size="sm" aria-label={`View ${application.applicantEmail ?? "application"}`} onClick={() => setSelectedApplication(application)} className="h-8 w-8 p-0">
                         <Eye className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -133,39 +61,15 @@ const KYCList = ({ status }: KYCListProps) => {
             </tbody>
           </table>
         </div>
-
-        <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between ">
-          <p className="text-sm text-gray-500 ">
-            Page {page} of {totalPages}
-          </p>
+        <div className="flex flex-col gap-3 border-t border-[#E2E8F0] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-[#64748B]">Page {page} of {totalPages}</p>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page <= 1}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50   :bg-gray-800"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              disabled={page >= totalPages}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50   :bg-gray-800"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            <Button variant="secondary" size="sm" onClick={() => setPage((c) => Math.max(1, c - 1))} disabled={page <= 1}><ChevronLeft className="h-4 w-4" />Previous</Button>
+            <Button variant="secondary" size="sm" onClick={() => setPage((c) => Math.min(totalPages, c + 1))} disabled={page >= totalPages}>Next<ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
-      </div>
-
-      <KYCDetailsModal
-        isOpen={Boolean(selectedApplication)}
-        application={selectedApplication}
-        onClose={() => setSelectedApplication(null)}
-      />
+      </Card>
+      <KYCDetailsModal isOpen={Boolean(selectedApplication)} application={selectedApplication} onClose={() => setSelectedApplication(null)} />
     </>
   );
 };

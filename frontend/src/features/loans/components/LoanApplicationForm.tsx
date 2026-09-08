@@ -8,6 +8,9 @@ import { z } from "zod";
 import { loanApplicationSchema } from "@shared/utils/validators";
 import type { LoanPurpose } from "@shared/types/common";
 import RiskScoreDisplay from "@features/loans/components/RiskScoreDisplay";
+import InputField from "@components/common/InputField";
+import CustomSelectField from "@components/common/SelectField";
+import Card from "@shared/components/Card";
 
 const ANNUAL_INTEREST_RATE = 18;
 
@@ -131,71 +134,17 @@ const LoanApplicationForm = () => {
   };
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
+    <Card>
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 ">
-              Loan Amount (NPR)
-            </label>
-            <div className="relative mt-1">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))}
-                placeholder="e.g. 500,000"
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 pr-16 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)]   "
-              />
-              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                NPR
-              </span>
-            </div>
-            {errors.amount ? (
-              <p className="mt-1 text-xs text-red-600 ">{errors.amount}</p>
-            ) : null}
-            <p className="mt-1 text-xs text-gray-500">
-              Min: NPR 10,000 &middot; Max: NPR 2,000,000
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 ">
-              Loan Purpose
-            </label>
-            <select
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value as LoanPurpose)}
-              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)]   "
-            >
-              {purposeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 ">
-              Repayment Tenure
-            </label>
-            <select
-              value={tenureMonths}
-              onChange={(e) => setTenureMonths(Number(e.target.value))}
-              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)]   "
-            >
-              {tenureOptions.map((months) => (
-                <option key={months} value={months}>
-                  {months} months {months >= 12 ? `(${months / 12} yr)` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="space-y-4">
+          <InputField label="Loan Amount (NPR)" type="text" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="e.g. 500,000" error={errors.amount} />
+          <p className="text-xs text-[#64748B]">Min: NPR 10,000 · Max: NPR 2,000,000</p>
+          <CustomSelectField label="Loan Purpose" value={purpose} onChange={(e) => setPurpose(e.target.value as LoanPurpose)} options={purposeOptions} />
+          <CustomSelectField label="Repayment Tenure" value={String(tenureMonths)} onChange={(e) => setTenureMonths(Number(e.target.value))} options={tenureOptions.map((m) => ({ value: String(m), label: `${m} months ${m >= 12 ? `(${m / 12} yr)` : ""}` }))} />
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5  ">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 ">
+        <div className="rounded-[8px] border border-[#E2E8F0] bg-[#F8FAFC] p-5">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748B]">
             Loan Summary
           </h3>
 
@@ -220,7 +169,7 @@ const LoanApplicationForm = () => {
             </div>
             <div className="flex items-center justify-between border-b border-gray-200 pb-2 ">
               <dt className="text-sm text-gray-600 ">Monthly EMI</dt>
-              <dd className="text-base font-bold text-[var(--green-icon)]">
+              <dd className="text-base font-bold text-[#15803D]">
                 {formatNPR(emiBreakdown.emi)}
               </dd>
             </div>
@@ -253,7 +202,7 @@ const LoanApplicationForm = () => {
         </div>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5 ">
+      <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-[#E2E8F0] pt-5">
         <Button variant="ghost" type="button" onClick={() => navigate("/dashboard")}>
           Cancel
         </Button>
@@ -277,7 +226,7 @@ const LoanApplicationForm = () => {
           </Button>
         ) : null}
       </div>
-    </div>
+    </Card>
   );
 };
 

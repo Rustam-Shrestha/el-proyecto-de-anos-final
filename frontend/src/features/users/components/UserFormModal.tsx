@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Modal } from "@shared/components/Modal";
 import Input from "@components/Input";
 import { Button } from "@shared/components/Button";
+import CustomSelectField from "@components/common/SelectField";
 import { useToast } from "@shared/hooks/useToast";
 import {
   useGetUser,
@@ -148,20 +149,13 @@ export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) =
           />
         )}
 
-        <label className="grid gap-2 text-sm font-medium text-gray-700 ">
-          Role
-          <select
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--green-icon)]"
-            {...register("role")}
-          >
-            <option value="USER">User</option>
-            <option value="ADMIN">Admin</option>
-            <option value="REVIEWER">Reviewer</option>
-          </select>
-          {errors.role ? (
-            <span className="text-sm text-red-500">{errors.role.message}</span>
-          ) : null}
-        </label>
+        <CustomSelectField
+          label="Role"
+          value={""}
+          options={[{ value: "USER", label: "User" }, { value: "ADMIN", label: "Admin" }, { value: "REVIEWER", label: "Reviewer" }]}
+          {...register("role")}
+          error={errors.role?.message}
+        />
 
         <div className="flex items-center justify-end gap-3 pt-2">
           <Button variant="ghost" type="button" onClick={handleClose}>

@@ -17,16 +17,16 @@ export type SharedButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500",
-  secondary: "bg-gray-200 text-gray-900 hover:bg-gray-300 focus-visible:ring-gray-400",
-  danger: "bg-danger-600 text-white hover:bg-danger-700 focus-visible:ring-red-500",
-  ghost: "bg-transparent text-gray-900 hover:bg-gray-100 focus-visible:ring-gray-300",
+  primary: "bg-[#15803D] text-white hover:bg-[#166534] active:bg-[#14532D] focus-visible:ring-[#15803D] border border-transparent",
+  secondary: "bg-white text-[#0F172A] border border-[#E2E8F0] hover:bg-[#F8FAFC] focus-visible:ring-[#15803D]",
+  danger: "bg-[#DC2626] text-white hover:bg-[#B91C1C] focus-visible:ring-[#DC2626] border border-transparent",
+  ghost: "bg-transparent text-[#334155] hover:bg-[#F1F5F9] focus-visible:ring-[#CBD5E1]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "px-3 py-1.5 text-sm",
-  md: "px-4 py-2 text-base",
-  lg: "px-6 py-3 text-lg",
+  sm: "h-8 px-3 text-[13px]",
+  md: "h-10 px-4 text-sm",
+  lg: "h-11 px-6 text-sm",
 };
 
 const Spinner = () => (
@@ -80,7 +80,7 @@ export const Button = forwardRef<HTMLButtonElement, SharedButtonProps>(
         type={type}
         disabled={disabled || showLoading}
         aria-busy={showLoading}
-        className={`${variantClasses[variant]} ${sizeClasses[size]} inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+        className={`${variantClasses[variant]} ${sizeClasses[size]} inline-flex items-center justify-center gap-2 rounded-[6px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
         {...props}
       >
         {showLoading ? <Spinner /> : resolvedLeftIcon}

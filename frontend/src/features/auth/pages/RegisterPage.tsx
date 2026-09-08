@@ -20,7 +20,8 @@ const RegisterPage = () => {
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl items-center justify-center">
         <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-xl transition-colors [#18251f] sm:p-8">
           <div className="mb-6 space-y-2 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">CMS Access</p>
+            <img src="..\..\..\public\logo512.png" alt="FinGuard logo" className="mx-auto h-20 w-20 rounded-[6px] object-cover p-0" />
+            {/* <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">Finguard Access</p> */}
             <h1 className="text-3xl font-semibold text-[var(--text-color)]">Create Account</h1>
             <p className="text-sm text-gray-500 ">Register to continue</p>
           </div>

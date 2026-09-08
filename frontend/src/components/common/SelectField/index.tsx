@@ -107,7 +107,7 @@ const CustomSelectField = memo(({
   return (
     <div className={`flex flex-col w-full ${className} ${disabled ? "pointer-events-none opacity-75" : ""}`.trim()} ref={dropdownRef}>
       {label && (
-        <label className="text-sm font-normal text-primary mb-1">{label}</label>
+        <label className="text-sm font-medium text-[#0F172A] mb-2">{label}</label>
       )}
 
       <div className="relative w-full">
@@ -144,14 +144,14 @@ const CustomSelectField = memo(({
           onClick={handleInputClick}
           readOnly={!isOpen}
           disabled={disabled}
-          className="w-full text-sm text-gray-700 bg-[#F6F6F6] px-3 py-2.5 rounded focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+          className="w-full h-10 text-sm text-[#0F172A] bg-white border border-[#CBD5E1] px-3 rounded-[6px] focus:outline-none focus:border-[#15803D] focus:ring-2 focus:ring-[rgba(21,128,61,0.12)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 disabled:bg-[#F1F5F9]"
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
           <DownArrow />
         </div>
 
         {isOpen && (
-          <div className="absolute w-full mt-1 bg-white  shadow-lg text-gray-700   border-gray-200 border-2 rounded-lg z-[2147483647] max-h-60 overflow-y-auto">
+          <div className="absolute w-full mt-1 bg-white shadow-card border border-[#E2E8F0] rounded-[8px] z-50 max-h-60 overflow-y-auto">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option, index) => {
                 const val = option.value || option;
@@ -180,7 +180,7 @@ const CustomSelectField = memo(({
           </div>
         )}
       </div>
-      {error && <span className="text-red text-sm mt-1">{error}</span>}
+      {error && <span className="text-[#DC2626] text-sm mt-1">{error}</span>}
     </div>
   );
 });

@@ -24,7 +24,7 @@ const TableHeader = memo(({ columns, onFilterChange, hasExpandableRows }) => {
   };
 
   return (
-    <thead className="text-primary border-b-4 border-primary sticky top-0 z-50 font-serif shadow-md" style={{ backgroundColor: 'var(--surface-color)' }}>
+    <thead className="sticky top-0 z-10 border-b border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A]">
       <tr>
         {hasExpandableRows && (
           <th className="p-3 sm:p-4 text-xs text-left font-medium w-10"></th>
@@ -32,7 +32,7 @@ const TableHeader = memo(({ columns, onFilterChange, hasExpandableRows }) => {
         {columns.map((column, index) => (
           <th
             key={index}
-            className="p-4 sm:p-6 text-xs text-left font-medium whitespace-nowrap"
+            className="px-4 py-3 text-left text-[13px] font-semibold tracking-wide whitespace-nowrap"
             style={{ 
               width: `${(column.width / 24) * 100}%`,
               minWidth: column.accessor === "sn" ? "60px" : column.accessor === "name" || column.accessor === "client" ? "200px" : "120px"
@@ -80,7 +80,7 @@ const TableRow = memo(({ row, columns, hasExpandableRows, isExpanded, onToggleEx
 
   return (
     <>
-      <tr className="transition-colors hover:bg-gray-50 :bg-gray-800">
+      <tr className="transition-colors hover:bg-[#F8FAFC]">
         {hasExpandableRows && (
           <td className="py-2 px-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
             {hasChildren ? (
@@ -100,10 +100,8 @@ const TableRow = memo(({ row, columns, hasExpandableRows, isExpanded, onToggleEx
         {columns.map((column, index) => (
           <td
             key={index}
-            className={`py-2 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap border-b`}
+            className={`px-4 py-3 text-sm whitespace-nowrap border-b border-[#E2E8F0] text-[#334155]`}
             style={{ 
-              color: 'var(--text-color)',
-              borderColor: 'var(--border-color)',
               width: `${(column.width / 24) * 100}%`,
               minWidth: column.accessor === "sn" ? "60px" : column.accessor === "name" || column.accessor === "client" ? "200px" : "120px"
             }}
@@ -168,7 +166,7 @@ const TableFooter = memo(({
   };
 
   return (
-    <tfoot className="border-t border-primary sticky bottom-0 z-20 shadow-sm" style={{ backgroundColor: 'var(--green-footer)', borderColor: 'var(--border-color)' }}>
+    <tfoot className="sticky bottom-0 z-10 border-t border-[#E2E8F0] bg-white">
       <tr>
         <td colSpan="100%" className="p-2 font-bold text-primary text-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -247,9 +245,9 @@ const TableView = memo(({
   };
 
   return (
-    <div className="w-full rounded-lg shadow-sm" style={{ backgroundColor: 'var(--surface-color)' }}>
+    <div className="w-full overflow-hidden rounded-[8px] border border-[#E2E8F0] bg-white shadow-subtle">
       {customHeader && customHeader}
-      <div className="overflow-x-auto overflow-y-auto max-h-[650px] scrollbar-thin border rounded-b-lg" style={{ borderColor: 'var(--border-color)' }}>
+      <div className="overflow-x-auto overflow-y-auto max-h-[650px]">
         <table className="min-w-full border-collapse table-auto text-sm">
           <TableHeader
             columns={columns}
