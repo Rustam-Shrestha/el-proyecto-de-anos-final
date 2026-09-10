@@ -25,6 +25,8 @@ export default [
         HTMLFormElement: "readonly",
         HTMLInputElement: "readonly",
         HTMLTextAreaElement: "readonly",
+        HTMLLinkElement: "readonly",
+        HTMLImageElement: "readonly",
         localStorage: "readonly",
         navigator: "readonly",
         KeyboardEvent: "readonly",

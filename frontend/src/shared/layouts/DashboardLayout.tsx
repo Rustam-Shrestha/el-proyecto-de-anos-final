@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import { Navbar } from "@shared/components/Navbar";
 import { Sidebar } from "@shared/components/Sidebar";
+import Footer from "@components/footer";
 
 type DashboardLayoutProps = {
   children?: ReactNode;
@@ -29,6 +30,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
         </main>
       </div>
+      <Footer />
     </div>
   );
 };

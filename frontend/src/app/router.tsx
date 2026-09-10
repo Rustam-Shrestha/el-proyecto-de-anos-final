@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@app/ProtectedRoute";
 import { RoleProtectedRoute } from "@app/RoleProtectedRoute";
 import { DashboardLayout } from "@shared/layouts/DashboardLayout";
 import ErrorPage from "../pages/ErrorPage";
+import UnauthorizedPage from "../pages/UnauthorizedPage";
 
 // Route-level lazy loading keeps the initial bundle light.
 const LoginPage = lazy(() => import("@features/auth/pages/LoginPage"));
@@ -25,6 +26,9 @@ const PortfolioAdminListPage = lazy(() => import("@features/loans/pages/admin/Po
 const PortfolioAdminDetailPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminDetailPage"));
 const ChatPage = lazy(() => import("@pages/chat/ChatPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
+const ContactPage = lazy(() => import("../pages/public/ContactPage"));
+const AboutPage = lazy(() => import("../pages/public/AboutPage"));
+const SimplePublicPage = lazy(() => import("../pages/public/SimplePublicPage"));
 
 export const router = createBrowserRouter([
   {
@@ -175,6 +179,15 @@ export const router = createBrowserRouter([
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
       { path: "/auth", element: <Navigate to="/login" replace /> },
+      { path: "/unauthorized", element: <UnauthorizedPage /> },
+      { path: "/401", element: <UnauthorizedPage /> },
+      { path: "/about", element: <AboutPage /> },
+      { path: "/contact", element: <ContactPage /> },
+      { path: "/pricing", element: <SimplePublicPage path="/pricing" title="Pricing" description="Affordable loan risk prediction pricing. Pay per prediction or unlimited tier. No hidden fees." /> },
+      { path: "/docs", element: <SimplePublicPage path="/docs" title="API Documentation" description="API documentation for FinGuard loan risk model. Integrate default risk prediction into your platform." /> },
+      { path: "/terms", element: <SimplePublicPage path="/terms" title="Terms of Service" description="Terms of Service. Legal agreement governing FinGuard platform use." /> },
+      { path: "/privacy", element: <SimplePublicPage path="/privacy" title="Privacy Policy" description="Privacy Policy. How FinGuard protects your data. GDPR-compliant." /> },
+      { path: "/apply", element: <SimplePublicPage path="/apply" title="Apply for a Loan" description="Apply for a loan in 5 minutes. FinGuard's AI analyzes your financial profile and gives instant decision." /> },
       { path: "*", element: <NotFoundPage /> }
     ]
   }

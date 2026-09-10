@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import AccessDeniedPage from "@pages/AccessDeniedPage";
+import UnauthorizedPage from "@pages/UnauthorizedPage";
 import { normalizeRole } from "@shared/utils/roleUtils";
 import { useAppSelector } from "@hooks/reduxHooks";
 import { selectIsAuthenticated, selectUserData } from "@store/slices/authSlice";
@@ -32,7 +32,7 @@ export const RoleProtectedRoute = ({ children, requiredRoles, fallback }: RolePr
   }
 
   if (!allowedRoles.includes(currentRole)) {
-    return fallback ?? <AccessDeniedPage />;
+    return fallback ?? <UnauthorizedPage />;
   }
 
   return <>{children}</>;

@@ -233,7 +233,7 @@ const PortfolioPage = () => {
       try {
         await deleteMutation.mutateAsync(documentId);
         toast.success("Document removed");
-      } catch (error) {
+      } catch (_error) {
         toast.error("Failed to delete document");
       }
     },

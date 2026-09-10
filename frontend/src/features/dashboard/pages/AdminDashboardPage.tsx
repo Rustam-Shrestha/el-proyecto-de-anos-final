@@ -34,7 +34,7 @@ const KycPieChart = ({ data }: { data: Array<{ name: string; y: number; color: s
         },
       },
       legend: { layout: "horizontal", align: "center", verticalAlign: "bottom", itemStyle: { color: "#334155", fontWeight: "500", fontSize: "12px" } },
-      series: [{ type: "pie", name: "Applications", colorByPoint: true, data } as any],
+      series: [{ type: "pie", name: "Applications", colorByPoint: true, data } as unknown as Highcharts.SeriesPieOptions],
     });
     // center total label
     if (total > 0 && containerRef.current) {

@@ -1,4 +1,5 @@
 const envKeys = ["VITE_API_BASE_URL", "VITE_API_URL"] as const;
+void envKeys;
 
 type EnvKey = (typeof envKeys)[number];
 

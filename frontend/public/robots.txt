@@ -1,3 +1,26 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+Allow: /docs
+Allow: /api/docs
+Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /sitemap.xml
+
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /results/
+Disallow: /api/predict
+Disallow: /.well-known/
+Disallow: /private/
+Disallow: /*.json$
+Disallow: /*.pdf$
+
+User-agent: GPTBot
+Disallow: /api/predict
+Allow: /docs
+
+User-agent: Bingbot
+Allow: /
+
+Sitemap: https://finguard.io/sitemap.xml

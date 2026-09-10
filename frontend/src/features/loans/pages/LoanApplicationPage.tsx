@@ -4,6 +4,8 @@ import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { useGetMyEmployment } from "@features/loans/api/employmentApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import LoanApplicationForm from "@features/loans/components/LoanApplicationForm";
+import { Seo } from "@components/seo/Seo";
+import { Breadcrumb } from "@components/seo/Breadcrumb";
 
 const LoanApplicationPage = () => {
   const { data: kyc, isLoading, isError } = useGetMyKYCStatus();
@@ -14,6 +16,8 @@ const LoanApplicationPage = () => {
 
   return (
     <section className="space-y-6">
+      <Seo path="/apply" />
+      <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Apply for Loan" }]} />
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
           Loan Application

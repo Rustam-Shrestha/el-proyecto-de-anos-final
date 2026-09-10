@@ -4,6 +4,7 @@ import { useApplyLoanMutation, useCalculateRiskMutation } from "@features/loans/
 import type { HomeCreditFeatures, DeriveFeatures } from "@features/loans/api/loansApi";
 import { Button } from "@shared/components/Button";
 import { useToast } from "@shared/hooks/useToast";
+import { Tooltip } from "@components/common/Tooltip";
 import { z } from "zod";
 import { loanApplicationSchema } from "@shared/utils/validators";
 import type { LoanPurpose } from "@shared/types/common";
@@ -137,9 +138,18 @@ const LoanApplicationForm = () => {
     <Card>
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4">
+          <Tooltip content="Total loan amount requested">
+            <span className="text-sm font-medium">Loan Amount (NPR)</span>
+          </Tooltip>
           <InputField label="Loan Amount (NPR)" type="text" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="e.g. 500,000" error={errors.amount} />
           <p className="text-xs text-[#64748B]">Min: NPR 10,000 · Max: NPR 2,000,000</p>
+          <Tooltip content="Purpose affects risk assessment">
+            <span className="text-sm font-medium">Loan Purpose</span>
+          </Tooltip>
           <CustomSelectField label="Loan Purpose" value={purpose} onChange={(e) => setPurpose(e.target.value as LoanPurpose)} options={purposeOptions} />
+          <Tooltip content="Credit score uses 300 + 550×(1 − default_probability)">
+            <span className="text-sm font-medium">Repayment Tenure</span>
+          </Tooltip>
           <CustomSelectField label="Repayment Tenure" value={String(tenureMonths)} onChange={(e) => setTenureMonths(Number(e.target.value))} options={tenureOptions.map((m) => ({ value: String(m), label: `${m} months ${m >= 12 ? `(${m / 12} yr)` : ""}` }))} />
         </div>
 
