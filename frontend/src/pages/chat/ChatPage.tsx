@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquareText, SendHorizonal, UserCircle2 } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { apiClient } from "@shared/lib/apiClient";
@@ -47,19 +47,27 @@ const ChatPage = () => {
   const [socketError, setSocketError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const selectedConversationIdRef = useRef<string | null>(null);
 
   const selectedConversation = useMemo(
     () => conversations.find((item) => item.conversationId === selectedConversationId) ?? null,
     [conversations, selectedConversationId]
   );
 
-  const refreshConversations = async () => {
+  // Keep ref in sync so socket callbacks always see latest value without re-creating socket
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversationId;
+  }, [selectedConversationId]);
+
+  const refreshConversations = useCallback(async () => {
     const { data } = await apiClient.get<{ data: ChatConversation[] }>('/chat/conversations');
-    setConversations(data.data || []);
-    if (!selectedConversationId && data.data?.length) {
-      setSelectedConversationId(data.data[0].conversationId);
+    const list = data.data || [];
+    setConversations(list);
+    // auto-select first conversation if none selected
+    if (!selectedConversationIdRef.current && list.length) {
+      setSelectedConversationId(list[0].conversationId);
     }
-  };
+  }, []);
 
   const loadParticipants = async () => {
     setLoadingParticipants(true);
@@ -87,14 +95,15 @@ const ChatPage = () => {
 
   useEffect(() => {
     loadParticipants();
-    refreshConversations();
-  }, []);
+    void refreshConversations();
+  }, [refreshConversations]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
-    loadMessages(selectedConversationId);
+    void loadMessages(selectedConversationId);
   }, [selectedConversationId]);
 
+  // Create socket once per user; handle real-time messages without stale closures
   useEffect(() => {
     if (!userData?.id) return;
 
@@ -108,35 +117,45 @@ const ChatPage = () => {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      if (selectedConversationId) {
-        socket.emit("chat:join", { conversationId: selectedConversationId });
+      const cid = selectedConversationIdRef.current;
+      if (cid) {
+        socket.emit("chat:join", { conversationId: cid });
       }
     });
 
-    socket.on("chat:message", (payload: { conversationId: string; message: ChatMessage }) => {
-      if (payload.conversationId !== selectedConversationId) {
-        void refreshConversations();
-        return;
+    const handleChatMessage = (payload: { conversationId: string; message: ChatMessage }) => {
+      const currentSelected = selectedConversationIdRef.current;
+      if (payload.conversationId === currentSelected) {
+        setMessages((prev) => {
+          const alreadyExists = prev.some((m) => m.timestamp === payload.message.timestamp && m.content === payload.message.content);
+          if (alreadyExists) return prev;
+          return [...prev, payload.message];
+        });
       }
-
-      setMessages((current) => {
-        const alreadyExists = current.some((message) => message.timestamp === payload.message.timestamp && message.content === payload.message.content);
-        if (alreadyExists) return current;
-        return [...current, payload.message];
-      });
+      // Always refresh conversation list to update lastMessage/preview without full page reload
       void refreshConversations();
-    });
+    };
+
+    const handleConversationUpdated = () => {
+      void refreshConversations();
+    };
+
+    socket.on("chat:message", handleChatMessage);
+    socket.on("chat:conversation_updated", handleConversationUpdated);
 
     socket.on("chat:error", (payload: { message?: string }) => {
       setSocketError(payload?.message || "Unable to send message.");
     });
 
     return () => {
+      socket.off("chat:message", handleChatMessage);
+      socket.off("chat:conversation_updated", handleConversationUpdated);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [selectedConversationId, userData?.id]);
+  }, [userData?.id, refreshConversations]);
 
+  // Join new conversation room when selection changes
   useEffect(() => {
     if (!selectedConversationId || !socketRef.current) return;
     socketRef.current.emit("chat:join", { conversationId: selectedConversationId });
@@ -168,7 +187,12 @@ const ChatPage = () => {
         content: payload,
       });
       setDraft("");
-      setMessages((current) => [...current, data.data.message]);
+      // Optimistically append; socket echo will be deduped
+      setMessages((current) => {
+        const exists = current.some((m) => m.timestamp === data.data.message.timestamp && m.content === data.data.message.content);
+        if (exists) return current;
+        return [...current, data.data.message];
+      });
       await refreshConversations();
     } finally {
       setSending(false);
