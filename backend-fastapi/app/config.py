@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     FACE_MATCH_THRESHOLD: float = 0.4
     FACE_MODEL: str = "VGG-Face"
 
+    # FinGuard ML
+    ML_MODEL_PATH: str = "../finguard_artifacts/model.pkl"
+    ML_MANIFEST_PATH: str = "../finguard_artifacts/model_manifest.json"
+    ML_PREPROCESSING_PATH: str = "../finguard_artifacts/preprocessing.json"
+
     # Logging
     LOG_LEVEL: str = "INFO"
 

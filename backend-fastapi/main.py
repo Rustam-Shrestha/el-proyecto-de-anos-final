@@ -39,6 +39,32 @@ async def lifespan(app: FastAPI):
     _models_ready["ocr_paddle"] = False
     _models_ready["face"] = False
     logger.info("FastAPI OCR and text extraction are disabled in the active flow; only face matching remains enabled in the product path.")
+    # Try to init FinGuard predictor (non-fatal)
+    try:
+        from app.config import settings
+        from app.services.finguard.predictor import init_predictor
+        from pathlib import Path
+        mp = Path(settings.ML_MODEL_PATH)
+        # resolve relative to project root if needed
+        if not mp.is_absolute():
+            # main.py is at backend-fastapi/main.py
+            base = Path(__file__).parent
+            mp = (base / settings.ML_MODEL_PATH).resolve()
+            pp = (base / settings.ML_PREPROCESSING_PATH).resolve()
+            man = (base / settings.ML_MANIFEST_PATH).resolve()
+        else:
+            pp = Path(settings.ML_PREPROCESSING_PATH)
+            man = Path(settings.ML_MANIFEST_PATH)
+        if mp.exists() and pp.exists() and man.exists():
+            init_predictor(str(mp), str(man), str(pp))
+            _models_ready["finguard"] = True
+            logger.info(f"FinGuard model loaded: {mp}")
+        else:
+            _models_ready["finguard"] = False
+            logger.warning(f"FinGuard artifacts missing: {mp} {pp} {man}")
+    except Exception as e:
+        _models_ready["finguard"] = False
+        logger.warning(f"FinGuard init failed: {e}")
     yield
     logger.info("Shutting down FastAPI application...")
 

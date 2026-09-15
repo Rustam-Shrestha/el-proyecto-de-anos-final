@@ -4,6 +4,7 @@ import { AppError } from '@/utils/AppError';
 import { riskService } from '@/services/riskService';
 import { LoanPurpose, LoanStatus, Prisma } from '@prisma/client';
 import { notificationService } from '@/services/notificationService';
+import { finguardProxyService } from '@/services/finguardProxyService';
 
 export interface ApplyLoanInput {
   requestedAmount: number;
@@ -66,6 +67,29 @@ export const loanService = {
         },
       });
 
+      // FinGuard ML prediction (non-blocking fallback to heuristic)
+      let ml: Awaited<ReturnType<typeof finguardProxyService.evaluate>> = null;
+      try {
+        const employment = await prisma.employmentInfo.findUnique({ where: { userId } });
+        const profile = await prisma.profile.findUnique({ where: { userId } });
+        const daysBirth = profile?.dateOfBirth
+          ? -Math.floor((Date.now() - new Date(profile.dateOfBirth).getTime()) / 86400000)
+          : -12000;
+        const daysEmployed = employment?.employmentStartDate
+          ? -Math.floor((Date.now() - new Date(employment.employmentStartDate).getTime()) / 86400000)
+          : 365243;
+        ml = await finguardProxyService.evaluate({
+          amt_income_total: features.amtIncomeTotal ?? Number(employment?.annualIncome ?? 0),
+          amt_credit: data.requestedAmount,
+          amt_annuity: emi,
+          days_birth: daysBirth,
+          days_employed: daysEmployed,
+          cnt_children: employment?.dependentsCount ?? 0,
+          cnt_fam_members: (employment?.dependentsCount ?? 0) + 1,
+          occupation_type: employment?.occupationJobTitle ?? undefined,
+        });
+      } catch { /* ignore ml error */ }
+
       const loan = await prisma.loanApplication.create({
         data: {
           userId,
@@ -74,8 +98,14 @@ export const loanService = {
           purpose: data.purpose,
           calculatedEmi: emi,
           status: 'SUBMITTED',
-          riskScore,
-          riskLevel,
+          riskScore: ml ? Math.round(ml.default_probability * 100) : riskScore,
+          riskLevel: ml ? (ml.risk_band.toUpperCase() as typeof riskLevel) : riskLevel,
+          defaultProbability: ml?.default_probability,
+          modelVersion: ml?.model_version,
+          shapValues: ml?.shap_summary as unknown as Prisma.InputJsonValue | undefined,
+          featureSnapshot: ml ? ({ amtIncomeTotal: features.amtIncomeTotal, amtCredit: data.requestedAmount } as unknown as Prisma.InputJsonValue) : undefined,
+          mlDecision: ml?.decision,
+          creditScore: ml?.credit_score,
         },
         include: {
           user: {

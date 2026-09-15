@@ -686,6 +686,13 @@ model LoanApplication {
   reviewedBy       String?
   reviewedByUser   User?       @relation("LoanReviewer", fields: [reviewedBy], references: [id])
   reviewedAt       DateTime?
+  // FinGuard ML audit fields
+  defaultProbability Float?
+  modelVersion     String?
+  shapValues       Json?
+  featureSnapshot  Json?
+  mlDecision       String?
+  creditScore      Int?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
