@@ -12,16 +12,27 @@ export interface ApplyLoanInput {
   purpose: LoanPurpose;
 }
 
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("auth.tenants") || msg.includes("tenantId") || msg.includes("does not exist");
+}
+
 export const loanService = {
-  async applyForLoan(userId: string, data: ApplyLoanInput) {
+  async applyForLoan(userId: string, data: ApplyLoanInput, tenantId?: number) {
     try {
-      const kyc = await prisma.kycApplication.findFirst({
-        where: {
-          userId,
-          status: 'APPROVED',
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      const tid = tenantId ?? 1;
+      let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
+      try {
+        kyc = await prisma.kycApplication.findFirst({
+          where: { userId, tenantId: tid, status: 'APPROVED' },
+          orderBy: { createdAt: 'desc' },
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          kyc = await prisma.kycApplication.findFirst({ where: { userId, status: 'APPROVED' }, orderBy: { createdAt: 'desc' } });
+        } else throw e;
+      }
 
       if (!kyc) {
         throw new AppError('You must have an approved KYC before applying for a loan', 400);
@@ -31,7 +42,7 @@ export const loanService = {
         where: { userId },
       });
 
-      if (!portfolio || portfolio.verificationStatus !== 'VERIFIED') {
+      if (!portfolio || portfolio.verificationStatus !== 'VERIFIED' || (portfolio as unknown as { tenantId?: number }).tenantId !== undefined && (portfolio as unknown as { tenantId: number }).tenantId !== tid) {
         throw new AppError(
           'Your financial portfolio must be verified before applying for a loan. Complete your employment info and document upload, then wait for admin verification.',
           400
@@ -90,29 +101,51 @@ export const loanService = {
         });
       } catch { /* ignore ml error */ }
 
-      const loan = await prisma.loanApplication.create({
-        data: {
-          userId,
-          requestedAmount: data.requestedAmount,
-          tenureMonths: data.tenureMonths,
-          purpose: data.purpose,
-          calculatedEmi: emi,
-          status: 'SUBMITTED',
-          riskScore: ml ? Math.round(ml.default_probability * 100) : riskScore,
-          riskLevel: ml ? (ml.risk_band.toUpperCase() as typeof riskLevel) : riskLevel,
-          defaultProbability: ml?.default_probability,
-          modelVersion: ml?.model_version,
-          shapValues: ml?.shap_summary as unknown as Prisma.InputJsonValue | undefined,
-          featureSnapshot: ml ? ({ amtIncomeTotal: features.amtIncomeTotal, amtCredit: data.requestedAmount } as unknown as Prisma.InputJsonValue) : undefined,
-          mlDecision: ml?.decision,
-          creditScore: ml?.credit_score,
-        },
-        include: {
-          user: {
-            select: { id: true, email: true },
+      let loan: Awaited<ReturnType<typeof prisma.loanApplication.create>>;
+      try {
+        loan = await prisma.loanApplication.create({
+          data: {
+            tenantId: tid,
+            userId,
+            requestedAmount: data.requestedAmount,
+            tenureMonths: data.tenureMonths,
+            purpose: data.purpose,
+            calculatedEmi: emi,
+            status: 'SUBMITTED',
+            riskScore: ml ? Math.round(ml.default_probability * 100) : riskScore,
+            riskLevel: ml ? (ml.risk_band.toUpperCase() as typeof riskLevel) : riskLevel,
+            defaultProbability: ml?.default_probability,
+            modelVersion: ml?.model_version,
+            shapValues: ml?.shap_summary as unknown as Prisma.InputJsonValue | undefined,
+            featureSnapshot: ml ? ({ amtIncomeTotal: features.amtIncomeTotal, amtCredit: data.requestedAmount } as unknown as Prisma.InputJsonValue) : undefined,
+            mlDecision: ml?.decision,
+            creditScore: ml?.credit_score,
           },
-        },
-      });
+          include: { user: { select: { id: true, email: true } } },
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          loan = await prisma.loanApplication.create({
+            data: {
+              userId,
+              requestedAmount: data.requestedAmount,
+              tenureMonths: data.tenureMonths,
+              purpose: data.purpose,
+              calculatedEmi: emi,
+              status: 'SUBMITTED',
+              riskScore: ml ? Math.round(ml.default_probability * 100) : riskScore,
+              riskLevel: ml ? (ml.risk_band.toUpperCase() as typeof riskLevel) : riskLevel,
+              defaultProbability: ml?.default_probability,
+              modelVersion: ml?.model_version,
+              shapValues: ml?.shap_summary as unknown as Prisma.InputJsonValue | undefined,
+              featureSnapshot: ml ? ({ amtIncomeTotal: features.amtIncomeTotal, amtCredit: data.requestedAmount } as unknown as Prisma.InputJsonValue) : undefined,
+              mlDecision: ml?.decision,
+              creditScore: ml?.credit_score,
+            },
+            include: { user: { select: { id: true, email: true } } },
+          });
+        } else throw e;
+      }
 
       logger.info(
         { userId, loanId: loan.id, riskScore, riskLevel },
@@ -127,10 +160,12 @@ export const loanService = {
     }
   },
 
-  async getLoanById(loanId: string, requestingUserId: string, requestingUserRole: string) {
+  async getLoanById(loanId: string, requestingUserId: string, requestingUserRole: string, tenantId?: number) {
     try {
-      const loan = await prisma.loanApplication.findUnique({
-        where: { id: loanId },
+      let loan: Awaited<ReturnType<typeof prisma.loanApplication.findFirst>>;
+      try {
+        loan = await prisma.loanApplication.findFirst({
+          where: { id: loanId, tenantId: tenantId ?? 1 },
         include: {
           user: {
             select: { id: true, email: true },
@@ -139,7 +174,18 @@ export const loanService = {
             select: { id: true, email: true },
           },
         },
-      });
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          loan = await prisma.loanApplication.findFirst({
+            where: { id: loanId },
+            include: {
+              user: { select: { id: true, email: true } },
+              reviewedByUser: { select: { id: true, email: true } },
+            },
+          });
+        } else throw e;
+      }
 
       if (!loan) {
         throw new AppError('Loan application not found', 404);
@@ -163,12 +209,13 @@ export const loanService = {
       userId?: string;
       page: number;
       limit: number;
+      tenantId?: number;
     },
     requestingUserRole: string,
     requestingUserId?: string
   ) {
     try {
-      const where: Prisma.LoanApplicationWhereInput = {};
+      const where: Prisma.LoanApplicationWhereInput = { tenantId: filters.tenantId ?? 1 };
 
       if (filters.status) {
         where.status = filters.status;
@@ -182,22 +229,36 @@ export const loanService = {
 
       const skip = (filters.page - 1) * filters.limit;
 
-      const [loans, total] = await Promise.all([
-        prisma.loanApplication.findMany({
-          where,
-          include: {
-            user: {
-              select: { id: true, email: true },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: filters.limit,
-          skip,
-        }),
-        prisma.loanApplication.count({ where }),
-      ]);
-
-      return { loans, total };
+      try {
+        const [loans, total] = await Promise.all([
+          prisma.loanApplication.findMany({
+            where,
+            include: { user: { select: { id: true, email: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: filters.limit,
+            skip,
+          }),
+          prisma.loanApplication.count({ where }),
+        ]);
+        return { loans, total };
+      } catch (e) {
+        if (!isTenantSchemaError(e)) throw e;
+        const fallbackWhere: Prisma.LoanApplicationWhereInput = {};
+        if (filters.status) fallbackWhere.status = filters.status;
+        if (requestingUserRole === 'USER') fallbackWhere.userId = requestingUserId;
+        else if (filters.userId) fallbackWhere.userId = filters.userId;
+        const [loans, total] = await Promise.all([
+          prisma.loanApplication.findMany({
+            where: fallbackWhere,
+            include: { user: { select: { id: true, email: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: filters.limit,
+            skip,
+          }),
+          prisma.loanApplication.count({ where: fallbackWhere }),
+        ]);
+        return { loans, total };
+      }
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error }, 'Failed to list loans');
@@ -209,12 +270,17 @@ export const loanService = {
     loanId: string,
     reviewerId: string,
     action: 'APPROVED' | 'REJECTED',
-    notes?: string
+    notes?: string,
+    tenantId?: number
   ) {
     try {
-      const loan = await prisma.loanApplication.findUnique({
-        where: { id: loanId },
-      });
+      let loan: Awaited<ReturnType<typeof prisma.loanApplication.findFirst>>;
+      try {
+        loan = await prisma.loanApplication.findFirst({ where: { id: loanId, tenantId: tenantId ?? 1 } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) loan = await prisma.loanApplication.findFirst({ where: { id: loanId } });
+        else throw e;
+      }
 
       if (!loan) {
         throw new AppError('Loan application not found', 404);

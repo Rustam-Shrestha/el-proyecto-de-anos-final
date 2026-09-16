@@ -9,4 +9,5 @@ export const authLimiter = rateLimit({
     success: false,
     message: 'Too many requests. Please try again after 15 minutes.',
   },
+  // TODO: switch to RedisStore when ioredis is available: store: new RedisStore({ prefix: 'rl:' })
 });

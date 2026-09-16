@@ -22,11 +22,34 @@ const getStoredAccessToken = () => {
   }
 };
 
+export const createApiClient = (tenantSlug?: string) => {
+  const inst = axios.create({
+    baseURL: env.VITE_API_BASE_URL,
+    headers: {
+      "Content-Type": "application/json",
+      ...(tenantSlug ? { "X-Tenant": tenantSlug } : {}),
+    },
+  });
+  inst.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
+    const t = getStoredAccessToken();
+    if (t) cfg.headers.Authorization = `Bearer ${t}`;
+    if (cfg.data instanceof FormData) { delete (cfg.headers as Record<string, unknown>)["Content-Type"]; delete (cfg.headers as Record<string, unknown>)["content-type"]; }
+    const ts = tenantSlug || localStorage.getItem("tenantSlug") || "default";
+    if (ts) cfg.headers["X-Tenant"] = ts;
+    return cfg;
+  });
+  inst.interceptors.response.use((r) => r, async (e) => { if (e.response?.status === 401) { localStorage.clear(); window.location.href = "/login"; } return Promise.reject(e); });
+  return inst;
+};
+
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getStoredAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // tenant header
+  const tenantSlug = localStorage.getItem("tenantSlug") || new URLSearchParams(window.location.search).get("tenant") || "default";
+  if (tenantSlug) config.headers["X-Tenant"] = tenantSlug;
 
   // When sending FormData (multipart), clear the default application/json Content-Type
   // so the browser can set the correct multipart boundary.

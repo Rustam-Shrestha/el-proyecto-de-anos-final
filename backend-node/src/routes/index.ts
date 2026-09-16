@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { tenantContext } from '@/middleware/tenantContext';
 import userRouter from '@/routes/userRoutes';
 import authRouter from '@/routes/authRoutes';
 import kycRouter from '@/routes/kycRoutes';
@@ -15,12 +16,17 @@ import notificationRouter from '@/routes/notificationRoutes';
 
 export const apiRouter = Router();
 
-// Health check (public)
-apiRouter.get('/health', (_req, res) => {
+// tenant context for all /api/v1/* (adds req.tenantId/slug, auto-creates default)
+apiRouter.use(tenantContext);
+
+// Health check (public, tenant-aware)
+apiRouter.get('/health', (req, res) => {
   res.json({
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
+    tenantId: (req as unknown as { tenantId?: number }).tenantId,
+    tenantSlug: (req as unknown as { tenantSlug?: string }).tenantSlug,
   });
 });
 

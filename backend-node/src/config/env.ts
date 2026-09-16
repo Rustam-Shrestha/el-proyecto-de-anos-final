@@ -21,6 +21,9 @@ const envSchema = z.object({
   ML_SERVICE_URL: z.string().default('http://localhost:8000'),
   OCR_ENABLED: z.string().default('true').transform((v) => v === 'true'),
   FACE_MATCH_ENABLED: z.string().default('true').transform((v) => v === 'true'),
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.coerce.number().default(6379),
+  REDIS_PASSWORD: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

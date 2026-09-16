@@ -68,7 +68,7 @@ enum RiskLevel {
   @@schema("auth")
 }
 
-// Roles for RBAC
+// Roles for RBAC (legacy string role)
 model Role {
   id   String @id @default(cuid())
   name String @unique
@@ -81,6 +81,74 @@ model Role {
   @@schema("auth")
 }
 
+// ===== Shared multi-tenant tables (prompt spec adapted to auth schema) =====
+model Tenant {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(255)
+  domain    String?
+  status    String   @default("active") @db.VarChar(20)
+  createdAt DateTime @default(now())
+
+  admins TenantAdmin[]
+
+  @@map("tenants")
+  @@schema("auth")
+}
+
+model TenantAdmin {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  userId    String
+  email     String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_admins")
+  @@schema("auth")
+}
+
+model RoleDefinition {
+  id             Int     @id @default(autoincrement())
+  name           String  @db.VarChar(100)
+  description    String?
+  hierarchyLevel Int
+  isSystem       Boolean @default(true)
+
+  permissions RolePermission[]
+
+  @@map("role_definitions")
+  @@schema("auth")
+}
+
+model PermissionDefinition {
+  id          Int     @id @default(autoincrement())
+  name        String  @db.VarChar(100) @unique
+  description String?
+  resource    String? @db.VarChar(100)
+  action      String? @db.VarChar(50)
+  isSystem    Boolean @default(true)
+
+  roles RolePermission[]
+
+  @@map("permission_definitions")
+  @@schema("auth")
+}
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  role       RoleDefinition       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission PermissionDefinition @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("auth")
+}
+
 // Main user model
 model User {
   id           String  @id @default(cuid())
@@ -89,6 +157,7 @@ model User {
   isVerified   Boolean @default(false)
   isDeleted    Boolean @default(false)
 
+  tenantId Int     @default(1)
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
 
@@ -121,6 +190,7 @@ model User {
 
   @@index([email])
   @@index([roleId])
+  @@index([tenantId])
   @@map("users")
   @@schema("auth")
 }
@@ -163,6 +233,7 @@ model Session {
 // Audit logging
 model AuditLog {
   id        String  @id @default(cuid())
+  tenantId  Int     @default(1)
   userId    String?
   user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
@@ -172,6 +243,7 @@ model AuditLog {
 
   createdAt DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@index([action])
   @@index([createdAt])
@@ -182,6 +254,7 @@ model AuditLog {
 // KYC Application
 model KycApplication {
   id              String    @id @default(cuid())
+  tenantId        Int       @default(1)
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   status          String    @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, RESUBMIT_REQUIRED
@@ -238,6 +311,7 @@ model KycApplication {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([status])
   @@map("kyc_applications")
@@ -392,6 +466,7 @@ model ManualReviewQueue {
 // Document storage
 model Document {
   id                 String                     @id @default(cuid())
+  tenantId           Int                        @default(1)
   userId             String
   user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   kycId              String
@@ -422,6 +497,7 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([kycId])
   @@index([documentType])
@@ -449,6 +525,7 @@ model DocumentVersion {
 // Financial documents for portfolio verification (separate from KYC documents)
 model FinancialDocument {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -487,6 +564,7 @@ model FinancialDocument {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([verificationStatus])
   @@index([documentType])
@@ -497,6 +575,7 @@ model FinancialDocument {
 // Portfolio verification status and admin review
 model PortfolioVerification {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String   @unique
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -532,6 +611,7 @@ model PortfolioVerification {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([verificationStatus])
   @@map("portfolio_verifications")
@@ -541,6 +621,7 @@ model PortfolioVerification {
 // Active/closed loan accounts for portfolio evolution
 model LoanAccount {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -558,6 +639,7 @@ model LoanAccount {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([status])
   @@index([isActive])
@@ -568,6 +650,7 @@ model LoanAccount {
 // Employment information for borrower income assessment
 model EmploymentInfo {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String   @unique
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -603,6 +686,7 @@ model EmploymentInfo {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@map("employment_info")
   @@schema("auth")
@@ -610,6 +694,7 @@ model EmploymentInfo {
 
 model LoanFeatures {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String   @unique
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   loanApplicationId         String?  // FK to active loan
@@ -643,6 +728,7 @@ model LoanFeatures {
 
   lastCalculated            DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("loan_features")
   @@schema("auth")
@@ -651,6 +737,7 @@ model LoanFeatures {
 // Precomputed borrower features for risk assessment
 model BorrowerFeatures {
   id                      String   @id @default(cuid())
+  tenantId                Int      @default(1)
   userId                  String   @unique
   user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amtIncomeTotal          Decimal? @db.Decimal(12, 2)
@@ -665,6 +752,7 @@ model BorrowerFeatures {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@map("borrower_features")
   @@schema("auth")
@@ -673,6 +761,7 @@ model BorrowerFeatures {
 // Loan applications with risk assessment
 model LoanApplication {
   id               String      @id @default(cuid())
+  tenantId         Int         @default(1)
   userId           String
   user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   requestedAmount  Decimal     @db.Decimal(12, 2)
@@ -696,6 +785,7 @@ model LoanApplication {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([status])
   @@map("loan_applications")
@@ -709,6 +799,7 @@ model LoanApplication {
 // Bank Statement upload metadata
 model BankStatement {
   id                 String   @id @default(cuid())
+  tenantId           Int      @default(1)
   userId             String
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -729,6 +820,7 @@ model BankStatement {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([parsingStatus])
   @@map("bank_statements")
@@ -738,6 +830,7 @@ model BankStatement {
 // Extracted transactions from bank statements
 model Transaction {
   id                String   @id @default(cuid())
+  tenantId          Int      @default(1)
   bankStatementId   String
   bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
   userId            String
@@ -754,6 +847,7 @@ model Transaction {
 
   createdAt         DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@index([bankStatementId])
   @@index([transactionDate])
@@ -765,6 +859,7 @@ model Transaction {
 // Aggregated financial profile per user
 model FinancialProfile {
   id                    String   @id @default(cuid())
+  tenantId              Int      @default(1)
   userId                String   @unique
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -783,6 +878,7 @@ model FinancialProfile {
 
   lastUpdated           DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("financial_profiles")
   @@schema("auth")
@@ -791,6 +887,7 @@ model FinancialProfile {
 // Loan eligibility assessments
 model LoanAssessment {
   id                  String   @id @default(cuid())
+  tenantId            Int      @default(1)
   userId              String
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -807,6 +904,7 @@ model LoanAssessment {
 
   createdAt           DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("loan_assessments")
   @@schema("auth")
@@ -815,6 +913,7 @@ model LoanAssessment {
 // NLU query logs for debugging & learning
 model NluQuery {
   id                String   @id @default(cuid())
+  tenantId          Int      @default(1)
   userId            String?
   user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -829,6 +928,7 @@ model NluQuery {
 
   createdAt         DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("nlu_queries")
   @@schema("auth")
@@ -837,6 +937,7 @@ model NluQuery {
 // Chat conversation history
 model ChatConversation {
   id        String   @id @default(cuid())
+  tenantId  Int      @default(1)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -847,6 +948,7 @@ model ChatConversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([sessionId])
   @@map("chat_conversations")
@@ -892,6 +994,7 @@ enum NotificationStatus {
 // In-app notification
 model Notification {
   id                 String             @id @default(cuid())
+  tenantId           Int                @default(1)
   userId             String
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -916,6 +1019,7 @@ model Notification {
   emailSent          Boolean            @default(false)
   smsSent            Boolean            @default(false)
 
+  @@index([tenantId])
   @@index([userId, status, createdAt])
   @@index([type, createdAt])
   @@map("notifications")

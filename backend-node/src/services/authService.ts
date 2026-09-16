@@ -3,6 +3,7 @@ import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { tokenService } from '@/services/tokenService';
 import { mailService } from '@/services/mailService';
+import { permissionResolver } from '@/services/rbac/permissionResolver';
 import bcryptjs from 'bcryptjs';
 
 export interface RegisterInput {
@@ -24,6 +25,12 @@ export interface TokenResponse {
     role: string;
     isVerified: boolean;
   };
+}
+
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("auth.tenants") || msg.includes("does not exist");
 }
 
 export const authService = {
@@ -54,24 +61,42 @@ export const authService = {
         logger.info('Default USER role created on-the-fly');
       }
 
-      // Create user
-      const user = await prisma.user.create({
-        data: {
-          email: input.email,
-          passwordHash,
-          roleId: userRole.id,
-          isVerified: false,
-        },
-      });
+      // Create user - handle missing tenantId column gracefully
+      let user: Awaited<ReturnType<typeof prisma.user.create>>;
+      try {
+        user = await prisma.user.create({
+          data: {
+            email: input.email,
+            passwordHash,
+            roleId: userRole.id,
+            isVerified: false,
+          } as never,
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          // fallback via raw SQL without tenantId column
+          const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO "auth"."users" ("id", "email", "passwordHash", "roleId", "isVerified", "isDeleted", "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,false,false,$5,$6)`,
+            id,
+            input.email,
+            passwordHash,
+            userRole.id,
+            new Date(),
+            new Date(),
+          );
+          user = (await prisma.user.findUnique({ where: { email: input.email } }))!;
+        } else throw e;
+      }
 
       // Get role for token
       const role = await prisma.role.findUnique({
         where: { id: user.roleId },
       });
-
-      // Generate tokens
-      const accessToken = tokenService.generateAccessToken(user.id, user.email, role!.name);
-      const refreshToken = tokenService.generateRefreshToken(user.id, user.email, role!.name);
+      const permissions = permissionResolver.resolveForRoleName(role!.name);
+      // Generate tokens (tenantId from user, default 1)
+      const accessToken = tokenService.generateAccessToken(user.id, user.email, role!.name, (user as unknown as { tenantId?: number }).tenantId ?? 1, permissions);
+      const refreshToken = tokenService.generateRefreshToken(user.id, user.email, role!.name, (user as unknown as { tenantId?: number }).tenantId ?? 1);
 
       // Hash and store refresh token
       const refreshTokenHash = await bcryptjs.hash(refreshToken, 12);
@@ -111,10 +136,33 @@ export const authService = {
    */
   async login(input: LoginInput): Promise<TokenResponse> {
     try {
-      const user = await prisma.user.findUnique({
-        where: { email: input.email },
-        include: { role: true },
-      });
+      let user: Awaited<ReturnType<typeof prisma.user.findUnique>> & { role?: { name: string } } | null = null;
+      try {
+        user = await prisma.user.findUnique({
+          where: { email: input.email },
+          include: { role: true },
+        }) as never;
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          logger.warn({ err: e }, "Login fallback: tenantId column missing, using raw query");
+          const rows = (await prisma.$queryRawUnsafe(
+            `SELECT u."id", u."email", u."passwordHash", u."isDeleted", u."isVerified", u."roleId", r."name" as "roleName" FROM "auth"."users" u JOIN "auth"."Role" r ON r."id" = u."roleId" WHERE u."email" = $1 LIMIT 1`,
+            input.email,
+          )) as Array<{ id: string; email: string; passwordHash: string; isDeleted: boolean; isVerified: boolean; roleId: string; roleName: string }>;
+          if (rows.length > 0) {
+            const r = rows[0];
+            user = {
+              id: r.id,
+              email: r.email,
+              passwordHash: r.passwordHash,
+              isDeleted: r.isDeleted,
+              isVerified: r.isVerified,
+              roleId: r.roleId,
+              role: { name: r.roleName },
+            } as never;
+          }
+        } else throw e;
+      }
 
       if (!user) {
         throw new AppError('Invalid email or password', 401);
@@ -130,9 +178,11 @@ export const authService = {
         throw new AppError('Account has been deleted', 403);
       }
 
-      // Generate tokens
-      const accessToken = tokenService.generateAccessToken(user.id, user.email, user.role.name);
-      const refreshToken = tokenService.generateRefreshToken(user.id, user.email, user.role.name);
+      // Generate tokens (tenant-aware)
+      const permissions = permissionResolver.resolveForRoleName(user.role.name);
+      const tenantId = (user as unknown as { tenantId?: number }).tenantId ?? 1;
+      const accessToken = tokenService.generateAccessToken(user.id, user.email, user.role.name, tenantId, permissions);
+      const refreshToken = tokenService.generateRefreshToken(user.id, user.email, user.role.name, tenantId);
 
       // Hash and store refresh token
       const refreshTokenHash = await bcryptjs.hash(refreshToken, 12);
@@ -227,8 +277,10 @@ export const authService = {
       });
 
       // Generate new tokens
-      const newAccessToken = tokenService.generateAccessToken(user.id, user.email, user.role.name);
-      const newRefreshToken = tokenService.generateRefreshToken(user.id, user.email, user.role.name);
+      const perms = permissionResolver.resolveForRoleName(user.role.name);
+      const tid = (user as unknown as { tenantId?: number }).tenantId ?? 1;
+      const newAccessToken = tokenService.generateAccessToken(user.id, user.email, user.role.name, tid, perms);
+      const newRefreshToken = tokenService.generateRefreshToken(user.id, user.email, user.role.name, tid);
 
       // Store new refresh token
       const newRefreshTokenHash = await bcryptjs.hash(newRefreshToken, 12);

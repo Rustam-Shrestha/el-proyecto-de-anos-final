@@ -17,6 +17,9 @@ declare global {
     interface Request {
       user?: User;
       validated?: unknown;
+      tenantId?: number;
+      tenantSlug?: string;
+      permissions?: string[];
     }
 
     interface Locals {

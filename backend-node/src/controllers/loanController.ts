@@ -23,7 +23,7 @@ export const applyForLoan = async (
       requestedAmount: Number(requestedAmount),
       tenureMonths: Number(tenureMonths),
       purpose: purpose as LoanPurpose,
-    });
+    }, (req as unknown as { tenantId?: number }).tenantId);
 
     await auditService.log({
       userId: user.id,
@@ -62,7 +62,7 @@ export const getLoan = async (
 
     const { id } = req.params as { id: string };
 
-    const loan = await loanService.getLoanById(id, user.id, user.role);
+    const loan = await loanService.getLoanById(id, user.id, user.role, (req as unknown as { tenantId?: number }).tenantId);
 
     res.json(apiResponse.success('Loan application retrieved', loan));
   } catch (error) {
@@ -92,6 +92,7 @@ export const listLoans = async (
         userId: user.role === 'USER' ? user.id : userId,
         page,
         limit: take,
+        tenantId: (req as unknown as { tenantId?: number }).tenantId,
       },
       user.role,
       user.id
@@ -124,7 +125,8 @@ export const reviewLoan = async (
       id,
       user.id,
       action as 'APPROVED' | 'REJECTED',
-      notes
+      notes,
+      (req as unknown as { tenantId?: number }).tenantId
     );
 
     const auditAction = action === 'APPROVED' ? 'APPROVE_LOAN' : 'REJECT_LOAN';

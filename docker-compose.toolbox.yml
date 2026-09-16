@@ -15,6 +15,14 @@ services:
       - ./backend-node/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
       - ./backend-node/migrations/kyc/001_create_kyc_tables.sql:/docker-entrypoint-initdb.d/002_kyc.sql
 
+  redis:
+    image: redis:7-alpine
+    container_name: pern_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
   backend-node:
     build:
       context: ./backend-node
@@ -22,6 +30,7 @@ services:
     container_name: pern_backend_node
     depends_on:
       - postgres
+      - redis
     environment:
       NODE_ENV: development
       PORT: 4000
@@ -32,6 +41,9 @@ services:
       JWT_REFRESH_TTL: 7d
       CORS_ORIGIN: http://localhost:5173,http://localhost:5176
       FASTAPI_URL: http://backend-fastapi:8000
+      ML_SERVICE_URL: http://backend-fastapi:8000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "4000:4000"
     volumes:
@@ -68,3 +80,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
