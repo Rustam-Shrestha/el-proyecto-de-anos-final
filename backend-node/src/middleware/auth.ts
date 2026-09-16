@@ -8,6 +8,8 @@ interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  tenantId?: number;
+  permissions?: string[];
   iat?: number;
   exp?: number;
 }
@@ -36,12 +38,22 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction): 
     try {
       const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload;
 
-      // Attach user to request
+      // Attach user to request (propagate tenantId/permissions + enforce mismatch)
+      const reqTenant = (req as unknown as { tenantId?: number }).tenantId;
+      if (decoded.tenantId !== undefined && reqTenant !== undefined && decoded.tenantId !== reqTenant) {
+        logger.warn({ tokenTenant: decoded.tenantId, reqTenant }, 'Tenant mismatch in authenticate');
+        return next(new AppError('Tenant mismatch', 403));
+      }
       req.user = {
         id: decoded.sub,
         email: decoded.email,
         role: decoded.role,
-      };
+        tenantId: decoded.tenantId ?? reqTenant,
+        permissions: decoded.permissions,
+      } as unknown as typeof req.user;
+      // expose merged tenantId for downstream handlers
+      (req as unknown as { tenantId?: number }).tenantId = decoded.tenantId ?? reqTenant;
+      (req as unknown as { permissions?: string[] }).permissions = decoded.permissions;
 
       next();
     } catch (jwtError) {

@@ -29,6 +29,8 @@ const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 const ContactPage = lazy(() => import("../pages/public/ContactPage"));
 const AboutPage = lazy(() => import("../pages/public/AboutPage"));
 const SimplePublicPage = lazy(() => import("../pages/public/SimplePublicPage"));
+const SupercontrollerDashboardPage = lazy(() => import("@features/supercontroller/pages/SupercontrollerDashboardPage"));
+const SupercontrollerLoginPage = lazy(() => import("@features/supercontroller/pages/SupercontrollerLoginPage"));
 
 export const router = createBrowserRouter([
   {
@@ -179,6 +181,15 @@ export const router = createBrowserRouter([
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
       { path: "/auth", element: <Navigate to="/login" replace /> },
+      { path: "/supercontroller/login", element: <SupercontrollerLoginPage /> },
+      {
+        path: "/supercontroller",
+        element: (
+          <ProtectedRoute>
+            <SupercontrollerDashboardPage />
+          </ProtectedRoute>
+        ),
+      },
       { path: "/unauthorized", element: <UnauthorizedPage /> },
       { path: "/401", element: <UnauthorizedPage /> },
       { path: "/about", element: <AboutPage /> },

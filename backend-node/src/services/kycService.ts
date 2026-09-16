@@ -81,12 +81,27 @@ function formatKycApplication(kyc: {
   } as KycApplicationDetail;
 }
 
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
+
+function resolveTid(tenantId?: number): number {
+  if (tenantId === undefined || tenantId === null) {
+    logger.warn("kycService: tenantId not provided, falling back to 1");
+    return 1;
+  }
+  return tenantId;
+}
+
 export const kycService = {
   /**
    * Submit a new KYC application
    */
-  async submitKyc(input: SubmitKycInput): Promise<KycApplicationDetail> {
+  async submitKyc(input: SubmitKycInput, tenantId?: number): Promise<KycApplicationDetail> {
     try {
+      const tid = resolveTid(tenantId);
       const user = await prisma.user.findUnique({
         where: { id: input.userId },
         include: { profile: true },
@@ -96,15 +111,28 @@ export const kycService = {
         throw new AppError('User not found', 404);
       }
 
-      // Check for existing active or approved KYC application
-      const existingKyc = await prisma.kycApplication.findFirst({
-        where: {
-          userId: input.userId,
-          status: {
-            in: ['PENDING', 'UNDER_REVIEW', 'APPROVED'],
+      // Check for existing active or approved KYC application (tenant scoped)
+      let existingKyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
+      try {
+        existingKyc = await prisma.kycApplication.findFirst({
+          where: {
+            userId: input.userId,
+            tenantId: tid,
+            status: {
+              in: ['PENDING', 'UNDER_REVIEW', 'APPROVED'],
+            },
           },
-        },
-      });
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          existingKyc = await prisma.kycApplication.findFirst({
+            where: {
+              userId: input.userId,
+              status: { in: ['PENDING', 'UNDER_REVIEW', 'APPROVED'] },
+            },
+          });
+        } else throw e;
+      }
 
       if (existingKyc) {
         if (existingKyc.status === 'APPROVED') {
@@ -114,37 +142,72 @@ export const kycService = {
       }
 
       // Create KYC application
-      const kyc = await prisma.kycApplication.create({
-        data: {
-          userId: input.userId,
-          status: 'PENDING',
-          documents: {
-            create: input.documents.map((doc) => ({
-              userId: input.userId,
-              documentType: doc.type,
-              filePath: doc.filePath,
-              fileMimeType: doc.mimeType,
-              fileSize: doc.sizeBytes,
-              version: 1,
-            })),
-          },
-        },
-        include: {
-          documents: {
-            select: {
-              id: true,
-              documentType: true,
-              filePath: true,
-              fileMimeType: true,
-              fileSize: true,
+      let kyc: Awaited<ReturnType<typeof prisma.kycApplication.create>>;
+      try {
+        kyc = await prisma.kycApplication.create({
+          data: {
+            tenantId: tid,
+            userId: input.userId,
+            status: 'PENDING',
+            documents: {
+              create: input.documents.map((doc) => ({
+                tenantId: tid,
+                userId: input.userId,
+                documentType: doc.type as never,
+                filePath: doc.filePath,
+                fileMimeType: doc.mimeType,
+                fileSize: doc.sizeBytes,
+                version: 1,
+              })),
             },
           },
-        },
-      });
+          include: {
+            documents: {
+              select: {
+                id: true,
+                documentType: true,
+                filePath: true,
+                fileMimeType: true,
+                fileSize: true,
+              },
+            },
+          },
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          kyc = await prisma.kycApplication.create({
+            data: {
+              userId: input.userId,
+              status: 'PENDING',
+              documents: {
+                create: input.documents.map((doc) => ({
+                  userId: input.userId,
+                  documentType: doc.type as never,
+                  filePath: doc.filePath,
+                  fileMimeType: doc.mimeType,
+                  fileSize: doc.sizeBytes,
+                  version: 1,
+                })),
+              },
+            },
+            include: {
+              documents: {
+                select: {
+                  id: true,
+                  documentType: true,
+                  filePath: true,
+                  fileMimeType: true,
+                  fileSize: true,
+                },
+              },
+            },
+          });
+        } else throw e;
+      }
 
-      logger.info({ userId: input.userId, kycId: kyc.id }, 'KYC application submitted');
+      logger.info({ userId: input.userId, tenantId: tid, kycId: kyc.id }, 'KYC application submitted');
 
-      return { ...kyc, userEmail: user.email, applicantEmail: user.email, documents: kyc.documents.map((d: { id: string; documentType: string; filePath: string; fileMimeType: string; fileSize: number }) => ({ id: d.id, type: d.documentType, filePath: d.filePath, mimeType: d.fileMimeType, sizeBytes: d.fileSize, verificationStatus: 'PENDING', createdAt: new Date() })) } as KycApplicationDetail;
+      return { ...kyc, userEmail: user.email, applicantEmail: user.email, documents: (kyc.documents as unknown as Array<{ id: string; documentType: string; filePath: string; fileMimeType: string; fileSize: number }>).map((d) => ({ id: d.id, type: d.documentType, filePath: d.filePath, mimeType: d.fileMimeType, sizeBytes: d.fileSize, verificationStatus: 'PENDING', createdAt: new Date() })) } as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId: input.userId }, 'Failed to submit KYC');
@@ -158,66 +221,87 @@ export const kycService = {
   /**
    * Get user's KYC status
    */
-  async getKycStatus(userId: string): Promise<KycApplicationDetail | null> {
+  async getKycStatus(userId: string, tenantId?: number): Promise<KycApplicationDetail | null> {
     try {
-      const kyc = await prisma.kycApplication.findFirst({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-          include: {
-            documents: {
-              select: {
-                id: true,
-                documentType: true,
-                filePath: true,
-                fileMimeType: true,
-                fileSize: true,
-                verificationStatus: true,
-                createdAt: true,
+      const tid = resolveTid(tenantId);
+      let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
+      try {
+        kyc = await prisma.kycApplication.findFirst({
+          where: { userId, tenantId: tid },
+          orderBy: { createdAt: 'desc' },
+            include: {
+              documents: {
+                select: {
+                  id: true,
+                  documentType: true,
+                  filePath: true,
+                  fileMimeType: true,
+                  fileSize: true,
+                  verificationStatus: true,
+                  createdAt: true,
+                },
               },
+              user: {
+                select: { email: true },
+              },
+              ocrResults: true,
+              ocrExtractions: {
+                orderBy: { createdAt: 'desc' },
+              },
+              extractionVerification: true,
+              faceVerification: true,
+              submissionFile: true,
             },
-            user: {
-              select: { email: true },
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          kyc = await prisma.kycApplication.findFirst({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            include: {
+              documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true, fileSize: true, verificationStatus: true, createdAt: true } },
+              user: { select: { email: true } },
+              ocrResults: true,
+              ocrExtractions: { orderBy: { createdAt: 'desc' } },
+              extractionVerification: true,
+              faceVerification: true,
+              submissionFile: true,
             },
-            ocrResults: true,
-            ocrExtractions: {
-              orderBy: { createdAt: 'desc' },
-            },
-            extractionVerification: true,
-            faceVerification: true,
-            submissionFile: true,
-          },
-      });
+          });
+        } else throw e;
+      }
 
       if (!kyc) return null;
 
       return {
         ...formatKycApplication(kyc)!,
-        ocrResults: kyc.ocrResults || [],
-        ocrExtractions: kyc.ocrExtractions || [],
-        extractionVerification: kyc.extractionVerification || null,
-        faceVerification: kyc.faceVerification || null,
-        ocrFullName: kyc.ocrFullName,
-        ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
-        ocrDateOfBirth: kyc.ocrDateOfBirth,
-        ocrGender: kyc.ocrGender,
-        ocrAddress: kyc.ocrAddress,
-        confirmedFullName: kyc.confirmedFullName,
-        confirmedCitizenshipNumber: kyc.confirmedCitizenshipNumber,
-        confirmedDateOfBirth: kyc.confirmedDateOfBirth,
-        confirmedGender: kyc.confirmedGender,
-        confirmedAddress: kyc.confirmedAddress,
-        confirmedPhoneNumber: kyc.confirmedPhoneNumber,
-        confirmedEmail: kyc.confirmedEmail,
-        processingStatus: kyc.processingStatus,
-        ocrFrontStatus: kyc.ocrFrontStatus,
-        ocrBackStatus: kyc.ocrBackStatus,
-        faceStatus: kyc.faceStatus,
-        ocrProcessingError: kyc.ocrProcessingError,
-        faceProcessingError: kyc.faceProcessingError,
-        workflowStage: kyc.workflowStage,
-        faceVerificationStatus: kyc.faceVerificationStatus,
-        ocrProcessingStatus: kyc.ocrProcessingStatus,
-        queuedForManualReview: kyc.queuedForManualReview,
+        ocrResults: (kyc as never as { ocrResults: unknown[] }).ocrResults || [],
+        ocrExtractions: (kyc as never as { ocrExtractions: unknown[] }).ocrExtractions || [],
+        extractionVerification: (kyc as never as { extractionVerification: unknown }).extractionVerification || null,
+        faceVerification: (kyc as never as { faceVerification: unknown }).faceVerification || null,
+        submissionFile: (kyc as never as { submissionFile: unknown }).submissionFile || null,
+        ocrFullName: (kyc as never as { ocrFullName: unknown }).ocrFullName,
+        ocrCitizenshipNumber: (kyc as never as { ocrCitizenshipNumber: unknown }).ocrCitizenshipNumber,
+        ocrDateOfBirth: (kyc as never as { ocrDateOfBirth: unknown }).ocrDateOfBirth,
+        ocrGender: (kyc as never as { ocrGender: unknown }).ocrGender,
+        ocrAddress: (kyc as never as { ocrAddress: unknown }).ocrAddress,
+        confirmedFullName: (kyc as never as { confirmedFullName: unknown }).confirmedFullName,
+        confirmedCitizenshipNumber: (kyc as never as { confirmedCitizenshipNumber: unknown }).confirmedCitizenshipNumber,
+        confirmedDateOfBirth: (kyc as never as { confirmedDateOfBirth: unknown }).confirmedDateOfBirth,
+        confirmedGender: (kyc as never as { confirmedGender: unknown }).confirmedGender,
+        confirmedAddress: (kyc as never as { confirmedAddress: unknown }).confirmedAddress,
+        confirmedPhoneNumber: (kyc as never as { confirmedPhoneNumber: unknown }).confirmedPhoneNumber,
+        confirmedEmail: (kyc as never as { confirmedEmail: unknown }).confirmedEmail,
+        processingStatus: (kyc as never as { processingStatus: unknown }).processingStatus,
+        ocrFrontStatus: (kyc as never as { ocrFrontStatus: unknown }).ocrFrontStatus,
+        ocrBackStatus: (kyc as never as { ocrBackStatus: unknown }).ocrBackStatus,
+        faceStatus: (kyc as never as { faceStatus: unknown }).faceStatus,
+        ocrProcessingError: (kyc as never as { ocrProcessingError: unknown }).ocrProcessingError,
+        faceProcessingError: (kyc as never as { faceProcessingError: unknown }).faceProcessingError,
+        workflowStage: (kyc as never as { workflowStage: unknown }).workflowStage,
+        faceVerificationStatus: (kyc as never as { faceVerificationStatus: unknown }).faceVerificationStatus,
+        ocrProcessingStatus: (kyc as never as { ocrProcessingStatus: unknown }).ocrProcessingStatus,
+        queuedForManualReview: (kyc as never as { queuedForManualReview: unknown }).queuedForManualReview,
       } as unknown as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -232,78 +316,98 @@ export const kycService = {
   /**
    * Get single KYC application by ID
    */
-  async getKycById(kycId: string): Promise<KycApplicationDetail> {
+  async getKycById(kycId: string, tenantId?: number): Promise<KycApplicationDetail> {
     try {
-      const kyc = await prisma.kycApplication.findUnique({
-        where: { id: kycId },
-        include: {
-          documents: {
-            select: {
-              id: true,
-              documentType: true,
-              filePath: true,
-              fileMimeType: true,
-              fileSize: true,
-              verificationStatus: true,
-              createdAt: true,
+      const tid = resolveTid(tenantId);
+      let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
+      try {
+        kyc = await prisma.kycApplication.findFirst({
+          where: { id: kycId, tenantId: tid },
+          include: {
+            documents: {
+              select: {
+                id: true,
+                documentType: true,
+                filePath: true,
+                fileMimeType: true,
+                fileSize: true,
+                verificationStatus: true,
+                createdAt: true,
+              },
             },
-          },
-          user: {
-            select: {
-              id: true,
-              email: true,
-              profile: {
-                select: {
-                  fullName: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                profile: {
+                  select: {
+                    fullName: true,
+                  },
                 },
               },
             },
+            ocrResults: true,
+            ocrExtractions: {
+              orderBy: { createdAt: 'desc' },
+            },
+            extractionVerification: true,
+            faceVerification: true,
+            verificationReport: true,
+            submissionFile: true,
           },
-          ocrResults: true,
-          ocrExtractions: {
-            orderBy: { createdAt: 'desc' },
-          },
-          extractionVerification: true,
-          faceVerification: true,
-          verificationReport: true,
-          submissionFile: true,
-        },
-      });
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          kyc = await prisma.kycApplication.findUnique({
+            where: { id: kycId },
+            include: {
+              documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true, fileSize: true, verificationStatus: true, createdAt: true } },
+              user: { select: { id: true, email: true, profile: { select: { fullName: true } } } },
+              ocrResults: true,
+              ocrExtractions: { orderBy: { createdAt: 'desc' } },
+              extractionVerification: true,
+              faceVerification: true,
+              verificationReport: true,
+              submissionFile: true,
+            },
+          }) as unknown as typeof kyc;
+        } else throw e;
+      }
 
       if (!kyc) {
         throw new AppError('KYC application not found', 404);
       }
 
       return {
-        ...formatKycApplication(kyc),
-        ocrResults: kyc.ocrResults || [],
-        ocrExtractions: kyc.ocrExtractions || [],
-        extractionVerification: kyc.extractionVerification || null,
-        faceVerification: kyc.faceVerification || null,
-        verificationReport: kyc.verificationReport || null,
-        submissionFile: kyc.submissionFile || null,
-        ocrFullName: kyc.ocrFullName,
-        ocrCitizenshipNumber: kyc.ocrCitizenshipNumber,
-        ocrDateOfBirth: kyc.ocrDateOfBirth,
-        ocrGender: kyc.ocrGender,
-        ocrAddress: kyc.ocrAddress,
-        confirmedFullName: kyc.confirmedFullName,
-        confirmedCitizenshipNumber: kyc.confirmedCitizenshipNumber,
-        confirmedDateOfBirth: kyc.confirmedDateOfBirth,
-        confirmedGender: kyc.confirmedGender,
-        confirmedAddress: kyc.confirmedAddress,
-        confirmedPhoneNumber: kyc.confirmedPhoneNumber,
-        confirmedEmail: kyc.confirmedEmail,
-        processingStatus: kyc.processingStatus,
-        ocrFrontStatus: kyc.ocrFrontStatus,
-        ocrBackStatus: kyc.ocrBackStatus,
-        faceStatus: kyc.faceStatus,
-        ocrProcessingError: kyc.ocrProcessingError,
-        faceProcessingError: kyc.faceProcessingError,
-        workflowStage: kyc.workflowStage,
-        faceVerificationStatus: kyc.faceVerificationStatus,
-        ocrProcessingStatus: kyc.ocrProcessingStatus,
-        queuedForManualReview: kyc.queuedForManualReview,
+        ...formatKycApplication(kyc as Parameters<typeof formatKycApplication>[0]),
+        ocrResults: (kyc as never as { ocrResults: unknown[] }).ocrResults || [],
+        ocrExtractions: (kyc as never as { ocrExtractions: unknown[] }).ocrExtractions || [],
+        extractionVerification: (kyc as never as { extractionVerification: unknown }).extractionVerification || null,
+        faceVerification: (kyc as never as { faceVerification: unknown }).faceVerification || null,
+        verificationReport: (kyc as never as { verificationReport: unknown }).verificationReport || null,
+        submissionFile: (kyc as never as { submissionFile: unknown }).submissionFile || null,
+        ocrFullName: (kyc as never as { ocrFullName: unknown }).ocrFullName,
+        ocrCitizenshipNumber: (kyc as never as { ocrCitizenshipNumber: unknown }).ocrCitizenshipNumber,
+        ocrDateOfBirth: (kyc as never as { ocrDateOfBirth: unknown }).ocrDateOfBirth,
+        ocrGender: (kyc as never as { ocrGender: unknown }).ocrGender,
+        ocrAddress: (kyc as never as { ocrAddress: unknown }).ocrAddress,
+        confirmedFullName: (kyc as never as { confirmedFullName: unknown }).confirmedFullName,
+        confirmedCitizenshipNumber: (kyc as never as { confirmedCitizenshipNumber: unknown }).confirmedCitizenshipNumber,
+        confirmedDateOfBirth: (kyc as never as { confirmedDateOfBirth: unknown }).confirmedDateOfBirth,
+        confirmedGender: (kyc as never as { confirmedGender: unknown }).confirmedGender,
+        confirmedAddress: (kyc as never as { confirmedAddress: unknown }).confirmedAddress,
+        confirmedPhoneNumber: (kyc as never as { confirmedPhoneNumber: unknown }).confirmedPhoneNumber,
+        confirmedEmail: (kyc as never as { confirmedEmail: unknown }).confirmedEmail,
+        processingStatus: (kyc as never as { processingStatus: unknown }).processingStatus,
+        ocrFrontStatus: (kyc as never as { ocrFrontStatus: unknown }).ocrFrontStatus,
+        ocrBackStatus: (kyc as never as { ocrBackStatus: unknown }).ocrBackStatus,
+        faceStatus: (kyc as never as { faceStatus: unknown }).faceStatus,
+        ocrProcessingError: (kyc as never as { ocrProcessingError: unknown }).ocrProcessingError,
+        faceProcessingError: (kyc as never as { faceProcessingError: unknown }).faceProcessingError,
+        workflowStage: (kyc as never as { workflowStage: unknown }).workflowStage,
+        faceVerificationStatus: (kyc as never as { faceVerificationStatus: unknown }).faceVerificationStatus,
+        ocrProcessingStatus: (kyc as never as { ocrProcessingStatus: unknown }).ocrProcessingStatus,
+        queuedForManualReview: (kyc as never as { queuedForManualReview: unknown }).queuedForManualReview,
       } as unknown as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -322,10 +426,19 @@ export const kycService = {
     limit: number = 10,
     offset: number = 0,
     status?: string,
-    search?: string
+    search?: string,
+    tenantId?: number
   ): Promise<{ applications: (KycApplicationDetail | null)[]; total: number }> {
     try {
+      const tid = tenantId !== undefined ? tenantId : undefined;
       const where: Prisma.KycApplicationWhereInput = {};
+
+      // tenant scoping: if tenantId provided, filter; otherwise allow all (supercontroller)
+      if (tid !== undefined) {
+        where.tenantId = tid;
+      } else {
+        logger.warn("kycService.listKycApplications: tenantId not provided, querying across tenants");
+      }
 
       if (status) {
         where.status = status;
@@ -340,9 +453,86 @@ export const kycService = {
         };
       }
 
-      const [applications, total] = await Promise.all([
-        prisma.kycApplication.findMany({
-          where,
+      try {
+        const [applications, total] = await Promise.all([
+          prisma.kycApplication.findMany({
+            where,
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  profile: {
+                    select: {
+                      fullName: true,
+                    },
+                  },
+                },
+              },
+              documents: {
+                select: {
+                  id: true,
+                  documentType: true,
+                  filePath: true,
+                  fileMimeType: true,
+                  fileSize: true,
+                  verificationStatus: true,
+                  createdAt: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset,
+          }),
+          prisma.kycApplication.count({ where }),
+        ]);
+        return {
+          applications: applications.map((a: Parameters<typeof formatKycApplication>[0]) => formatKycApplication(a)),
+          total,
+        };
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          const fallbackWhere: Prisma.KycApplicationWhereInput = {};
+          if (status) fallbackWhere.status = status;
+          if (search) fallbackWhere.user = where.user;
+          const [applications, total] = await Promise.all([
+            prisma.kycApplication.findMany({
+              where: fallbackWhere,
+              include: {
+                user: { select: { id: true, email: true, profile: { select: { fullName: true } } } },
+                documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true, fileSize: true, verificationStatus: true, createdAt: true } },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: limit,
+              skip: offset,
+            }),
+            prisma.kycApplication.count({ where: fallbackWhere }),
+          ]);
+          return { applications: applications.map((a: Parameters<typeof formatKycApplication>[0]) => formatKycApplication(a)), total };
+        }
+        throw e;
+      }
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error({ err: error }, 'Failed to list KYC applications');
+      throw new AppError(
+        `Failed to fetch KYC applications: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500
+      );
+    }
+  },
+
+  /**
+   * Approve KYC application
+   */
+  async approveKyc(kycId: string, reviewerId: string, tenantId?: number): Promise<KycApplicationDetail> {
+    try {
+      const tid = resolveTid(tenantId);
+      let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
+      try {
+        kyc = await prisma.kycApplication.findFirst({
+          where: { id: kycId, tenantId: tid },
           include: {
             user: {
               select: {
@@ -367,59 +557,18 @@ export const kycService = {
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.kycApplication.count({ where }),
-      ]);
-
-      return {
-        applications: applications.map((a: Parameters<typeof formatKycApplication>[0]) => formatKycApplication(a)),
-        total,
-      };
-    } catch (error) {
-      if (error instanceof AppError) throw error;
-      logger.error({ err: error }, 'Failed to list KYC applications');
-      throw new AppError(
-        `Failed to fetch KYC applications: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        500
-      );
-    }
-  },
-
-  /**
-   * Approve KYC application
-   */
-  async approveKyc(kycId: string, reviewerId: string): Promise<KycApplicationDetail> {
-    try {
-      const kyc = await prisma.kycApplication.findUnique({
-        where: { id: kycId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              profile: {
-                select: {
-                  fullName: true,
-                },
-              },
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          kyc = await prisma.kycApplication.findUnique({
+            where: { id: kycId },
+            include: {
+              user: { select: { id: true, email: true, profile: { select: { fullName: true } } } },
+              documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true, fileSize: true, verificationStatus: true, createdAt: true } },
             },
-          },
-          documents: {
-            select: {
-              id: true,
-              documentType: true,
-              filePath: true,
-              fileMimeType: true,
-              fileSize: true,
-              verificationStatus: true,
-              createdAt: true,
-            },
-          },
-        },
-      });
+          }) as unknown as typeof kyc;
+        } else throw e;
+      }
 
       if (!kyc) {
         throw new AppError('KYC application not found', 404);
@@ -453,12 +602,13 @@ export const kycService = {
 
       // Send approval email (fire-and-forget)
       await mailService.sendKycApprovedMail(
-        kyc.user.email,
-        kyc.user.profile?.fullName
+        (kyc.user as unknown as { email: string }).email,
+        (kyc.user as unknown as { profile?: { fullName?: string } }).profile?.fullName
       );
 
       await notificationService.create({
         userId: kyc.userId,
+        tenantId: tid,
         type: 'KYC_APPROVED',
         title: 'KYC Application Approved',
         message:
@@ -474,11 +624,11 @@ export const kycService = {
       });
 
       logger.info(
-        { kycId, userId: kyc.userId, reviewerId },
+        { kycId, tenantId: tid, userId: kyc.userId, reviewerId },
         'KYC application approved'
       );
 
-      return formatKycApplication(updated) as KycApplicationDetail;
+      return formatKycApplication(updated as Parameters<typeof formatKycApplication>[0]) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to approve KYC');
@@ -495,36 +645,51 @@ export const kycService = {
   async rejectKyc(
     kycId: string,
     reviewerId: string,
-    rejectionReason: string
+    rejectionReason: string,
+    tenantId?: number
   ): Promise<KycApplicationDetail> {
     try {
-      const kyc = await prisma.kycApplication.findUnique({
-        where: { id: kycId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              profile: {
-                select: {
-                  fullName: true,
+      const tid = resolveTid(tenantId);
+      let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
+      try {
+        kyc = await prisma.kycApplication.findFirst({
+          where: { id: kycId, tenantId: tid },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                profile: {
+                  select: {
+                    fullName: true,
+                  },
                 },
               },
             },
-          },
-          documents: {
-            select: {
-              id: true,
-              documentType: true,
-              filePath: true,
-              fileMimeType: true,
-              fileSize: true,
-              verificationStatus: true,
-              createdAt: true,
+            documents: {
+              select: {
+                id: true,
+                documentType: true,
+                filePath: true,
+                fileMimeType: true,
+                fileSize: true,
+                verificationStatus: true,
+                createdAt: true,
+              },
             },
           },
-        },
-      });
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          kyc = await prisma.kycApplication.findUnique({
+            where: { id: kycId },
+            include: {
+              user: { select: { id: true, email: true, profile: { select: { fullName: true } } } },
+              documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true, fileSize: true, verificationStatus: true, createdAt: true } },
+            },
+          }) as unknown as typeof kyc;
+        } else throw e;
+      }
 
       if (!kyc) {
         throw new AppError('KYC application not found', 404);
@@ -559,13 +724,14 @@ export const kycService = {
 
       // Send rejection email (fire-and-forget)
       await mailService.sendKycRejectedMail(
-        kyc.user.email,
-        kyc.user.profile?.fullName,
+        (kyc.user as unknown as { email: string }).email,
+        (kyc.user as unknown as { profile?: { fullName?: string } }).profile?.fullName,
         rejectionReason
       );
 
       await notificationService.create({
         userId: kyc.userId,
+        tenantId: tid,
         type: 'KYC_REJECTED',
         title: 'KYC Application Rejected',
         message: `Your KYC application has been rejected. Reason: ${rejectionReason}. You can resubmit after correcting the issues.`,
@@ -577,11 +743,11 @@ export const kycService = {
       });
 
       logger.info(
-        { kycId, userId: kyc.userId, reviewerId, rejectionReason },
+        { kycId, tenantId: tid, userId: kyc.userId, reviewerId, rejectionReason },
         'KYC application rejected'
       );
 
-      return formatKycApplication(updated) as KycApplicationDetail;
+      return formatKycApplication(updated as Parameters<typeof formatKycApplication>[0]) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to reject KYC');
@@ -595,35 +761,49 @@ export const kycService = {
   /**
    * Request resubmission of KYC application
    */
-  async requestResubmit(kycId: string, reviewerId: string, note: string): Promise<KycApplicationDetail> {
+  async requestResubmit(kycId: string, reviewerId: string, note: string, tenantId?: number): Promise<KycApplicationDetail> {
     try {
-      const kyc = await prisma.kycApplication.findUnique({
-        where: { id: kycId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              profile: {
-                select: {
-                  fullName: true,
+      const tid = resolveTid(tenantId);
+      let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
+      try {
+        kyc = await prisma.kycApplication.findFirst({
+          where: { id: kycId, tenantId: tid },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                profile: {
+                  select: {
+                    fullName: true,
+                  },
                 },
               },
             },
-          },
-          documents: {
-            select: {
-              id: true,
-              documentType: true,
-              filePath: true,
-              fileMimeType: true,
-              fileSize: true,
-              verificationStatus: true,
-              createdAt: true,
+            documents: {
+              select: {
+                id: true,
+                documentType: true,
+                filePath: true,
+                fileMimeType: true,
+                fileSize: true,
+                verificationStatus: true,
+                createdAt: true,
+              },
             },
           },
-        },
-      });
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          kyc = await prisma.kycApplication.findUnique({
+            where: { id: kycId },
+            include: {
+              user: { select: { id: true, email: true, profile: { select: { fullName: true } } } },
+              documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true, fileSize: true, verificationStatus: true, createdAt: true } },
+            },
+          }) as unknown as typeof kyc;
+        } else throw e;
+      }
 
       if (!kyc) {
         throw new AppError('KYC application not found', 404);
@@ -658,17 +838,17 @@ export const kycService = {
 
       // Send resubmit request email (fire-and-forget)
       await mailService.sendKycResubmitMail(
-        kyc.user.email,
-        kyc.user.profile?.fullName,
+        (kyc.user as unknown as { email: string }).email,
+        (kyc.user as unknown as { profile?: { fullName?: string } }).profile?.fullName,
         note
       );
 
       logger.info(
-        { kycId, userId: kyc.userId, reviewerId },
+        { kycId, tenantId: tid, userId: kyc.userId, reviewerId },
         'KYC resubmission requested'
       );
 
-      return formatKycApplication(updated) as KycApplicationDetail;
+      return formatKycApplication(updated as Parameters<typeof formatKycApplication>[0]) as KycApplicationDetail;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, kycId }, 'Failed to request resubmission');
@@ -689,7 +869,24 @@ export const kycService = {
     confirmedMonthlyIncome?: number,
     confirmedMaritalStatus?: string,
     confirmedEducationLevel?: string
-  }) {
+  }, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    try {
+      // verify tenant scope via findFirst first
+      const existing = await prisma.kycApplication.findFirst({ where: { id: kycApplicationId, tenantId: tid } });
+      if (!existing) {
+        // fallback check without tenant if schema error
+        const fallback = await prisma.kycApplication.findUnique({ where: { id: kycApplicationId } });
+        if (!fallback) throw new AppError('KYC application not found', 404);
+        // if tenant mismatch, deny
+        if ((fallback as unknown as { tenantId?: number }).tenantId !== undefined && (fallback as unknown as { tenantId: number }).tenantId !== tid) {
+          throw new AppError('KYC application not found', 404);
+        }
+      }
+    } catch (e) {
+      if (e instanceof AppError) throw e;
+      if (!isTenantSchemaError(e)) throw e;
+    }
     return await prisma.kycApplication.update({
       where: { id: kycApplicationId },
       data: {
@@ -698,4 +895,17 @@ export const kycService = {
       }
     });
   },
+
+  async resubmitKyc(kycId: string, tenantId?: number): Promise<KycApplicationDetail> {
+    const tid = resolveTid(tenantId);
+    // alias for resubmit flow - simply reopens
+    const kyc = await prisma.kycApplication.findFirst({ where: { id: kycId, tenantId: tid } });
+    if (!kyc) throw new AppError('KYC application not found', 404);
+    const updated = await prisma.kycApplication.update({
+      where: { id: kycId },
+      data: { status: 'PENDING', rejectionReason: null },
+      include: { documents: { select: { id: true, documentType: true, filePath: true, fileMimeType: true, fileSize: true, verificationStatus: true, createdAt: true } } },
+    });
+    return formatKycApplication(updated as Parameters<typeof formatKycApplication>[0]) as KycApplicationDetail;
+  }
 };

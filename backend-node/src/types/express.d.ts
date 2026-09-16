@@ -6,6 +6,8 @@ declare global {
       email: string;
       role: string;
       isVerified?: boolean;
+      tenantId?: number;
+      permissions?: string[];
     }
 
     type ValidatedRequestPayload = {

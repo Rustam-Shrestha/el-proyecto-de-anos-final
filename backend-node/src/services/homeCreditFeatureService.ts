@@ -1,11 +1,30 @@
 import { prisma } from '@/config/database';
+import { logger } from '@/config/logger';
 import { Prisma } from '@prisma/client';
 
+function resolveTid(tenantId?: number): number {
+  if (tenantId === undefined || tenantId === null) {
+    logger.warn("homeCreditFeatureService: tenantId not provided, falling back to 1");
+    return 1;
+  }
+  return tenantId;
+}
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
+
 export const homeCredtFeatureService = {
-  async calculateAllFeatures(userId: string, loanRequestAmount: number, loanTenureMonths: number) {
-    const employment = await prisma.employmentInfo.findUnique({
-      where: { userId }
-    });
+  async calculateAllFeatures(userId: string, loanRequestAmount: number, loanTenureMonths: number, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    let employment: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
+    try {
+      employment = await prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } });
+    } catch (e) {
+      if (isTenantSchemaError(e)) employment = await prisma.employmentInfo.findUnique({ where: { userId } }) as never;
+      else throw e;
+    }
 
     if (!employment) {
       throw new Error('Employment info not found');
@@ -18,6 +37,11 @@ export const homeCredtFeatureService = {
 
     if (!user?.profile?.dateOfBirth) {
       throw new Error('Date of birth not found');
+    }
+
+    // tenant check: ensure employment belongs to same tenant as user if possible
+    if ((employment as unknown as { tenantId?: number }).tenantId !== undefined && (employment as unknown as { tenantId: number }).tenantId !== tid) {
+      throw new Error('Tenant mismatch for employment info');
     }
 
     // ===== CORE FEATURES (Home Credit) =====
@@ -51,27 +75,87 @@ export const homeCredtFeatureService = {
     const ageCategory = ageYears >= 25 && ageYears <= 60 ? 1 : 0;
 
     // ===== STORE ALL FEATURES =====
-    const features = await prisma.loanFeatures.upsert({
-      where: { userId },
-      update: {
-        requestedLoanAmount: new Prisma.Decimal(amtCredit),
-        loanTenureMonths,
-        calculatedEMI: new Prisma.Decimal(amtAnnuity),
-        creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
-        annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
-        incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2)),
-        lastCalculated: new Date()
-      },
-      create: {
-        userId,
-        requestedLoanAmount: new Prisma.Decimal(amtCredit),
-        loanTenureMonths,
-        calculatedEMI: new Prisma.Decimal(amtAnnuity),
-        creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
-        annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
-        incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2))
+    let features: Awaited<ReturnType<typeof prisma.loanFeatures.findFirst>>;
+    try {
+      const existing = await prisma.loanFeatures.findFirst({ where: { userId, tenantId: tid } });
+      if (existing) {
+        features = await prisma.loanFeatures.update({
+          where: { id: existing.id },
+          data: {
+            requestedLoanAmount: new Prisma.Decimal(amtCredit),
+            loanTenureMonths,
+            calculatedEMI: new Prisma.Decimal(amtAnnuity),
+            creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
+            annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
+            incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2)),
+            lastCalculated: new Date()
+          }
+        }) as never;
+      } else {
+        try {
+          features = await prisma.loanFeatures.create({
+            data: {
+              tenantId: tid,
+              userId,
+              requestedLoanAmount: new Prisma.Decimal(amtCredit),
+              loanTenureMonths,
+              calculatedEMI: new Prisma.Decimal(amtAnnuity),
+              creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
+              annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
+              incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2))
+            }
+          }) as never;
+        } catch (e) {
+          if (isTenantSchemaError(e)) {
+            features = await prisma.loanFeatures.upsert({
+              where: { userId },
+              update: {
+                requestedLoanAmount: new Prisma.Decimal(amtCredit),
+                loanTenureMonths,
+                calculatedEMI: new Prisma.Decimal(amtAnnuity),
+                creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
+                annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
+                incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2)),
+                lastCalculated: new Date()
+              },
+              create: {
+                userId,
+                requestedLoanAmount: new Prisma.Decimal(amtCredit),
+                loanTenureMonths,
+                calculatedEMI: new Prisma.Decimal(amtAnnuity),
+                creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
+                annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
+                incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2))
+              }
+            }) as never;
+          } else throw e;
+        }
       }
-    });
+    } catch (e) {
+      if (isTenantSchemaError(e)) {
+        features = await prisma.loanFeatures.upsert({
+          where: { userId },
+          update: {
+            requestedLoanAmount: new Prisma.Decimal(amtCredit),
+            loanTenureMonths,
+            calculatedEMI: new Prisma.Decimal(amtAnnuity),
+            creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
+            annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
+            incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2)),
+            lastCalculated: new Date()
+          },
+          create: {
+            userId,
+            requestedLoanAmount: new Prisma.Decimal(amtCredit),
+            loanTenureMonths,
+            calculatedEMI: new Prisma.Decimal(amtAnnuity),
+            creditIncomePercent: new Prisma.Decimal(creditIncomePercent.toFixed(2)),
+            annuityIncomePercent: new Prisma.Decimal(annuityIncomePercent.toFixed(2)),
+            incomePerPerson: new Prisma.Decimal(incomePerPerson.toFixed(2))
+          }
+        }) as never;
+      } else throw e;
+    }
 
     return {
       homeCredtFeatures: {

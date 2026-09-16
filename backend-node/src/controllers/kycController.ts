@@ -33,7 +33,8 @@ export const getMyStatus = async (
       return;
     }
 
-    const application = await kycService.getKycStatus(req.user.id);
+    const tid = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
+    const application = await kycService.getKycStatus(req.user.id, tid);
 
     if (!application) {
       res.json(apiResponse.success('No KYC application found', null));
@@ -90,10 +91,11 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       }))
     );
 
+    const tidSubmit = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
     const result = await kycService.submitKyc({
       userId: req.user.id,
       documents,
-    });
+    }, tidSubmit);
 
     // Update user profile with submitted info
     await userService.updateUser(req.user.id, {
@@ -105,6 +107,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
     // Log KYC submission
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidSubmit,
       action: 'SUBMIT_KYC',
       metadata: {
         kycId: result.id,
@@ -256,7 +259,8 @@ export const getKycStatus = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const kyc = await kycService.getKycStatus(req.user.id);
+    const tid = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
+    const kyc = await kycService.getKycStatus(req.user.id, tid);
 
     if (!kyc) {
       res.json(apiResponse.success('No KYC application found', null));
@@ -283,11 +287,13 @@ export const listKycApplications = async (
     const status = (req.query.status as string) || undefined;
     const search = (req.query.search as string) || undefined;
 
+    const tidList = (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
     const { applications, total } = await kycService.listKycApplications(
       take,
       skip,
       status,
-      search
+      search,
+      tidList
     );
 
     res.json(
@@ -311,8 +317,9 @@ export const listKycApplications = async (
 export const getKycById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
+    const tid = (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
 
-    const kyc = await kycService.getKycById(id);
+    const kyc = await kycService.getKycById(id, tid);
 
     res.json(apiResponse.success('KYC application retrieved', kyc));
   } catch (error) {
@@ -332,12 +339,14 @@ export const approveKyc = async (req: Request, res: Response, next: NextFunction
     }
 
     const { id } = req.params;
+    const tidApprove = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
 
-    const result = await kycService.approveKyc(id, req.user.id);
+    const result = await kycService.approveKyc(id, req.user.id, tidApprove);
 
     // Log KYC approval
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidApprove,
       action: 'APPROVE_KYC',
       metadata: {
         kycId: id,
@@ -366,12 +375,14 @@ export const rejectKyc = async (req: Request, res: Response, next: NextFunction)
 
     const { id } = req.params;
     const { rejectionReason } = req.body;
+    const tidReject = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
 
-    const result = await kycService.rejectKyc(id, req.user.id, rejectionReason);
+    const result = await kycService.rejectKyc(id, req.user.id, rejectionReason, tidReject);
 
     // Log KYC rejection
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidReject,
       action: 'REJECT_KYC',
       metadata: {
         kycId: id,
@@ -405,12 +416,14 @@ export const requestKycResubmit = async (
 
     const { id } = req.params;
     const { note } = req.body;
+    const tidResubmit = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
 
-    const result = await kycService.requestResubmit(id, req.user.id, note);
+    const result = await kycService.requestResubmit(id, req.user.id, note, tidResubmit);
 
     // Log resubmit request
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidResubmit,
       action: 'REQUEST_RESUBMIT_KYC',
       metadata: {
         kycId: id,

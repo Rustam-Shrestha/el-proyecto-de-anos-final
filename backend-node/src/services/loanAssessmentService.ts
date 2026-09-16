@@ -3,6 +3,19 @@ import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { statementParserService } from './statementParserService';
 
+function resolveTid(tenantId?: number): number {
+  if (tenantId === undefined || tenantId === null) {
+    logger.warn("loanAssessmentService: tenantId not provided, falling back to 1");
+    return 1;
+  }
+  return tenantId;
+}
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
+
 class LoanEligibilityCalculator {
   constructor(
     private profile: {
@@ -65,12 +78,24 @@ class LoanEligibilityCalculator {
 }
 
 export const loanAssessmentService = {
-  async assess(userId: string, requestedAmount: number, tenureMonths = 24, interestRate = 10.5) {
-    let profile = await prisma.financialProfile.findUnique({ where: { userId } });
+  async assess(userId: string, requestedAmount: number, tenureMonths = 24, interestRate = 10.5, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    let profile: Awaited<ReturnType<typeof prisma.financialProfile.findFirst>>;
+    try {
+      profile = await prisma.financialProfile.findFirst({ where: { userId, tenantId: tid } });
+    } catch (e) {
+      if (isTenantSchemaError(e)) profile = await prisma.financialProfile.findUnique({ where: { userId } }) as never;
+      else throw e;
+    }
 
     if (!profile) {
       await statementParserService.recalculateFinancialProfile(userId);
-      profile = await prisma.financialProfile.findUnique({ where: { userId } });
+      try {
+        profile = await prisma.financialProfile.findFirst({ where: { userId, tenantId: tid } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) profile = await prisma.financialProfile.findUnique({ where: { userId } }) as never;
+        else throw e;
+      }
     }
 
     if (!profile) {
@@ -89,23 +114,45 @@ export const loanAssessmentService = {
 
     const result = calc.assess(interestRate, tenureMonths);
 
-    const assessment = await prisma.loanAssessment.create({
-      data: {
-        userId,
-        requestedAmount,
-        loanTenureMonths: tenureMonths,
-        interestRateAssumed: interestRate,
-        eligibleAmount: result.eligibleAmount,
-        maxMonthlyEmi: result.maxMonthlyEmi,
-        recommendedTenure: result.recommendedTenure,
-        eligibilityScore: result.eligibilityScore,
-        riskLevel: result.riskLevel,
-        recommendation: this.generateRecommendation(result),
-        assessmentDetails: result.details,
-      },
-    });
+    let assessment: Awaited<ReturnType<typeof prisma.loanAssessment.create>>;
+    try {
+      assessment = await prisma.loanAssessment.create({
+        data: {
+          tenantId: tid,
+          userId,
+          requestedAmount,
+          loanTenureMonths: tenureMonths,
+          interestRateAssumed: interestRate,
+          eligibleAmount: result.eligibleAmount,
+          maxMonthlyEmi: result.maxMonthlyEmi,
+          recommendedTenure: result.recommendedTenure,
+          eligibilityScore: result.eligibilityScore,
+          riskLevel: result.riskLevel,
+          recommendation: this.generateRecommendation(result),
+          assessmentDetails: result.details,
+        },
+      });
+    } catch (e) {
+      if (isTenantSchemaError(e)) {
+        assessment = await prisma.loanAssessment.create({
+          data: {
+            userId,
+            requestedAmount,
+            loanTenureMonths: tenureMonths,
+            interestRateAssumed: interestRate,
+            eligibleAmount: result.eligibleAmount,
+            maxMonthlyEmi: result.maxMonthlyEmi,
+            recommendedTenure: result.recommendedTenure,
+            eligibilityScore: result.eligibilityScore,
+            riskLevel: result.riskLevel,
+            recommendation: this.generateRecommendation(result),
+            assessmentDetails: result.details,
+          },
+        });
+      } else throw e;
+    }
 
-    logger.info({ userId, requestedAmount, riskLevel: result.riskLevel }, 'Loan assessment completed');
+    logger.info({ userId, tenantId: tid, requestedAmount, riskLevel: result.riskLevel }, 'Loan assessment completed');
 
     return assessment;
   },
@@ -128,11 +175,17 @@ export const loanAssessmentService = {
     }
   },
 
-  async getHistory(userId: string) {
-    return prisma.loanAssessment.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
+  async getHistory(userId: string, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    try {
+      return prisma.loanAssessment.findMany({
+        where: { userId, tenantId: tid },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+    } catch (e) {
+      if (isTenantSchemaError(e)) return prisma.loanAssessment.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 20 });
+      throw e;
+    }
   },
 };

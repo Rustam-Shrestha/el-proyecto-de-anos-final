@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["auth"]
+  schemas  = ["auth", "public"]
 }
 
 // Document types for KYC and loan documents
@@ -83,15 +83,31 @@ model Role {
 
 // ===== Shared multi-tenant tables (prompt spec adapted to auth schema) =====
 model Tenant {
-  id        Int      @id @default(autoincrement())
-  slug      String   @unique @db.VarChar(50)
-  name      String   @db.VarChar(255)
-  domain    String?
-  status    String   @default("active") @db.VarChar(20)
-  createdAt DateTime @default(now())
+  id               Int       @id @default(autoincrement())
+  slug             String    @unique @db.VarChar(50)
+  name             String    @db.VarChar(255)
+  domain           String?
+  companyType      String?   @db.VarChar(50)
+  status           String    @default("active") @db.VarChar(20)
+  createdAt        DateTime  @default(now())
+  createdBy        Int?
+  subscriptionTier String?   @db.VarChar(50)
+  maxUsers         Int       @default(100)
+  maxLoans         Int       @default(1000)
+  usageLoans       Int       @default(0)
+  usageUsers       Int       @default(0)
+  lastActivity     DateTime?
+  featureMlScoring       Boolean @default(true)
+  featureAuditLogs       Boolean @default(true)
+  featureApiAccess       Boolean @default(true)
+  featureCustomWorkflows Boolean @default(false)
+  dataResidency    String?   @db.VarChar(50)
+  encryptionEnabled Boolean  @default(true)
 
   admins TenantAdmin[]
 
+  // Note: FeatureToggle / TenantMetrics live in public schema with FK to auth.tenants but no Prisma relation
+  // to keep cross-schema compatibility; accessed via raw/prisma.public.* queries
   @@map("tenants")
   @@schema("auth")
 }
@@ -115,6 +131,8 @@ model RoleDefinition {
   description    String?
   hierarchyLevel Int
   isSystem       Boolean @default(true)
+  colorCode      String? @db.VarChar(7)
+  icon           String? @db.VarChar(50)
 
   permissions RolePermission[]
 
@@ -123,12 +141,14 @@ model RoleDefinition {
 }
 
 model PermissionDefinition {
-  id          Int     @id @default(autoincrement())
-  name        String  @db.VarChar(100) @unique
-  description String?
-  resource    String? @db.VarChar(100)
-  action      String? @db.VarChar(50)
-  isSystem    Boolean @default(true)
+  id             Int     @id @default(autoincrement())
+  name           String  @db.VarChar(100) @unique
+  description    String?
+  resource       String? @db.VarChar(100)
+  action         String? @db.VarChar(50)
+  isSystem       Boolean @default(true)
+  category       String? @db.VarChar(50)
+  hierarchyLevel Int?
 
   roles RolePermission[]
 
@@ -147,6 +167,65 @@ model RolePermission {
   @@unique([roleId, permissionId])
   @@map("role_permissions")
   @@schema("auth")
+}
+
+// ===== Supercontroller layer (public schema) =====
+model Supercontroller {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @db.VarChar(255)
+  fullName     String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now())
+  lastLogin    DateTime?
+  status       String    @default("active") @db.VarChar(20)
+
+  @@map("supercontroller")
+  @@schema("public")
+}
+
+model FeatureToggle {
+  id           Int       @id @default(autoincrement())
+  tenantId     Int
+  featureName  String    @db.VarChar(100)
+  isEnabled    Boolean   @default(false)
+  enabledBy    Int?
+  enabledAt    DateTime?
+  metadataJson String?   @db.Text
+
+  @@unique([tenantId, featureName])
+  @@map("feature_toggles")
+  @@schema("public")
+}
+
+model SupercontrollerAuditLog {
+  id                  Int      @id @default(autoincrement())
+  supercontrollerId   Int?
+  action              String   @db.VarChar(100)
+  targetType          String?  @db.VarChar(50)
+  targetId            String?  @db.VarChar(255)
+  changesJson         String?  @db.Text
+  ipAddress           String?  @db.VarChar(45)
+  createdAt           DateTime @default(now())
+
+  @@map("supercontroller_audit_logs")
+  @@schema("public")
+}
+
+model TenantMetrics {
+  id                Int      @id @default(autoincrement())
+  tenantId          Int
+  metricDate        DateTime @db.Date
+  totalUsers        Int?
+  totalLoans        Int?
+  totalRevenue      Decimal? @db.Decimal(12, 2)
+  apiCalls          Int?
+  errorRate         Decimal? @db.Decimal(5, 2)
+  avgResponseTimeMs Int?
+  createdAt         DateTime @default(now())
+
+  @@unique([tenantId, metricDate])
+  @@map("tenant_metrics")
+  @@schema("public")
 }
 
 // Main user model

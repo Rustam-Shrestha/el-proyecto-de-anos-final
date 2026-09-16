@@ -5,6 +5,7 @@ import { useAdminStats } from "@features/dashboard/api/dashboardApi";
 import Card from "@shared/components/Card";
 import PageHeader from "@shared/components/PageHeader";
 import { Button } from "@shared/components/Button";
+import { ExportBar } from "@shared/components/export/ExportBar";
 import ErrorState from "@shared/components/ErrorState";
 
 const KycPieChart = ({ data }: { data: Array<{ name: string; y: number; color: string }> }) => {
@@ -112,7 +113,10 @@ const AdminDashboardPage = () => {
                   <h3 className="text-sm font-semibold text-[#0F172A]">KYC Application Status</h3>
                   <p className="mt-1 text-sm text-[#64748B]">Distribution of KYC applications by current status.</p>
                 </div>
-                <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-xs font-medium text-[#334155]">{kycTotal} total</span>
+                <div className="flex items-center gap-2">
+                  <ExportBar data={[{ name: 'Approved', value: data.stats.kyc?.approved ?? 0 }, { name: 'Pending', value: data.stats.kyc?.pending ?? 0 }, { name: 'Rejected', value: data.stats.kyc?.rejected ?? 0 }]} columns={[{ key: 'name', header: 'Status' }, { key: 'value', header: 'Count' }]} filename={`kyc-status-${new Date().toISOString().slice(0,10)}`} />
+                  <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-xs font-medium text-[#334155]">{kycTotal} total</span>
+                </div>
               </div>
               <div className="mt-4">
                 <KycPieChart

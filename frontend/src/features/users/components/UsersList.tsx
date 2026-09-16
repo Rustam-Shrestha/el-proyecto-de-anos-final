@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, PencilLine, Trash2 } from "lucide-react";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { Button } from "@shared/components/Button";
+import { ExportBar } from "@shared/components/export/ExportBar";
 import { useAppSelector } from "@hooks/reduxHooks";
 import { selectUserData } from "@store/slices/authSlice";
 import { useUsersList } from "@features/users/api/usersApi";
@@ -40,8 +41,18 @@ const UsersList = memo(({ onEdit }: { onEdit: (id: string) => void }) => {
   if (error) return <ErrorState message="Failed to load users" onRetry={() => refetch()} />;
   if (!users.length) return <EmptyState title="No users found" description="Try a different page or refresh later." />;
 
+  const userColumns = [
+    { key: 'email', header: 'Email' },
+    { key: 'role', header: 'Role', accessor: (r: User) => extractRoleName(r.role as unknown) },
+    { key: 'isVerified', header: 'Status', accessor: (r: User) => r.isVerified ? 'Verified' : 'Unverified' },
+    { key: 'createdAt', header: 'Created At', accessor: (r: User) => formatDate(r.createdAt) },
+  ] as const;
+
   return (
     <Card padding="none" className="overflow-hidden">
+      <div className="flex justify-end p-3 border-b border-[#E2E8F0] bg-white">
+        <ExportBar data={users as unknown as Record<string, unknown>[]} columns={userColumns as unknown as Array<{ key: string; header: string; accessor?: (r: Record<string, unknown>) => string | number }>} filename={`users-${new Date().toISOString().slice(0,10)}`} />
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
