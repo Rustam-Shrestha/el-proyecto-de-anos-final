@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, type RefObject } from 'react';
 import { Building2, Users, CreditCard, Activity, Plus, Shield } from 'lucide-react';
 import { MetricCard } from '../components/MetricCard';
 import { TenantList } from '../components/TenantList';
@@ -76,7 +76,7 @@ export default function SupercontrollerDashboardPage() {
         <div className="bg-white rounded-xl border border-[#eceef2] shadow-sm p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h2 className="text-sm font-semibold text-slate-800">Tenants — {tenantsRes?.pagination.total ?? tenants.length} total</h2>
-            <ExportBar data={tenants as unknown as Record<string, unknown>[]} columns={tenantColumns as unknown as Array<{ key: string; header: string; accessor?: (r: Record<string, unknown>) => string | number }>} filename={`tenants-${new Date().toISOString().slice(0,10)}`} chartRef={chartWrapRef as React.RefObject<HTMLElement>} />
+            <ExportBar data={tenants as unknown as Record<string, unknown>[]} columns={tenantColumns as unknown as Array<{ key: string; header: string; accessor?: (r: Record<string, unknown>) => string | number }>} filename={`tenants-${new Date().toISOString().slice(0,10)}`} chartRef={chartWrapRef as unknown as RefObject<HTMLElement>} />
           </div>
           <TenantList tenants={tenants} isLoading={tenantsLoading} onStatusChange={(id, s) => statusMut.mutate({ id, status: s })} onSelect={setSelected} />
         </div>

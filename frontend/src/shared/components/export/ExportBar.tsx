@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { Download, FileSpreadsheet, FileText, Table as TableIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -9,7 +9,7 @@ interface Props<T extends Record<string, unknown>> {
   data: T[];
   columns: Array<{ key: string; header: string; accessor?: (row: T) => string | number }>;
   filename: string;
-  chartRef?: React.RefObject<HTMLElement>;
+  chartRef?: RefObject<HTMLElement>;
 }
 
 export function ExportBar<T extends Record<string, unknown>>({ data, columns, filename, chartRef }: Props<T>) {
@@ -53,7 +53,7 @@ export function ExportBar<T extends Record<string, unknown>>({ data, columns, fi
         const imgH = (canvas.height / canvas.width) * imgW;
         doc.addPage();
         doc.addImage(img, 'PNG', 24, 24, imgW, imgH);
-      } catch {}
+      } catch (_e) { /* ignore chart capture failure */ }
     }
     doc.save(`${filename}.pdf`);
     setOpen(false);

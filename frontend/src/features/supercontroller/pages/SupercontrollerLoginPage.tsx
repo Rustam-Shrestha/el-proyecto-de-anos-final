@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '@shared/lib/apiClient';
 
@@ -9,7 +9,7 @@ export default function SupercontrollerLoginPage() {
   const [loading, setLoading] = useState(false);
   const nav = useNavigate();
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault(); setErr(null); setLoading(true);
     try {
       const res = await apiClient.post('/supercontroller/login', { email, password });
