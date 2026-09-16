@@ -36,7 +36,6 @@ class RedisConnection {
     // try real redis lazily
     try {
       // dynamic require to keep fallback when ioredis not installed
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const Redis = require("ioredis");
       const c = new Redis({
         host: env.REDIS_HOST,

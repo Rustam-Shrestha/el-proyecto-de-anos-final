@@ -23,7 +23,7 @@ export class CreditScoringService {
     if (cached) {
       try {
         return JSON.parse(cached);
-      } catch {}
+      } catch { /* ignore */ }
     }
     const prediction = await inferenceClient.predict({
       amt_income_total: loanData.amtIncomeTotal,

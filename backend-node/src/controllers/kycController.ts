@@ -2,10 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { kycService } from '@/services/kycService';
 import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
-import { ocrService } from '@/services/ocrService';
+import { ocrService as _ocrService } from '@/services/ocrService';
 import { faceService } from '@/services/faceService';
 import { kycSubmissionFileService } from '@/services/kycSubmissionFileService';
-import { extractionVerificationService } from '@/services/extractionVerificationService';
+import { extractionVerificationService as _extractionVerificationService } from '@/services/extractionVerificationService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
 import { getRelativePath, resolveAbsolutePath } from '@/utils/pathUtils';
@@ -125,7 +125,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
     setImmediate(async () => {
       try {
         const frontDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_FRONT');
-        const backDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_BACK');
+        const _backDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_BACK');
         const selfieDoc = result.documents.find((d) => d.type === 'SELFIE');
 
         await prisma.kycApplication.update({

@@ -1,4 +1,5 @@
-import { logger } from '@/config/logger';
+/* eslint-disable no-useless-escape */
+import { logger as _logger } from '@/config/logger';
 
 interface OcrResult {
   fullText: string;
@@ -371,7 +372,7 @@ function extractBusinessName(normalized: NormalizedOutput): string | null {
   return extractEmployer(normalized);
 }
 
-function extractSenderName(normalized: NormalizedOutput): string | null {
+function _extractSenderName(normalized: NormalizedOutput): string | null {
   return extractName(normalized);
 }
 

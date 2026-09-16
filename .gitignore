@@ -132,3 +132,19 @@ X_train_full.csv
 # python residues
 __pycache__/
 ml-env/
+
+# --- Uploads / runtime (always ignore) ---
+uploads/
+**/uploads/
+backend-node/uploads/
+frontend/uploads/
+
+# --- FinGuard: DB schema & seed data MUST stay tracked ---
+# These are NOT ignored by any rule above, so they will be committed.
+# Listed here as documentation (negations only needed if a future rule
+# tries to ignore them):
+#   backend-node/prisma/schema.prisma
+#   backend-node/prisma.config.ts
+#   backend-node/prisma/migrations/**
+#   backend-node/src/seed.ts
+#   db-dumps/  (finguard_full.sql, finguard_custom.dump, RESTORE.md, schema.prisma, migrations/)

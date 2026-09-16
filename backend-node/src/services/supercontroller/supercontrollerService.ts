@@ -29,7 +29,7 @@ export class SupercontrollerService {
         tenantIds,
       )) as Array<{ tenantId: number; metricDate: Date; totalUsers: number; totalLoans: number }>;
       for (const r of rows) metricsByTenant.set(r.tenantId, r);
-    } catch {}
+    } catch { /* ignore */ }
     const data = tenants.map((t) => ({ ...t, latestMetric: metricsByTenant.get(t.id) ?? null }));
     return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
@@ -105,7 +105,7 @@ export class SupercontrollerService {
       const rows = (await prisma.$queryRawUnsafe(`SELECT COALESCE(SUM("totalUsers"),0)::int as su, COALESCE(SUM("totalLoans"),0)::int as sl FROM "public"."tenant_metrics" WHERE "metricDate" = $1`, today)) as Array<{ su: number; sl: number }>;
       totalUsers = rows[0]?.su ?? 0;
       totalLoans = rows[0]?.sl ?? 0;
-    } catch {}
+    } catch { /* ignore */ }
     if (totalUsers === 0) totalUsers = await prisma.user.count({ where: { isDeleted: false } }).catch(() => 0) as number;
     if (totalLoans === 0) totalLoans = await prisma.loanApplication.count().catch(() => 0) as number;
     // also compute revenue-ish

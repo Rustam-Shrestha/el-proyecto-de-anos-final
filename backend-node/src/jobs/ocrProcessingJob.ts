@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { documentExtractionService } from '@/services/documentExtractionService';
 import { callFinancialDocumentOcr, callFinancialDocumentExtraction } from '@/services/ocrService';
-import type { ExtractionResult as ApiExtractionResult } from '@/services/ocrService';
+import type { ExtractionResult as _ApiExtractionResult } from '@/services/ocrService';
 
 interface OcrResult {
   fullText: string;
@@ -187,7 +187,7 @@ export async function processOcrJob(documentId: string): Promise<void> {
       return;
     }
 
-    const { ocrResult, extractedFields: apiExtractedFields, transactions, bankMeta } = processed;
+    const { ocrResult, extractedFields: apiExtractedFields, transactions, bankMeta: _bankMeta } = processed;
 
     const normalized = documentExtractionService.normalizeOcrOutput(ocrResult, doc.documentType);
 

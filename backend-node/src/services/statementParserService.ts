@@ -1,6 +1,7 @@
+/* eslint-disable no-useless-escape */
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
-import { AppError } from '@/utils/AppError';
+import { AppError as _AppError } from '@/utils/AppError';
 
 export interface ParsedTransaction {
   transactionDate: Date;

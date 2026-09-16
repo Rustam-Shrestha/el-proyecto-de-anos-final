@@ -142,7 +142,7 @@ async function main() {
             update: { isEnabled, enabledBy: scRecord?.id ?? null, enabledAt: new Date() },
             create: { tenantId: tenant.id, featureName: fn, isEnabled, enabledBy: scRecord?.id ?? null, enabledAt: new Date() },
           } as never);
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
 
@@ -362,7 +362,7 @@ async function main() {
     }
 
     // Tenant metrics — 30 days backfill per tenant
-    for (const [slug, tenant] of tenantMap.entries()) {
+    for (const [_slug, tenant] of tenantMap.entries()) {
       for (let d = 0; d < 30; d++) {
         const date = new Date();
         date.setHours(0, 0, 0, 0);
@@ -375,7 +375,7 @@ async function main() {
             update: { totalUsers, totalLoans, totalRevenue: totalLoans * 1200, apiCalls: 500 + Math.floor(Math.random() * 300), errorRate: Number((Math.random() * 2).toFixed(2)), avgResponseTimeMs: 80 + Math.floor(Math.random() * 40) },
             create: { tenantId: tenant.id, metricDate: date, totalUsers, totalLoans, totalRevenue: totalLoans * 1200, apiCalls: 500 + Math.floor(Math.random() * 300), errorRate: Number((Math.random() * 2).toFixed(2)), avgResponseTimeMs: 80 + Math.floor(Math.random() * 40) },
           } as never);
-        } catch {}
+        } catch { /* ignore */ }
       }
       // update usage counters
       const userCount = await prisma.user.count({ where: { tenantId: tenant.id } });

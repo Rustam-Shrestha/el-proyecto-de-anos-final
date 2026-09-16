@@ -75,11 +75,11 @@ export const homeCredtFeatureService = {
     const ageCategory = ageYears >= 25 && ageYears <= 60 ? 1 : 0;
 
     // ===== STORE ALL FEATURES =====
-    let features: Awaited<ReturnType<typeof prisma.loanFeatures.findFirst>>;
+    let _features: Awaited<ReturnType<typeof prisma.loanFeatures.findFirst>>;
     try {
       const existing = await prisma.loanFeatures.findFirst({ where: { userId, tenantId: tid } });
       if (existing) {
-        features = await prisma.loanFeatures.update({
+        _features = await prisma.loanFeatures.update({
           where: { id: existing.id },
           data: {
             requestedLoanAmount: new Prisma.Decimal(amtCredit),
@@ -93,7 +93,7 @@ export const homeCredtFeatureService = {
         }) as never;
       } else {
         try {
-          features = await prisma.loanFeatures.create({
+          _features = await prisma.loanFeatures.create({
             data: {
               tenantId: tid,
               userId,
@@ -107,7 +107,7 @@ export const homeCredtFeatureService = {
           }) as never;
         } catch (e) {
           if (isTenantSchemaError(e)) {
-            features = await prisma.loanFeatures.upsert({
+            _features = await prisma.loanFeatures.upsert({
               where: { userId },
               update: {
                 requestedLoanAmount: new Prisma.Decimal(amtCredit),
@@ -133,7 +133,7 @@ export const homeCredtFeatureService = {
       }
     } catch (e) {
       if (isTenantSchemaError(e)) {
-        features = await prisma.loanFeatures.upsert({
+        _features = await prisma.loanFeatures.upsert({
           where: { userId },
           update: {
             requestedLoanAmount: new Prisma.Decimal(amtCredit),

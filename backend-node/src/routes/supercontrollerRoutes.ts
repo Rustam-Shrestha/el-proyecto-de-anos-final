@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { prisma } from '@/config/database';
 import { env } from '@/config/env';
-import { AppError } from '@/utils/AppError';
 import { authenticate } from '@/middleware/auth';
 import { requireSupercontroller } from '@/middleware/requireSupercontroller';
 import { supercontrollerService } from '@/services/supercontroller/supercontrollerService';

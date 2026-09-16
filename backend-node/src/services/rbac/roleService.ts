@@ -9,7 +9,7 @@ export const roleService = {
       if (roleDef) {
         return await permissionResolver.resolvePermissions([roleDef.id]);
       }
-    } catch {}
+    } catch { /* ignore */ }
     return permissionResolver.resolveForRoleName(roleName);
   },
   async listRoles() {

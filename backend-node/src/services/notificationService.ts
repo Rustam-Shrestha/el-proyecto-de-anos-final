@@ -35,7 +35,7 @@ export const notificationService = {
    */
   async create(input: CreateNotificationInput): Promise<void> {
     try {
-      const tid = input.tenantId ?? resolveTid(undefined);
+      const _tid = input.tenantId ?? resolveTid(undefined);
       // try to resolve tenantId from user if not provided: fallback to 1 already handled via resolveTid warning
       // if input tenantId undefined, try lookup user's tenantId
       let finalTid = input.tenantId;
