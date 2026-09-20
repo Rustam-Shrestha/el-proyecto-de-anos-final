@@ -1,10 +1,11 @@
-import { memo, PropsWithChildren } from "react";
+import { forwardRef, memo, PropsWithChildren } from "react";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
 type ModalProps = PropsWithChildren<{
   title: string;
-  open: boolean;
+  open?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   description?: string;
   size?: ModalSize;
@@ -19,8 +20,9 @@ const sizeMap: Record<ModalSize, { width: string; maxHeight: string }> = {
   full: { width: "calc(100vw - 2%)", maxHeight: "calc(100vh - 2%)" }
 };
 
-export const Modal = memo(({ title, open, onClose, description, size = "xl", children }: ModalProps) => {
-  if (!open) {
+const ModalInner = forwardRef<HTMLDivElement, ModalProps>(({ title, open, isOpen, onClose, description, size = "xl", children }, ref) => {
+  const visible = open ?? isOpen ?? false;
+  if (!visible) {
     return null;
   }
 
@@ -29,6 +31,7 @@ export const Modal = memo(({ title, open, onClose, description, size = "xl", chi
   return (
     <div data-testid="modal-overlay" className="modal-overlay" role="dialog" aria-modal="true">
       <div
+        ref={ref}
         className="modal-card"
         style={{
           maxWidth: selectedSize.width,
@@ -53,3 +56,4 @@ export const Modal = memo(({ title, open, onClose, description, size = "xl", chi
     </div>
   );
 });
+export const Modal = memo(ModalInner);

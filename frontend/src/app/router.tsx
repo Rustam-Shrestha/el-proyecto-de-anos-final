@@ -31,6 +31,8 @@ const AboutPage = lazy(() => import("../pages/public/AboutPage"));
 const SimplePublicPage = lazy(() => import("../pages/public/SimplePublicPage"));
 const SupercontrollerDashboardPage = lazy(() => import("@features/supercontroller/pages/SupercontrollerDashboardPage"));
 const SupercontrollerLoginPage = lazy(() => import("@features/supercontroller/pages/SupercontrollerLoginPage"));
+const CompanyOnboardingPage = lazy(() => import("@features/company/pages/CompanyOnboardingPage"));
+const AdminCompanyRequestsPage = lazy(() => import("@features/company/pages/AdminCompanyRequestsPage"));
 
 export const router = createBrowserRouter([
   {
@@ -183,10 +185,34 @@ export const router = createBrowserRouter([
       { path: "/auth", element: <Navigate to="/login" replace /> },
       { path: "/supercontroller/login", element: <SupercontrollerLoginPage /> },
       {
+        path: "/company",
+        element: (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <CompanyOnboardingPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/company-requests",
+        element: (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+                <AdminCompanyRequestsPage />
+              </RoleProtectedRoute>
+            </DashboardLayout>
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "/supercontroller",
         element: (
           <ProtectedRoute>
-            <SupercontrollerDashboardPage />
+            <DashboardLayout>
+              <SupercontrollerDashboardPage />
+            </DashboardLayout>
           </ProtectedRoute>
         ),
       },

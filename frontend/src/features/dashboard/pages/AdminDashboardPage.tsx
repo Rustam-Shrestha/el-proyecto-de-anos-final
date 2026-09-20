@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef } from "react";
 import { Activity, CheckCircle, FileText, Users, XCircle } from "lucide-react";
 import Highcharts from "highcharts";
+import "highcharts/modules/accessibility";
 import { useAdminStats } from "@features/dashboard/api/dashboardApi";
 import Card from "@shared/components/Card";
 import PageHeader from "@shared/components/PageHeader";
@@ -17,6 +18,7 @@ const KycPieChart = ({ data }: { data: Array<{ name: string; y: number; color: s
       chart: { type: "pie", height: 300, backgroundColor: "transparent", style: { fontFamily: "Inter, sans-serif" } },
       title: { text: undefined },
       credits: { enabled: false },
+      accessibility: { enabled: false },
       tooltip: { pointFormat: "<b>{point.y}</b> ({point.percentage:.1f}%)", backgroundColor: "#FFFFFF", borderColor: "#E2E8F0", style: { color: "#0F172A" } },
       plotOptions: {
         pie: {

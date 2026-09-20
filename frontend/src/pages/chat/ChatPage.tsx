@@ -146,6 +146,10 @@ const ChatPage = () => {
     socket.on("chat:error", (payload: { message?: string }) => {
       setSocketError(payload?.message || "Unable to send message.");
     });
+    socket.on("connect_error", (err: Error) => {
+      // prevent infinite retry spam; show once and fallback to polling
+      if (!socketError) setSocketError(`Realtime unavailable: ${err.message}. Messages still send via REST.`);
+    });
 
     return () => {
       socket.off("chat:message", handleChatMessage);
@@ -200,78 +204,78 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-6">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green-icon)]">Messaging</p>
-          <h1 className="mt-2 text-2xl font-semibold text-gray-900">Loan review conversations</h1>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 pb-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green-icon)]">Messaging</p>
+        <h1 className="mt-2 text-2xl font-semibold text-gray-900">Loan review conversations</h1>
       </div>
 
-      <div className="grid min-h-[700px] overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="border-b border-gray-200 bg-gray-50 md:border-b-0 md:border-r">
-          <div className="border-b border-gray-200 p-4">
+      <div className="grid flex-1 min-h-0 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col overflow-hidden border-b border-gray-200 bg-gray-50 md:border-b-0 md:border-r">
+          <div className="shrink-0 border-b border-gray-200 p-4">
             <p className="text-sm font-semibold text-gray-700">Contacts</p>
           </div>
 
-          <div className="space-y-2 p-3">
-            {loadingParticipants ? (
-              <p className="px-2 py-3 text-sm text-gray-500">Loading reviewers...</p>
-            ) : participants.length ? (
-              participants.map((participant) => (
-                <button
-                  key={participant.id}
-                  type="button"
-                  onClick={() => openConversation(participant.id)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-transparent bg-white p-3 text-left transition hover:border-[var(--green-icon)] hover:bg-green-50"
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--green-background)] text-sm font-semibold text-[var(--green-icon)]">
-                    {participant.fullName.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-gray-900">{participant.fullName}</span>
-                    <span className="block truncate text-xs text-gray-500">{participant.role}</span>
-                  </span>
-                </button>
-              ))
-            ) : (
-              <p className="px-2 py-3 text-sm text-gray-500">No reviewers available.</p>
-            )}
-          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-2 p-3">
+              {loadingParticipants ? (
+                <p className="px-2 py-3 text-sm text-gray-500">Loading reviewers...</p>
+              ) : participants.length ? (
+                participants.map((participant) => (
+                  <button
+                    key={participant.id}
+                    type="button"
+                    onClick={() => openConversation(participant.id)}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-transparent bg-white p-3 text-left transition hover:border-[var(--green-icon)] hover:bg-green-50"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--green-background)] text-sm font-semibold text-[var(--green-icon)]">
+                      {participant.fullName.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-gray-900">{participant.fullName}</span>
+                      <span className="block truncate text-xs text-gray-500">{participant.role}</span>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="px-2 py-3 text-sm text-gray-500">No reviewers available.</p>
+              )}
+            </div>
 
-          <div className="border-t border-gray-200 p-4">
-            <p className="text-sm font-semibold text-gray-700">Recent</p>
-          </div>
-          <div className="space-y-2 p-3 pb-5">
-            {conversations.length ? (
-              conversations.map((conversation) => (
-                <button
-                  key={conversation.conversationId}
-                  type="button"
-                  onClick={() => setSelectedConversationId(conversation.conversationId)}
-                  className={`flex w-full flex-col rounded-2xl border p-3 text-left transition ${
-                    selectedConversationId === conversation.conversationId
-                      ? "border-[var(--green-icon)] bg-green-50"
-                      : "border-transparent bg-white hover:border-gray-200"
-                  }`}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-gray-900">{conversation.participant?.fullName || "Conversation"}</span>
-                    <span className="text-[10px] text-gray-400">{dateLabel(conversation.updatedAt)}</span>
-                  </span>
-                  <span className="mt-2 line-clamp-2 text-xs text-gray-600">{conversation.lastMessage}</span>
-                </button>
-              ))
-            ) : (
-              <p className="px-2 py-3 text-sm text-gray-500">No conversations yet.</p>
-            )}
+            <div className="shrink-0 border-t border-gray-200 p-4">
+              <p className="text-sm font-semibold text-gray-700">Recent</p>
+            </div>
+            <div className="space-y-2 p-3 pb-5">
+              {conversations.length ? (
+                conversations.map((conversation) => (
+                  <button
+                    key={conversation.conversationId}
+                    type="button"
+                    onClick={() => setSelectedConversationId(conversation.conversationId)}
+                    className={`flex w-full flex-col rounded-2xl border p-3 text-left transition ${
+                      selectedConversationId === conversation.conversationId
+                        ? "border-[var(--green-icon)] bg-green-50"
+                        : "border-transparent bg-white hover:border-gray-200"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-gray-900">{conversation.participant?.fullName || "Conversation"}</span>
+                      <span className="text-[10px] text-gray-400">{dateLabel(conversation.updatedAt)}</span>
+                    </span>
+                    <span className="mt-2 line-clamp-2 text-xs text-gray-600">{conversation.lastMessage}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="px-2 py-3 text-sm text-gray-500">No conversations yet.</p>
+              )}
+            </div>
           </div>
         </aside>
 
-        <main className="flex min-h-0 flex-col">
+        <main className="flex min-h-0 flex-col overflow-hidden">
           {selectedConversation ? (
             <>
-              <header className="flex items-center justify-between border-b border-gray-200 p-4">
+              <header className="flex shrink-0 items-center justify-between border-b border-gray-200 p-4">
                 <div className="flex items-center gap-3">
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--green-background)] text-sm font-semibold text-[var(--green-icon)]">
                     {selectedConversation.participant?.fullName?.slice(0, 2).toUpperCase() || "CH"}
@@ -287,7 +291,7 @@ const ChatPage = () => {
                 </span>
               </header>
 
-              <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-4">
+              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto bg-gray-50 p-4">
                 {loadingMessages ? (
                   <p className="text-sm text-gray-500">Loading conversation...</p>
                 ) : messages.length ? (
@@ -312,7 +316,7 @@ const ChatPage = () => {
                 <div ref={bottomRef} />
               </div>
 
-              <div className="border-t border-gray-200 bg-white p-3">
+              <div className="shrink-0 border-t border-gray-200 bg-white p-3">
                 {socketError ? (
                   <p className="mb-2 text-xs text-red-600">{socketError}</p>
                 ) : null}

@@ -154,13 +154,14 @@ export const userService = {
   /**
    * Get user profile (me)
    */
-  async getUserProfile(userId: string): Promise<Omit<UserDetail, 'isDeleted'>> {
+  async getUserProfile(userId: string): Promise<Omit<UserDetail, 'isDeleted'> & { tenantId: number; tenant?: any }> {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
           id: true,
           email: true,
+          tenantId: true,
           role: {
             select: { name: true },
           },
@@ -171,13 +172,20 @@ export const userService = {
             select: profileSelect,
           },
         },
-      });
+      }) as any;
+      let tenant = null;
+      if (user?.tenantId) {
+        try { tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } }); } catch {}
+      }
 
       if (!user) {
         throw new AppError('User not found', 404);
       }
 
-      return mapUserProfile(user);
+      const mapped: any = mapUserProfile(user);
+      mapped.tenantId = (user as any).tenantId;
+      mapped.tenant = tenant;
+      return mapped;
     } catch (error) {
       if (error instanceof AppError) throw error;
       logger.error({ err: error, userId }, 'Failed to get user profile');

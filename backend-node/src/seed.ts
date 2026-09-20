@@ -28,14 +28,15 @@ async function main() {
       logger.warn({ err: e }, 'Supercontroller upsert skipped (public schema not yet migrated on this env)');
     }
 
-    // Tenants — 5 real-world companies + default
+    const COMMON_PW = 'Password@123';
+    // Tenants — 5 real-world companies + default (PAN mandatory, logo emblem)
     const tenantsSeed = [
-      { slug: 'default', name: 'Default Tenant', companyType: 'fintech', subscriptionTier: 'professional', maxUsers: 500, maxLoans: 10000, status: 'active' as const, domain: 'default.finguard.local' },
-      { slug: 'finguard-acme', name: 'Acme Financial Corporation', companyType: 'bank', subscriptionTier: 'enterprise', maxUsers: 500, maxLoans: 10000, status: 'active' as const, domain: 'acme.finguard.local' },
-      { slug: 'finguard-globebank', name: 'GlobeBank', companyType: 'bank', subscriptionTier: 'enterprise', maxUsers: 1000, maxLoans: 50000, status: 'active' as const, domain: 'globebank.finguard.local' },
-      { slug: 'finguard-fastcredit', name: 'FastCredit Fintech', companyType: 'fintech', subscriptionTier: 'basic', maxUsers: 100, maxLoans: 1000, status: 'active' as const, domain: 'fastcredit.finguard.local' },
-      { slug: 'finguard-everest', name: 'Everest Credit Union', companyType: 'credit-union', subscriptionTier: 'professional', maxUsers: 300, maxLoans: 5000, status: 'active' as const, domain: 'everest.finguard.local' },
-      { slug: 'finguard-himalayan', name: 'Himalayan Microfinance', companyType: 'microfinance', subscriptionTier: 'basic', maxUsers: 150, maxLoans: 2000, status: 'active' as const, domain: 'himalayan.finguard.local' },
+      { slug: 'default', name: 'Default Tenant', companyType: 'fintech', subscriptionTier: 'professional', maxUsers: 500, maxLoans: 10000, status: 'active' as const, domain: 'default.finguard.local', logoUrl: '/images/logo512.png', panNumber: 'AAAAA0000A' },
+      { slug: 'finguard-acme', name: 'Acme Financial Corporation', companyType: 'bank', subscriptionTier: 'enterprise', maxUsers: 500, maxLoans: 10000, status: 'active' as const, domain: 'acme.finguard.local', logoUrl: '/images/tenants/acme.png', panNumber: 'ABCDE1234F' },
+      { slug: 'finguard-globebank', name: 'GlobeBank', companyType: 'bank', subscriptionTier: 'enterprise', maxUsers: 1000, maxLoans: 50000, status: 'active' as const, domain: 'globebank.finguard.local', logoUrl: '/images/tenants/globe.png', panNumber: 'FGHIJ5678K' },
+      { slug: 'finguard-fastcredit', name: 'FastCredit Fintech', companyType: 'fintech', subscriptionTier: 'basic', maxUsers: 100, maxLoans: 1000, status: 'active' as const, domain: 'fastcredit.finguard.local', logoUrl: '/images/tenants/fast.png', panNumber: 'KLMNO9012P' },
+      { slug: 'finguard-everest', name: 'Everest Credit Union', companyType: 'credit-union', subscriptionTier: 'professional', maxUsers: 300, maxLoans: 5000, status: 'active' as const, domain: 'everest.finguard.local', logoUrl: '/images/tenants/everest.png', panNumber: 'QRSTU3456V' },
+      { slug: 'finguard-himalayan', name: 'Himalayan Microfinance', companyType: 'microfinance', subscriptionTier: 'basic', maxUsers: 150, maxLoans: 2000, status: 'active' as const, domain: 'himalayan.finguard.local', logoUrl: '/images/tenants/hima.png', panNumber: 'WXYZA7890B' },
     ];
     const tenantMap = new Map<string, { id: number; slug: string }>();
     for (const t of tenantsSeed) {
@@ -49,6 +50,8 @@ async function main() {
           maxLoans: t.maxLoans,
           status: t.status,
           domain: t.domain,
+          logoUrl: (t as any).logoUrl,
+          panNumber: (t as any).panNumber,
         },
         create: {
           slug: t.slug,
@@ -59,6 +62,8 @@ async function main() {
           maxLoans: t.maxLoans,
           status: t.status,
           domain: t.domain,
+          logoUrl: (t as any).logoUrl,
+          panNumber: (t as any).panNumber,
         },
       });
       tenantMap.set(t.slug, tenant);
@@ -147,10 +152,11 @@ async function main() {
     }
 
     const hash = (pw: string) => bcryptjs.hash(pw, 12);
+    const commonHash = await hash(COMMON_PW);
     const legacyUsers = [
-      { email: 'admin@finguard.local', password: await hash('Admin@123456'), roleId: adminRole.id, profile: { fullName: 'System Admin', phone: '+1-555-0100' } },
-      { email: 'reviewer@finguard.local', password: await hash('Reviewer@123456'), roleId: reviewerRole.id, profile: { fullName: 'KYC Reviewer', phone: '+1-555-0101' } },
-      { email: 'user@finguard.local', password: await hash('User@123456'), roleId: userRole.id, profile: { fullName: 'John Doe', phone: '+1-555-0102', address: '123 Main St, Springfield' } },
+      { email: 'admin@finguard.local', password: commonHash, roleId: adminRole.id, profile: { fullName: 'System Admin', phone: '+1-555-0100' } },
+      { email: 'reviewer@finguard.local', password: commonHash, roleId: reviewerRole.id, profile: { fullName: 'KYC Reviewer', phone: '+1-555-0101' } },
+      { email: 'user@finguard.local', password: commonHash, roleId: userRole.id, profile: { fullName: 'John Doe', phone: '+1-555-0102', address: '123 Main St, Springfield' } },
     ];
     for (const u of legacyUsers) {
       const existing = await prisma.user.findUnique({ where: { email: u.email } });
@@ -211,7 +217,7 @@ async function main() {
       const tenant = tenantMap.get(group.tenantSlug)!;
       for (const u of group.users) {
         const legacyRole = roles.find((r) => r.name === u.legacyRole) ?? adminRole;
-        const pwHash = await hash('Password@123');
+        const pwHash = commonHash;
         let user = await prisma.user.findUnique({ where: { email: u.email } });
         if (!user) {
           user = await prisma.user.create({
@@ -220,6 +226,12 @@ async function main() {
           logger.info({ email: u.email, tenantId: tenant.id }, 'Tenant user created');
         } else if (user.tenantId !== tenant.id) {
           user = await prisma.user.update({ where: { id: user.id }, data: { tenantId: tenant.id } });
+        }
+        if (u.legacyRole === 'ADMIN' || u.roleName === 'TenantAdmin' || u.roleName === 'LoanApprover' || u.roleName === 'Validator') {
+          await prisma.tenantAdmin.upsert({ where: { id: -1 } as any, update: {}, create: { tenantId: tenant.id, userId: user.id, email: u.email } } as never).catch(async () => {
+            const exists = await prisma.tenantAdmin.findFirst({ where: { tenantId: tenant.id, userId: user.id } });
+            if (!exists) await prisma.tenantAdmin.create({ data: { tenantId: tenant.id, userId: user.id, email: u.email } });
+          });
         }
         createdUsersByEmail.set(u.email, { id: user.id, tenantId: tenant.id });
       }
@@ -319,13 +331,14 @@ async function main() {
         } else throw e;
       }
       if (shouldCreateLoans) {
-        await prisma.loanApplication.create({
+        const loanApproved = await prisma.loanApplication.create({
           data: { tenantId, userId: info.id, requestedAmount: 15000, tenureMonths: 24, purpose: 'PERSONAL', status: 'APPROVED', riskScore: 32, riskLevel: 'LOW', creditScore: 720, defaultProbability: 0.07, modelVersion: 'v1.0' },
         }).catch(async () => {
           await prisma.$executeRawUnsafe(
             `INSERT INTO "auth"."loan_applications" ("id","tenantId","userId","requestedAmount","tenureMonths","purpose","status","riskScore","riskLevel","createdAt","updatedAt") VALUES (gen_random_uuid()::text,$1,$2,15000,24,'PERSONAL','APPROVED',32,'LOW',NOW(),NOW())`,
             tenantId, info.id,
           ).catch(() => {});
+          return prisma.loanApplication.findFirst({ where: { userId: info.id, tenantId, status: 'APPROVED' } }) as any;
         });
         await prisma.loanApplication.create({
           data: { tenantId, userId: info.id, requestedAmount: 8000, tenureMonths: 12, purpose: 'EDUCATION', status: 'SUBMITTED', riskScore: 58, riskLevel: 'MEDIUM' },
@@ -335,6 +348,14 @@ async function main() {
             tenantId, info.id,
           ).catch(() => {});
         });
+        // Strict isolation + centralized tracking: create active LoanAccount for approved loan
+        try {
+          const approvedId = (loanApproved as any)?.id || (await prisma.loanApplication.findFirst({ where: { userId: info.id, tenantId, status: 'APPROVED' } }))?.id;
+          const existingAcct = await prisma.loanAccount.findFirst({ where: { userId: info.id, tenantId, loanId: approvedId } }).catch(()=>null);
+          if (!existingAcct && approvedId) {
+            await prisma.loanAccount.create({ data: { tenantId, userId: info.id, loanId: approvedId, principalAmount: 15000, outstandingBalance: 12000, monthlyEMI: 720, status: 'ACTIVE', startDate: new Date(Date.now() - 60*24*3600*1000), isActive: true } as never });
+          }
+        } catch {}
       }
       // Bank statement + transactions sample
       const stmt = await prisma.bankStatement.findFirst({ where: { userId: info.id, tenantId } });

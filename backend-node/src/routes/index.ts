@@ -15,6 +15,7 @@ import loanAssessmentRouter from '@/routes/loanAssessmentRoutes';
 import notificationRouter from '@/routes/notificationRoutes';
 import supercontrollerRouter from '@/routes/supercontrollerRoutes';
 import exportRouter from '@/routes/exportRoutes';
+import companyRouter from '@/routes/companyRoutes';
 
 export const apiRouter = Router();
 
@@ -50,6 +51,7 @@ apiRouter.use('/loan-assessment', loanAssessmentRouter);
 apiRouter.use('/notifications', notificationRouter);
 apiRouter.use('/supercontroller', supercontrollerRouter);
 apiRouter.use('/export', exportRouter);
+apiRouter.use('/company', companyRouter);
 
 // apiRouter.use('/audit', auditRoutes);   // TODO: implement audit routes
 

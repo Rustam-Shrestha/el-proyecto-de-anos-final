@@ -5,6 +5,7 @@ import { riskService } from '@/services/riskService';
 import { LoanPurpose, LoanStatus, Prisma } from '@prisma/client';
 import { notificationService } from '@/services/notificationService';
 import { finguardProxyService } from '@/services/finguardProxyService';
+import { centralRegistry } from '@/services/centralLoanRegistry';
 
 export interface ApplyLoanInput {
   requestedAmount: number;
@@ -78,7 +79,9 @@ export const loanService = {
         },
       });
 
-      // FinGuard ML prediction (non-blocking fallback to heuristic)
+      const exposure = await centralRegistry.getExposureByUser(userId).catch(()=> ({ totalOutstanding:0, totalMonthlyEMI:0, activeCount:0, loans:[] as any[] }));
+      logger.info({ userId, exposure }, "Centralized outstanding before new loan");
+      // FinGuard ML prediction (non-blocking fallback to heuristic) — include exposure
       let ml: Awaited<ReturnType<typeof finguardProxyService.evaluate>> = null;
       try {
         const employment = await prisma.employmentInfo.findUnique({ where: { userId } });
@@ -117,7 +120,7 @@ export const loanService = {
             defaultProbability: ml?.default_probability,
             modelVersion: ml?.model_version,
             shapValues: ml?.shap_summary as unknown as Prisma.InputJsonValue | undefined,
-            featureSnapshot: ml ? ({ amtIncomeTotal: features.amtIncomeTotal, amtCredit: data.requestedAmount } as unknown as Prisma.InputJsonValue) : undefined,
+            featureSnapshot: { amtIncomeTotal: features.amtIncomeTotal, amtCredit: data.requestedAmount, outstandingBefore: (exposure as any).totalOutstanding, monthlyEMIBefore: (exposure as any).totalMonthlyEMI, activeLoansBefore: (exposure as any).activeCount } as unknown as Prisma.InputJsonValue,
             mlDecision: ml?.decision,
             creditScore: ml?.credit_score,
           },

@@ -44,6 +44,18 @@ function sendInBackground(
 }
 
 export const mailService = {
+  sendMail(email: string, subject: string, text: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      transporter.sendMail({ from: defaultFrom, to: email, subject, text, html: `<p>${text}</p>` }, (err, info) => {
+        if (err) { logger.warn({ err }, "sendMail failed"); reject(err); } else resolve();
+      });
+    });
+  },
+  sendInviteMail(email: string, companyName: string, link: string): void {
+    const subject = `Invite to join ${companyName} on FinGuard`;
+    const html = `<p>You are invited to join ${companyName}. <a href="${link}">Accept invite</a> (expires in 7 days)</p>`;
+    sendInBackground(email, subject, html, `Join ${companyName}: ${link}`, "Failed to send invite");
+  },
   sendVerificationMail(email: string, token: string): void {
     const verificationUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
     const subject = 'Verify Your FinGuard Email';

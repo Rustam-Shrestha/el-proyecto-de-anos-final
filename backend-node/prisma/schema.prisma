@@ -88,6 +88,8 @@ model Tenant {
   name             String    @db.VarChar(255)
   domain           String?
   companyType      String?   @db.VarChar(50)
+  panNumber        String?   @unique @db.VarChar(10)
+  logoUrl          String?   @db.VarChar(500)
   status           String    @default("active") @db.VarChar(20)
   createdAt        DateTime  @default(now())
   createdBy        Int?
@@ -122,6 +124,51 @@ model TenantAdmin {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_admins")
+  @@schema("auth")
+}
+
+model CompanyRequest {
+  id              String   @id @default(cuid())
+  requestedBy     String
+  companyName     String   @db.VarChar(255)
+  slug            String   @unique @db.VarChar(50)
+  panNumber       String   @unique @db.VarChar(10)
+  gstin           String?  @db.VarChar(15)
+  companyType     String?  @db.VarChar(50)
+  domain          String?  @db.VarChar(255)
+  address         String?  @db.Text
+  documentUrls    Json?
+  status          String   @default("PENDING") @db.VarChar(20)
+  rejectionReason String?  @db.Text
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  tenantId        Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([requestedBy])
+  @@index([status])
+  @@index([panNumber])
+  @@map("company_requests")
+  @@schema("auth")
+}
+
+model CompanyInvite {
+  id        String   @id @default(cuid())
+  tenantId  Int
+  email     String   @db.VarChar(255)
+  role      String   @default("USER") @db.VarChar(50)
+  token     String   @unique @db.VarChar(255)
+  status    String   @default("PENDING") @db.VarChar(20)
+  invitedBy String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  acceptedAt DateTime?
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([token])
+  @@map("company_invites")
   @@schema("auth")
 }
 

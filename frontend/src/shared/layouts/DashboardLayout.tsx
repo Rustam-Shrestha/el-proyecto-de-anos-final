@@ -12,9 +12,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+    <div className="flex min-h-screen flex-col bg-[#F8FAFC] text-[#0F172A]">
       <Navbar onToggleSidebar={() => setIsSidebarOpen((value) => !value)} />
-      <div className="flex min-h-[calc(100vh-4rem)]">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         {isSidebarOpen ? (
           <button
@@ -24,8 +24,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             aria-label="Close sidebar overlay"
           />
         ) : null}
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-[1440px]">
+        <main className="flex flex-1 min-h-0 flex-col overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto flex w-full max-w-[1440px] flex-1 min-h-0 flex-col overflow-hidden">
             {children ?? <Outlet />}
           </div>
         </main>

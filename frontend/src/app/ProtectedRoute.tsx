@@ -72,5 +72,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Company gate: if user is on dashboard and has default tenant (1), force onboarding
+  const tenantId = (userData as any)?.tenantId ?? (meQuery.data as any)?.tenantId;
+  const isCompanyRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/company");
+  const isInviteRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/invite");
+  if (isAuthenticated && tenantId === 1 && !isCompanyRoute && !isInviteRoute && window.location.pathname.startsWith("/dashboard")) {
+    return <Navigate to="/company" replace />;
+  }
+
   return <>{children}</>;
 };

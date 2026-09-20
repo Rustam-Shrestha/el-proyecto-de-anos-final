@@ -58,10 +58,12 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
 
   const normalizedRole = useMemo(() => normalizeRole(userData?.role), [userData?.role]);
   const isPrivileged = normalizedRole === "admin" || normalizedRole === "reviewer";
+  const tenantName = (userData as any)?.tenant?.name || (userData as any)?.tenantName || null;
+  const tenantLogo = (userData as any)?.tenant?.logoUrl || null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#E2E8F0] bg-white/90 backdrop-blur">
-      <div className="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center border-b border-[#E2E8F0] bg-white/90 backdrop-blur">
+      <div className="flex w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -75,7 +77,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
   <img
     src="/images/logo512.png"
     alt="FinGuard logo"
-    className="h-20 w-20 rounded-[6px] object-cover p-0"
+    className="h-10 w-10 rounded-[6px] object-cover p-0"
     onError={(e) => {
       (e.currentTarget as HTMLImageElement).src = "/logo512.png";
     }}
@@ -87,6 +89,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
         </div>
 
         <div className="relative flex items-center gap-2">
+          {tenantName ? <span className="hidden md:inline-flex items-center gap-1 rounded-full border bg-green-50 px-2 py-1 text-xs font-medium text-green-700">{tenantLogo ? <img src={tenantLogo} alt={tenantName} className="h-5 w-5 rounded object-cover" onError={(e)=>{(e.currentTarget as HTMLImageElement).style.display='none'}}/> : null}{tenantName}</span> : <Link to="/company" className="hidden md:inline-flex rounded-full border bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">No Company – Setup</Link>}
           <Link
             to="/dashboard/chat"
             aria-label="Messages"

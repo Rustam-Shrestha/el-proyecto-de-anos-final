@@ -19,7 +19,7 @@ class CreditDefaultPredictor:
         self.manifest: Dict[str, Any] = {}
         self.explainer = None
 
-        # Load model
+        # Load model (xgboost separated from face; allow degraded mode)
         try:
             import joblib
             artifact = joblib.load(model_path)
@@ -28,6 +28,12 @@ class CreditDefaultPredictor:
                 self.threshold = float(artifact.get("threshold", 0.5))
             else:
                 self.model = artifact
+        except ModuleNotFoundError as e:
+            if "xgboost" in str(e):
+                logger.error(f"xgboost not installed, credit scoring will be degraded: {e}")
+                raise
+            logger.error(f"Failed to load model.pkl: {e}")
+            raise
         except Exception as e:
             logger.error(f"Failed to load model.pkl: {e}")
             raise

@@ -29,6 +29,7 @@ const userItems: MenuItem[] = [
 
 const adminItems: MenuItem[] = [
   { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
+  { label: "Company Requests", path: "/admin/company-requests", icon: Briefcase },
   { label: "SuperController", path: "/supercontroller", icon: ShieldCheck },
   { label: "Users Management", path: "/dashboard/users", icon: Users },
   { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
