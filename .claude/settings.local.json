@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd.exe *)",
+      "Bash(/bin/mkdir -p \"F:/Study Documents/studies/8th sem files/projectIII/backend-node/prisma/migrations/20260720000100_update_employment_info_schema\")",
+      "Bash(/bin/ls -d \"F:/Study Documents/studies/8th sem files/projectIII/backend-node/prisma/migrations/\")",
+      "Bash(/bin/ls *)",
+      "Bash(/bin/mkdir *)"
+    ]
+  }
+}
