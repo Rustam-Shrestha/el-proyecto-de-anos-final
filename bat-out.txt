@@ -1,0 +1,12 @@
+[2/4] Checking FastAPI venv...
+  venv OK.
+[3/4] Checking node_modules...
+  node_modules OK.
+[4/4] Starting all services in new windows...
+
+============================================================
+ All services launched:
+   FastAPI  http://localhost:8000/docs
+   Node API http://localhost:4000/api/v1
+   Frontend http://localhost:5173
+============================================================

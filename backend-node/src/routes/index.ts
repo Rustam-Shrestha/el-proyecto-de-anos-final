@@ -12,6 +12,7 @@ import transactionRouter from '@/routes/transactionRoutes';
 import financialRouter from '@/routes/financialRoutes';
 import chatbotRouter from '@/routes/chatbotRoutes';
 import loanAssessmentRouter from '@/routes/loanAssessmentRoutes';
+import loansAliasRouter from '@/routes/loansAliasRoutes';
 import notificationRouter from '@/routes/notificationRoutes';
 import supercontrollerRouter from '@/routes/supercontrollerRoutes';
 import exportRouter from '@/routes/exportRoutes';
@@ -48,6 +49,8 @@ apiRouter.use('/transactions', transactionRouter);
 apiRouter.use('/financial', financialRouter);
 apiRouter.use('/chat', chatbotRouter);
 apiRouter.use('/loan-assessment', loanAssessmentRouter);
+// Spec alias: /api/v1/loans/* (assess, predict, history)
+apiRouter.use('/loans', loansAliasRouter);
 apiRouter.use('/notifications', notificationRouter);
 apiRouter.use('/supercontroller', supercontrollerRouter);
 apiRouter.use('/export', exportRouter);

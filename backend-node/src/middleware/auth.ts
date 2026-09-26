@@ -72,3 +72,37 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction): 
     next(new AppError('Authentication failed', 500));
   }
 };
+
+/**
+ * Attaches req.user when a valid Bearer token is present, otherwise continues
+ * anonymously. Used for endpoints that are useful both authenticated and public
+ * (FinGuard NLU chat, document analysis).
+ */
+export const optionalAuthenticate = (req: Request, _res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(authHeader.slice(7), env.JWT_ACCESS_SECRET) as JwtPayload;
+    const reqTenant = (req as unknown as { tenantId?: number }).tenantId;
+    if (decoded.tenantId !== undefined && reqTenant !== undefined && decoded.tenantId !== reqTenant) {
+      logger.warn({ tokenTenant: decoded.tenantId, reqTenant }, 'Tenant mismatch in optionalAuthenticate');
+      return next();
+    }
+    req.user = {
+      id: decoded.sub,
+      email: decoded.email,
+      role: decoded.role,
+      tenantId: decoded.tenantId ?? reqTenant,
+      permissions: decoded.permissions,
+    } as unknown as typeof req.user;
+    (req as unknown as { tenantId?: number }).tenantId = decoded.tenantId ?? reqTenant;
+    (req as unknown as { permissions?: string[] }).permissions = decoded.permissions;
+    return next();
+  } catch (error) {
+    logger.debug({ err: error }, 'optionalAuthenticate: invalid token, continuing anonymously');
+    return next();
+  }
+};

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { pool } from "../src/db/pool";
 
 async function resetDatabase() {

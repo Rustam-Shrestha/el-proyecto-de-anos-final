@@ -52,11 +52,13 @@ async def lifespan(app: FastAPI):
             mp = (base / settings.ML_MODEL_PATH).resolve()
             pp = (base / settings.ML_PREPROCESSING_PATH).resolve()
             man = (base / settings.ML_MANIFEST_PATH).resolve()
+            sch = (base / settings.ML_SCHEMA_PATH).resolve()
         else:
             pp = Path(settings.ML_PREPROCESSING_PATH)
             man = Path(settings.ML_MANIFEST_PATH)
+            sch = Path(settings.ML_SCHEMA_PATH)
         if mp.exists() and pp.exists() and man.exists():
-            init_predictor(str(mp), str(man), str(pp))
+            init_predictor(str(mp), str(man), str(pp), schema_path=str(sch))
             _models_ready["finguard"] = True
             logger.info(f"FinGuard model loaded: {mp}")
         else:
@@ -103,6 +105,14 @@ def create_app() -> FastAPI:
                 "name": "health",
                 "description": "Service health and ML model readiness checks",
             },
+            {
+                "name": "finguard",
+                "description": "Credit default prediction (XGBoost) — /finguard/* and /api/v1/finguard/*",
+            },
+            {
+                "name": "nlu",
+                "description": "Natural language financial assistant — /nlu/* and /api/v1/nlu/*",
+            },
         ],
         lifespan=lifespan
     )
@@ -116,6 +126,18 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router)
+
+    # Spec aliases: mount the FinGuard + NLU routers at the service root so both
+    # /api/v1/finguard/* (legacy) and /finguard/* (spec) resolve to the same
+    # handlers. The routers already carry their own /finguard and /nlu prefixes.
+    try:
+        from app.routes.finguard import router as finguard_root_router
+        from app.routes.nlu import router as nlu_root_router
+
+        app.include_router(finguard_root_router)
+        app.include_router(nlu_root_router)
+    except Exception as e:  # pragma: no cover - defensive, api_router already has them
+        logger.warning(f"Could not mount root-level spec aliases: {e}")
 
     @app.get("/health", tags=["health"])
     async def health_check():

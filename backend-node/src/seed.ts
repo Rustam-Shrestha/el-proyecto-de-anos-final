@@ -405,6 +405,40 @@ async function main() {
     }
     logger.info('Tenant metrics seeded (30 days each)');
 
+    // ---- FinGuard ML demo data (LoanAssessment + NLU/Chat samples) ----
+    // Idempotent: only seeds when the default tenant user has no assessments yet.
+    try {
+      const demoUser = await prisma.user.findFirst({ where: { tenantId: defaultTenant.id } });
+      if (demoUser) {
+        const existingAssess = await prisma.loanAssessment.count({ where: { userId: demoUser.id, tenantId: defaultTenant.id } });
+        if (existingAssess === 0) {
+          const cases = [
+            { requestedAmount: 500000, loanTenureMonths: 24, riskLevel: 'LOW', eligibilityScore: 92, eligibleAmount: 500000, recommendation: 'APPROVE', details: { prediction: 'APPROVE', probability: 0.06, risk_score: 720, credit_score: 780, model_version: 'finguard_v1.3.0', marker: 'FINGUARD_DEMO_LOW' } },
+            { requestedAmount: 800000, loanTenureMonths: 36, riskLevel: 'MEDIUM', eligibilityScore: 64, eligibleAmount: 500000, recommendation: 'MANUAL_REVIEW', details: { prediction: 'APPROVE', probability: 0.28, risk_score: 520, credit_score: 620, model_version: 'finguard_v1.3.0', marker: 'FINGUARD_DEMO_MEDIUM' } },
+            { requestedAmount: 1500000, loanTenureMonths: 48, riskLevel: 'HIGH', eligibilityScore: 21, eligibleAmount: 0, recommendation: 'REJECT', details: { prediction: 'REJECT', probability: 0.71, risk_score: 280, credit_score: 430, model_version: 'finguard_v1.3.0', marker: 'FINGUARD_DEMO_HIGH' } },
+          ];
+          for (const c of cases) {
+            await prisma.loanAssessment.create({
+              data: { tenantId: defaultTenant.id, userId: demoUser.id, requestedAmount: c.requestedAmount, loanTenureMonths: c.loanTenureMonths, interestRateAssumed: 10.5, eligibleAmount: c.eligibleAmount, eligibilityScore: c.eligibilityScore, riskLevel: c.riskLevel, recommendation: c.recommendation, assessmentDetails: c.details as never },
+            });
+          }
+          logger.info('FinGuard LoanAssessment demo cases seeded (LOW/MEDIUM/HIGH)');
+        }
+        const existingNlu = await prisma.nluQuery.count({ where: { userId: demoUser.id, tenantId: defaultTenant.id } });
+        if (existingNlu === 0) {
+          await prisma.nluQuery.create({
+            data: { tenantId: defaultTenant.id, userId: demoUser.id, rawQuestion: 'Am I eligible for a 500000 loan?', intent: 'LOAN_ELIGIBILITY', response: 'Based on your profile you look eligible for up to 500000. Try the Risk Assessment panel for an ML score.', processingTimeMs: 42 } as never,
+          });
+          await prisma.chatConversation.create({
+            data: { tenantId: defaultTenant.id, userId: demoUser.id, sessionId: 'seed-demo-1', messages: [{ role: 'user', content: 'What affects my credit score?', timestamp: new Date().toISOString() }, { role: 'assistant', content: 'Payment history, credit utilization, and external scores (EXT_SOURCE_2/3) are the biggest drivers.', timestamp: new Date().toISOString() }] as never },
+          });
+          logger.info('FinGuard NLU + chat demo rows seeded');
+        }
+      }
+    } catch (e) {
+      logger.warn({ err: e }, 'FinGuard demo seed section skipped');
+    }
+
     logger.info('Seeding complete — tenants, users, KYC/loans, metrics ready');
   } catch (error) {
     logger.error({ err: error }, 'Seeding failed');

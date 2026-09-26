@@ -39,6 +39,7 @@ declare module '@/services/mailService' {
 
 declare module '@/middleware/auth' {
   export const authenticate: any;
+  export const optionalAuthenticate: any;
 }
 
 declare module '@/middleware/requestValidation' {

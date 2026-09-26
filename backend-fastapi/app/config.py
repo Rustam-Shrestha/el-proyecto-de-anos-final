@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     ML_MODEL_PATH: str = "../finguard_artifacts/model.pkl"
     ML_MANIFEST_PATH: str = "../finguard_artifacts/model_manifest.json"
     ML_PREPROCESSING_PATH: str = "../finguard_artifacts/preprocessing.json"
+    ML_SCHEMA_PATH: str = "../finguard_artifacts/feature-schema.json"
 
     # Logging
     LOG_LEVEL: str = "INFO"

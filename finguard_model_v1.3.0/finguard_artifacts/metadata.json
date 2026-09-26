@@ -1,0 +1,18 @@
+{
+  "modelVersion": "1.3.0",
+  "modelType": "XGBoost",
+  "createdAt": "2026-09-25T05:55:29.179381",
+  "cvFolds": 5,
+  "evaluationMetrics": {
+    "meanCVAuc": 0.7630452835731948,
+    "stdCVAuc": 0.004473850914627674,
+    "oofAuc": 0.7629852051745393,
+    "oofPrecision": 0.24688564418931472,
+    "oofRecall": 0.4175226586102719,
+    "oofSpecificity": 0.8881515179386316,
+    "oofF1": 0.31029218057717634,
+    "maxTrainValGap": 0.054409280784635805
+  },
+  "threshold": 0.3748014569282532,
+  "featureCount": 243
+}

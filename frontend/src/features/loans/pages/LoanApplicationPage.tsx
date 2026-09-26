@@ -4,6 +4,7 @@ import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { useGetMyEmployment } from "@features/loans/api/employmentApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import LoanApplicationForm from "@features/loans/components/LoanApplicationForm";
+import RiskAssessmentPanel from "@features/loans/components/RiskAssessmentPanel";
 import { Seo } from "@components/seo/Seo";
 import { Breadcrumb } from "@components/seo/Breadcrumb";
 
@@ -84,7 +85,10 @@ const LoanApplicationPage = () => {
           </Link>
         </div>
       ) : (
-        <LoanApplicationForm />
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          <LoanApplicationForm />
+          <RiskAssessmentPanel />
+        </div>
       )}
     </section>
   );
