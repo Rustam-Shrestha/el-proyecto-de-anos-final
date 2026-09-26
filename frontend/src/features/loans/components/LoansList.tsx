@@ -7,6 +7,7 @@ import { useLoansList } from "@features/loans/api/loansApi";
 import type { LoanApplication, RiskLevel } from "@shared/types/common";
 import StatusBadge from "@shared/components/StatusBadge";
 import ErrorState from "@shared/components/ErrorState";
+import { apiErrorMessage } from "@shared/utils/apiError";
 import EmptyState from "@shared/components/EmptyState";
 import { Button } from "@shared/components/Button";
 import Card from "@shared/components/Card";
@@ -30,7 +31,7 @@ const LoansList = ({ status }: LoansListProps) => {
   const totalPages = Math.max(1, Math.ceil((loansQuery.data?.total ?? 0) / limit));
 
   if (loansQuery.isLoading) return <SkeletonLoader count={6} type="table" />;
-  if (loansQuery.isError) return <ErrorState message="Failed to load loan applications" onRetry={() => loansQuery.refetch()} />;
+  if (loansQuery.isError) return <ErrorState message={apiErrorMessage(loansQuery.error, "Failed to load loan applications")} onRetry={() => loansQuery.refetch()} />;
   if (!loans.length) return <EmptyState title="No applications found" description="Try a different filter or refresh later." />;
 
   return (

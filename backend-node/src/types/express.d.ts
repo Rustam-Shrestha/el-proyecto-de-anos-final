@@ -16,12 +16,23 @@ declare global {
       query?: unknown;
     };
 
+    interface CompatScope {
+      user_id: string;
+      role: string;
+      company_id?: number;
+      customer_id?: string;
+      slug?: string;
+    }
+
     interface Request {
       user?: User;
       validated?: unknown;
       tenantId?: number;
       tenantSlug?: string;
+      /** true only when the client explicitly requested a tenant (x-tenant header, subdomain, ?tenant=) */
+      tenantExplicit?: boolean;
       permissions?: string[];
+      scope?: CompatScope;
     }
 
     interface Locals {

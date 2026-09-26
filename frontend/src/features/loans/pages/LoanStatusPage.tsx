@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLoansList } from "@features/loans/api/loansApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
+import { apiErrorMessage } from "@shared/utils/apiError";
 
 
 const statusBadgeClasses: Record<string, string> = {
@@ -75,7 +76,7 @@ const LoanStatusPage = () => {
 
       {loansQuery.isError ? (
         <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
-          Failed to load loan applications. Please try again later.
+          {apiErrorMessage(loansQuery.error, "Failed to load loan applications. Please try again later.")}
         </div>
       ) : null}
 

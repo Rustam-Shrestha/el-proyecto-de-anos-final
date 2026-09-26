@@ -1,15 +1,20 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '@/utils/AppError';
 import { logger } from '@/config/logger';
+import { normalizeRoleName } from '@/utils/roles';
 
 export const authorize = (...allowedRoles: string[]) => {
+  // Roles are compared canonically, so MD aliases (company_admin, customer, …)
+  // and any casing work everywhere. SUPERADMIN passes every gate.
+  const allowed = allowedRoles.map(normalizeRoleName);
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
       if (!req.user) {
         logger.warn('Authorization check failed - no user in request');
         return next(new AppError('Authentication required', 401));
       }
-      if (!allowedRoles.includes(req.user.role)) {
+      const actual = normalizeRoleName(req.user.role);
+      if (actual !== 'SUPERADMIN' && !allowed.includes(actual)) {
         logger.warn({ userId: req.user.id, userRole: req.user.role, requiredRoles: allowedRoles }, 'Authorization failed');
         return next(new AppError('Insufficient permissions for this action', 403));
       }

@@ -4,6 +4,7 @@ import { io, type Socket } from "socket.io-client";
 import { apiClient } from "@shared/lib/apiClient";
 import { Button } from "@shared/components/Button";
 import { useAuth } from "@store/hooks";
+import { roleLabel } from "@shared/utils/roleUtils";
 
 type ChatParticipant = {
   id: string;
@@ -219,7 +220,7 @@ const ChatPage = () => {
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-2 p-3">
               {loadingParticipants ? (
-                <p className="px-2 py-3 text-sm text-gray-500">Loading reviewers...</p>
+                <p className="px-2 py-3 text-sm text-gray-500">Loading contacts...</p>
               ) : participants.length ? (
                 participants.map((participant) => (
                   <button
@@ -233,12 +234,12 @@ const ChatPage = () => {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-gray-900">{participant.fullName}</span>
-                      <span className="block truncate text-xs text-gray-500">{participant.role}</span>
+                      <span className="block truncate text-xs text-gray-500">{roleLabel(participant.role)}{(participant as any).tenant?.name ? ` • ${(participant as any).tenant.name}` : ""}</span>
                     </span>
                   </button>
                 ))
               ) : (
-                <p className="px-2 py-3 text-sm text-gray-500">No reviewers available.</p>
+                <p className="px-2 py-3 text-sm text-gray-500">No contacts in your company yet.</p>
               )}
             </div>
 
@@ -282,7 +283,7 @@ const ChatPage = () => {
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{selectedConversation.participant?.fullName || "Conversation"}</p>
-                    <p className="text-xs text-gray-500">{selectedConversation.participant?.role || "Reviewer"}</p>
+                    <p className="text-xs text-gray-500">{selectedConversation.participant ? roleLabel(selectedConversation.participant.role) : "Conversation"}</p>
                   </div>
                 </div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">

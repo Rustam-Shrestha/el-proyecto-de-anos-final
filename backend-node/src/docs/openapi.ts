@@ -3,12 +3,12 @@ import { env } from '@/config/env';
 const openApiSpec = {
   openapi: '3.0.0',
   info: {
-    title: 'FinGuard API',
-    description: 'KYC and document verification API for FinGuard',
+    title: 'FinGuard Multi-Tenant Loan API',
+    description: 'Multi-tenant fintech platform with role-based access control (slug tenancy: /:slug/login, /:slug/apply; compat shims over /api/v1)',
     version: '1.0.0',
     contact: {
       name: 'FinGuard Support',
-      email: 'support@finguard.local',
+      email: 'support@finguard.io',
     },
   },
   servers: [

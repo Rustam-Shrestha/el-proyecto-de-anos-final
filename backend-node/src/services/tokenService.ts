@@ -6,6 +6,8 @@ export interface TokenPayload {
   email: string;
   role: string;
   tenantId?: number;
+  company_id?: number;
+  customer_id?: string;
   permissions?: string[];
   iat?: number;
   exp?: number;
@@ -56,6 +58,43 @@ export const tokenService = {
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h', algorithm: 'HS256' }
     );
+  },
+
+  /**
+   * Generate MD-compat token: {sub,email,role,company_id?,customer_id?}
+   * issuer finguard / audience finguard-app, 24h. Verifiable by both
+   * compat middleware and legacy authenticate (tenantId alias).
+   */
+  generateCompatToken(input: { sub: string; email: string; role: string; company_id?: number; customer_id?: string; tenantId?: number; permissions?: string[] }): string {
+    const tenantId = input.tenantId ?? input.company_id;
+    return jwt.sign(
+      {
+        sub: input.sub,
+        email: input.email,
+        role: input.role,
+        ...(tenantId !== undefined ? { tenantId, company_id: tenantId } : {}),
+        ...(input.customer_id ? { customer_id: input.customer_id } : {}),
+        ...(input.permissions ? { permissions: input.permissions } : {}),
+      },
+      env.JWT_ACCESS_SECRET,
+      { expiresIn: '24h', algorithm: 'HS256', issuer: 'finguard', audience: 'finguard-app' } as jwt.SignOptions,
+    );
+  },
+
+  /**
+   * Verify MD-compat token (tries issuer/audience first, falls back to plain verify
+   * so legacy tokens without iss/aud still work).
+   */
+  verifyCompatToken(token: string): TokenPayload | null {
+    try {
+      return jwt.verify(token, env.JWT_ACCESS_SECRET, { issuer: 'finguard', audience: 'finguard-app' } as jwt.VerifyOptions) as TokenPayload;
+    } catch {
+      try {
+        return jwt.verify(token, env.JWT_ACCESS_SECRET) as TokenPayload;
+      } catch {
+        return null;
+      }
+    }
   },
 
   /**

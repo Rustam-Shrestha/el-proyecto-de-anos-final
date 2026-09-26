@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '@/config/env';
 import { AppError } from '@/utils/AppError';
 import { logger } from '@/config/logger';
+import { normalizeRoleName } from '@/utils/roles';
 
 interface JwtPayload {
   sub: string;
@@ -38,21 +39,25 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction): 
     try {
       const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload;
 
-      // Attach user to request (propagate tenantId/permissions + enforce mismatch)
+      // The token's own tenant always wins. "Tenant mismatch" fires ONLY when
+      // the client explicitly requested a different tenant (x-tenant header /
+      // subdomain / ?tenant=) — never for the silent default-tenant fallback.
       const reqTenant = (req as unknown as { tenantId?: number }).tenantId;
-      if (decoded.tenantId !== undefined && reqTenant !== undefined && decoded.tenantId !== reqTenant) {
+      const explicit = (req as unknown as { tenantExplicit?: boolean }).tenantExplicit === true;
+      if (explicit && decoded.tenantId !== undefined && reqTenant !== undefined && decoded.tenantId !== reqTenant) {
         logger.warn({ tokenTenant: decoded.tenantId, reqTenant }, 'Tenant mismatch in authenticate');
-        return next(new AppError('Tenant mismatch', 403));
+        return next(new AppError('Tenant mismatch: this account belongs to another company', 403));
       }
+      const effectiveTenant = decoded.tenantId ?? reqTenant;
       req.user = {
         id: decoded.sub,
         email: decoded.email,
-        role: decoded.role,
-        tenantId: decoded.tenantId ?? reqTenant,
+        role: normalizeRoleName(decoded.role),
+        tenantId: effectiveTenant,
         permissions: decoded.permissions,
       } as unknown as typeof req.user;
       // expose merged tenantId for downstream handlers
-      (req as unknown as { tenantId?: number }).tenantId = decoded.tenantId ?? reqTenant;
+      (req as unknown as { tenantId?: number }).tenantId = effectiveTenant;
       (req as unknown as { permissions?: string[] }).permissions = decoded.permissions;
 
       next();
@@ -87,14 +92,15 @@ export const optionalAuthenticate = (req: Request, _res: Response, next: NextFun
   try {
     const decoded = jwt.verify(authHeader.slice(7), env.JWT_ACCESS_SECRET) as JwtPayload;
     const reqTenant = (req as unknown as { tenantId?: number }).tenantId;
-    if (decoded.tenantId !== undefined && reqTenant !== undefined && decoded.tenantId !== reqTenant) {
+    const explicit = (req as unknown as { tenantExplicit?: boolean }).tenantExplicit === true;
+    if (explicit && decoded.tenantId !== undefined && reqTenant !== undefined && decoded.tenantId !== reqTenant) {
       logger.warn({ tokenTenant: decoded.tenantId, reqTenant }, 'Tenant mismatch in optionalAuthenticate');
       return next();
     }
     req.user = {
       id: decoded.sub,
       email: decoded.email,
-      role: decoded.role,
+      role: normalizeRoleName(decoded.role),
       tenantId: decoded.tenantId ?? reqTenant,
       permissions: decoded.permissions,
     } as unknown as typeof req.user;

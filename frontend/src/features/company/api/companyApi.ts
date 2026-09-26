@@ -7,8 +7,11 @@ export const companyApi = {
   allRequests: (status?: string) => apiClient.get("/company/requests", { params: status ? { status } : {} }).then(r => r.data.data),
   approve: (id: string) => apiClient.post(`/company/requests/${id}/approve`).then(r => r.data.data),
   reject: (id: string, reason: string) => apiClient.post(`/company/requests/${id}/reject`, { reason }).then(r => r.data.data),
-  join: (tenantId: number) => apiClient.post("/company/join", { tenantId }).then(r => r.data.data),
+  join: (tenantId: number, code?: string) => apiClient.post("/company/join", { tenantId, code }).then(r => r.data.data),
+  requestJoin: (tenantId: number) => apiClient.post("/company/request-join", { tenantId }).then(r => r.data.data),
   invite: (email: string, role?: string) => apiClient.post("/company/invites", { email, role }).then(r => r.data.data),
   acceptInvite: (token: string) => apiClient.post("/company/invites/accept", { token }).then(r => r.data.data),
+  acceptCode: (code: string, tenantId?: number) => apiClient.post("/company/invites/accept-code", { code, tenantId }).then(r => r.data.data),
+  leave: () => apiClient.post("/company/leave").then(r => r.data.data),
   meTenant: () => apiClient.get("/company/me").then(r => r.data.data),
 };

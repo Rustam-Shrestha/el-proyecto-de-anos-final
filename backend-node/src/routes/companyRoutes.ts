@@ -2,9 +2,13 @@ import { Router } from "express";
 import { z } from "zod";
 import { authenticate } from "@/middleware/auth";
 import { authorize } from "@/middleware/rbac";
+import { requireSupercontroller } from "@/middleware/requireSupercontroller";
 import { validate } from "@/middleware/requestValidation";
 import { companyService } from "@/services/tenant/companyService";
 import { prisma } from "@/config/database";
+
+// PAN is collected as typed (any reasonable format: 5-15 letters/digits).
+const panField = z.string().min(5, "PAN looks too short").max(20, "PAN looks too long");
 
 const router = Router();
 
@@ -24,7 +28,7 @@ const requestSchema = z.object({
   body: z.object({
     companyName: z.string().min(2),
     slug: z.string().min(2).regex(/^[a-z0-9-]+$/),
-    panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, "Invalid PAN"),
+    panNumber: panField,
     companyType: z.string().optional(),
     address: z.string().optional(),
     gstin: z.string().optional(),
@@ -47,7 +51,8 @@ router.get("/requests/my", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.get("/requests", authorize("ADMIN", "REVIEWER", "SUPERCONTROLLER"), async (req, res, next) => {
+// Creating a company (approving a request) is a platform privilege: superadmin only.
+router.get("/requests", requireSupercontroller, async (req, res, next) => {
   try {
     const status = req.query.status as string | undefined;
     const data = await companyService.listRequests(status);
@@ -55,14 +60,14 @@ router.get("/requests", authorize("ADMIN", "REVIEWER", "SUPERCONTROLLER"), async
   } catch (e) { next(e); }
 });
 
-router.post("/requests/:id/approve", authorize("ADMIN", "REVIEWER", "SUPERCONTROLLER"), async (req, res, next) => {
+router.post("/requests/:id/approve", requireSupercontroller, async (req, res, next) => {
   try {
     const tenant = await companyService.approveRequest(req.params.id, req.user!.id);
     res.json({ success: true, data: tenant });
   } catch (e) { next(e); }
 });
 
-router.post("/requests/:id/reject", authorize("ADMIN", "REVIEWER", "SUPERCONTROLLER"), async (req, res, next) => {
+router.post("/requests/:id/reject", requireSupercontroller, async (req, res, next) => {
   try {
     const { reason } = req.body;
     if (!reason) return res.status(400).json({ success: false, message: "reason required" });
@@ -71,15 +76,18 @@ router.post("/requests/:id/reject", authorize("ADMIN", "REVIEWER", "SUPERCONTROL
   } catch (e) { next(e); }
 });
 
-// invite
-router.post("/invites", async (req, res, next) => {
+// invite a member by email (ADMIN any role, REVIEWER customers only — enforced in service)
+router.post("/invites", authorize("ADMIN", "REVIEWER"), async (req, res, next) => {
   try {
     const { email, role } = req.body;
     if (!email) return res.status(400).json({ success: false, message: "email required" });
     const tenantId = (req.user as any).tenantId;
-    if (!tenantId || tenantId === 1) return res.status(400).json({ success: false, message: "Join or create a company first" });
-    // only admin/reviewer of that tenant can invite - check tenantAdmin or role
-    const data = await companyService.inviteUser(tenantId, email, req.user!.id, role);
+    if (!tenantId) return res.status(400).json({ success: false, message: "Join or create a company first" });
+    const tenant = await prisma.tenant.findUnique({ where: { id: Number(tenantId) } });
+    if (!tenant || (tenant as any).slug === "default") {
+      return res.status(400).json({ success: false, message: "Join or create a company first" });
+    }
+    const data = await companyService.inviteUser(Number(tenantId), email, req.user!.id, role);
     res.json({ success: true, data });
   } catch (e) { next(e); }
 });
@@ -88,17 +96,44 @@ router.post("/invites/accept", async (req, res, next) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ success: false, message: "token required" });
-    const tenant = await companyService.acceptInvite(token, req.user!.id);
-    res.json({ success: true, data: tenant });
+    const data = await companyService.acceptInvite(token, req.user!.id);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+});
+
+// accept with the 6-digit emailed code
+router.post("/invites/accept-code", async (req, res, next) => {
+  try {
+    const { code, tenantId } = req.body;
+    if (!code) return res.status(400).json({ success: false, message: "Enter the 6-digit code from your email" });
+    const data = await companyService.joinWithCode(req.user!.id, code, tenantId ? Number(tenantId) : undefined);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+});
+
+// "urge to join": open company -> joined; code company -> code emailed automatically
+router.post("/request-join", async (req, res, next) => {
+  try {
+    const { tenantId } = req.body;
+    if (!tenantId) return res.status(400).json({ success: false, message: "tenantId required" });
+    const data = await companyService.requestJoin(Number(tenantId), req.user!.id);
+    res.json({ success: true, data });
   } catch (e) { next(e); }
 });
 
 router.post("/join", async (req, res, next) => {
   try {
-    const { tenantId } = req.body;
+    const { tenantId, code } = req.body;
     if (!tenantId) return res.status(400).json({ success: false, message: "tenantId required" });
-    const tenant = await companyService.joinPublicTenant(req.user!.id, Number(tenantId));
-    res.json({ success: true, data: tenant });
+    const data = await companyService.joinPublicTenant(req.user!.id, Number(tenantId), code);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+});
+
+router.post("/leave", async (req, res, next) => {
+  try {
+    const data = await companyService.leaveTenant(req.user!.id);
+    res.json({ success: true, data });
   } catch (e) { next(e); }
 });
 

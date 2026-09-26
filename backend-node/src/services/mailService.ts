@@ -15,7 +15,9 @@ const transporter: Transporter = isSmtpConfigured
     })
   : nodemailer.createTransport({ jsonTransport: true });
 
-const defaultFrom = 'noreply@finguard.local';
+// Gmail (and most providers) require the From address to match the
+// authenticated account, otherwise sends are rejected.
+const defaultFrom = env.SMTP_USER || 'noreply@finguard.local';
 
 function sendInBackground(
   to: string,
@@ -51,10 +53,28 @@ export const mailService = {
       });
     });
   },
-  sendInviteMail(email: string, companyName: string, link: string): void {
-    const subject = `Invite to join ${companyName} on FinGuard`;
-    const html = `<p>You are invited to join ${companyName}. <a href="${link}">Accept invite</a> (expires in 7 days)</p>`;
-    sendInBackground(email, subject, html, `Join ${companyName}: ${link}`, "Failed to send invite");
+  /**
+   * Invitation mail for a company. Always mentions the 6-digit invitation
+   * code for that company (the user types it in the app); the accept link
+   * is included as a shortcut.
+   */
+  sendInviteMail(email: string, companyName: string, link: string, code?: string): void {
+    const subject = `Invitation code for ${companyName} — FinGuard`;
+    const codeBlock = code
+      ? `<p style="font-size:14px;color:#374151;">Your invitation code for <strong>${companyName}</strong>:</p>
+         <p style="font-size:32px;font-weight:800;letter-spacing:8px;color:#166534;">${code}</p>
+         <p style="font-size:13px;color:#6b7280;">Open FinGuard → Company Setup → enter this code to join ${companyName}. Code expires in 7 days.</p>`
+      : ``;
+    const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;">
+      <h2 style="color:#111827;margin:0 0 8px;">You are invited to join ${companyName}</h2>
+      ${codeBlock}
+      <p style="margin:20px 0;"><a href="${link}" style="background-color:#15803d;color:#fff;padding:12px 20px;text-decoration:none;border-radius:8px;font-weight:600;">Accept invite online</a></p>
+      <p style="color:#6b7280;font-size:13px;">Or paste this link: ${link}</p>
+    </div>`;
+    const text = [`You are invited to join ${companyName}.`,
+      code ? `Invitation code for ${companyName}: ${code} (enter it in FinGuard → Company Setup)` : null,
+      `Accept online: ${link}`, 'Code/link expires in 7 days.'].filter(Boolean).join('\n');
+    sendInBackground(email, subject, html, text, "Failed to send invite");
   },
   sendVerificationMail(email: string, token: string): void {
     const verificationUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;

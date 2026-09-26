@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '@/config/env';
 import { AppError } from '@/utils/AppError';
 import { prisma } from '@/config/database';
+import { normalizeRoleName } from '@/utils/roles';
 
 interface JwtPayload { sub: string; email: string; role: string; tenantId?: number; permissions?: string[] }
 
@@ -14,11 +15,12 @@ export async function requireSupercontroller(req: Request, _res: Response, next:
     let decoded: JwtPayload;
     try { decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload; } catch { return next(new AppError('Invalid token', 401)); }
 
-    // supercontroller is also stored in public.supercontroller - check if email exists there
+    // Platform access is granted ONLY to rows in public.supercontroller or to
+    // the SUPERADMIN role. A tenant ADMIN must never reach platform routes —
+    // that bypass was the "slug admin == finguard admin" bug.
     const isSuper = await (prisma as unknown as { supercontroller: { findUnique: (a: unknown) => Promise<unknown> } }).supercontroller.findUnique({ where: { email: decoded.email } }).then(Boolean).catch(() => false);
-    // also allow legacy ADMIN with tenantId undefined or role hierarchyLevel 0
-    const hasPerm = decoded.permissions?.includes('tenants.create') || decoded.permissions?.includes('tenants.read') || decoded.role === 'ADMIN' || decoded.role === 'Supercontroller';
-    if (!isSuper && !hasPerm) return next(new AppError('Supercontroller access required', 403));
+    const hasSuperRole = normalizeRoleName(decoded.role) === 'SUPERADMIN';
+    if (!isSuper && !hasSuperRole) return next(new AppError('Supercontroller access required', 403));
 
     // attach supercontroller id if found
     if (isSuper) {

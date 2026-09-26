@@ -6,6 +6,7 @@ import swaggerUi from "swagger-ui-express";
 import pinoHttp from "pino-http";
 import passport from "passport";
 import { apiRouter } from "@routes/index";
+import slugCompatRouter from "@routes/slugCompatRoutes";
 import { env } from "@config/env";
 import { logger } from "@config/logger";
 import { errorHandler } from "@middleware/errorHandler";
@@ -44,7 +45,12 @@ app.use(passport.initialize());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
+// MD-compat alias: FINGUARD_MULTITENANT_COMPLETE_FIX Part 9 expects /api-docs
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 app.use("/api/v1", apiRouter);
+// MD-compat root routes: POST /login, POST /:slug/login, POST /:slug/apply, ...
+// Must be after /api/v1 + /docs so versioned routes keep priority.
+app.use("/", slugCompatRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

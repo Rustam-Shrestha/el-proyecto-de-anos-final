@@ -18,6 +18,11 @@ export async function tenantContext(req: Request, _res: Response, next: NextFunc
       tenantSlug = req.query.tenant as string | undefined;
     }
 
+    // Remember whether the client explicitly asked for a tenant. The silent
+    // default fallback must NEVER cause "Tenant mismatch" downstream — the
+    // JWT's own tenant wins unless an explicit tenant was requested.
+    req.tenantExplicit = Boolean(tenantSlug);
+
     // fallback to default tenant (soft tenancy) - ensures non-breaking for existing clients
     if (!tenantSlug) {
       tenantSlug = DEFAULT_TENANT_SLUG;

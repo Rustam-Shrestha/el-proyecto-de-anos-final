@@ -23,7 +23,7 @@ const RegisterPage = () => {
             <img src="..\..\..\public\logo512.png" alt="FinGuard logo" className="mx-auto h-20 w-20 rounded-[6px] object-cover p-0" />
             {/* <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">Finguard Access</p> */}
             <h1 className="text-3xl font-semibold text-[var(--text-color)]">Create Account</h1>
-            <p className="text-sm text-gray-500 ">Register to continue</p>
+            <p className="text-sm text-gray-500 ">You are registering as a <span className="font-semibold text-green-700">Customer</span>. Staff accounts (Company Admin, Reviewer) are created by invitation email only.</p>
           </div>
 
           <RegisterForm />

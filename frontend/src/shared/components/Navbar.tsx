@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { Menu, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@store/hooks";
 import { Button } from "@components/common/Button";
 import { resolveAvatarUrl } from "@shared/lib/avatar";
 import { NotificationBell } from "@features/notifications/components/NotificationBell";
 import { MessageIcon } from "../../assets/data/icons";
-import { normalizeRole } from "@shared/utils/roleUtils";
+import { roleKind, roleLabel } from "@shared/utils/roleUtils";
+import { companyApi } from "@features/company/api/companyApi";
 
 type NavbarProps = {
   onToggleSidebar: () => void;
@@ -50,16 +52,24 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
     return colors[index];
   }, [displayName]);
 
-  const roleLabel = useMemo(() => {
-    const role = userData?.role;
-    if (!role) return "Account";
-    return role.charAt(0) + role.slice(1).toLowerCase();
-  }, [userData?.role]);
+  // Explicit role badge: Super Admin / Company Admin / Reviewer / Customer
+  const badge = useMemo(() => (userData?.role ? roleLabel(userData.role) : "Account"), [userData?.role]);
 
-  const normalizedRole = useMemo(() => normalizeRole(userData?.role), [userData?.role]);
-  const isPrivileged = normalizedRole === "admin" || normalizedRole === "reviewer";
-  const tenantName = (userData as any)?.tenant?.name || (userData as any)?.tenantName || null;
-  const tenantLogo = (userData as any)?.tenant?.logoUrl || null;
+  const kind = useMemo(() => roleKind(userData?.role), [userData?.role]);
+  const isPrivileged = kind === "admin" || kind === "reviewer" || kind === "superadmin";
+  // Company emblem: always fresh from /company/me so members see slug+logo,
+  // never a stale "No Company" label after joining.
+  const tenantQuery = useQuery({
+    queryKey: ["company", "me"],
+    queryFn: () => companyApi.meTenant(),
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+  const tenant = (tenantQuery.data as any) || (userData as any)?.tenant || null;
+  const inCompany = Boolean(tenant && tenant.slug && tenant.slug !== "default");
+  const tenantName = inCompany ? tenant.name : null;
+  const tenantSlug = inCompany ? tenant.slug : null;
+  const tenantLogo = inCompany ? tenant.logoUrl || null : null;
 
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center border-b border-[#E2E8F0] bg-white/90 backdrop-blur">
@@ -89,7 +99,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
         </div>
 
         <div className="relative flex items-center gap-2">
-          {tenantName ? <span className="hidden md:inline-flex items-center gap-1 rounded-full border bg-green-50 px-2 py-1 text-xs font-medium text-green-700">{tenantLogo ? <img src={tenantLogo} alt={tenantName} className="h-5 w-5 rounded object-cover" onError={(e)=>{(e.currentTarget as HTMLImageElement).style.display='none'}}/> : null}{tenantName}</span> : <Link to="/company" className="hidden md:inline-flex rounded-full border bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">No Company – Setup</Link>}
+          {tenantName ? <Link to="/company" title={`Company slug: ${tenantSlug}`} className="hidden md:inline-flex items-center gap-1 rounded-full border bg-green-50 px-2 py-1 text-xs font-medium text-green-700">{tenantLogo ? <img src={tenantLogo} alt={tenantName} className="h-5 w-5 rounded object-cover" onError={(e)=>{(e.currentTarget as HTMLImageElement).style.display='none'}}/> : null}{tenantName}<span className="text-green-500">@{tenantSlug}</span></Link> : <Link to="/company" className="hidden md:inline-flex rounded-full border bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">No Company – Setup</Link>}
           <Link
             to="/dashboard/chat"
             aria-label="Messages"
@@ -118,7 +128,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
             </span>
             <span className="hidden sm:block">
               <span className="block text-sm font-semibold leading-4">{displayName}</span>
-              <span className="block text-xs text-gray-500">{roleLabel}</span>
+              <span className="block text-xs text-gray-500">{badge}</span>
             </span>
           </button>
 

@@ -92,32 +92,56 @@ const resolveParticipants = (context: unknown): string[] => {
 };
 
 export const chatbotService = {
+  /**
+   * Who can chat with whom (same company only):
+   * - customers (USER) see their company's ADMIN + REVIEWER staff
+   * - staff (ADMIN/REVIEWER) see fellow staff in the same company — never customers
+   * - platform SUPERADMIN sees staff across companies
+   */
   async listParticipants(userId: string) {
+    const { normalizeRoleName } = await import('@/utils/roles');
     const requester = await prisma.user.findUnique({
       where: { id: userId },
-      select: { role: { select: { name: true } } },
+      select: { tenantId: true, role: { select: { name: true } } },
     });
+    const requesterRole = normalizeRoleName((requester as any)?.role?.name);
+    const requesterTenant = (requester as any)?.tenantId as number | null;
 
-    const targetRoles = requester?.role?.name === 'USER' ? ['ADMIN', 'REVIEWER'] : ['USER'];
+    let where: any;
+    if (requesterRole === 'SUPERADMIN') {
+      where = { isDeleted: false, role: { name: { in: ['ADMIN', 'REVIEWER'] } } };
+    } else if (requesterRole === 'USER') {
+      where = { isDeleted: false, tenantId: requesterTenant ?? undefined, role: { name: { in: ['ADMIN', 'REVIEWER'] } } };
+    } else {
+      // staff: fellow staff of the same company
+      where = { isDeleted: false, tenantId: requesterTenant ?? undefined, role: { name: { in: ['ADMIN', 'REVIEWER'] } } };
+    }
 
     const users = await prisma.user.findMany({
-      where: { isDeleted: false, role: { name: { in: targetRoles } } },
+      where,
       select: {
         id: true,
         email: true,
+        tenantId: true,
         role: { select: { name: true } },
         profile: { select: { fullName: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
+    const tenantIds = [...new Set(users.map((u) => (u as any).tenantId).filter(Boolean))];
+    const tenants = tenantIds.length
+      ? await (prisma as any).tenant.findMany({ where: { id: { in: tenantIds } }, select: { id: true, name: true, slug: true } })
+      : [];
+    const tenantById = new Map(tenants.map((t: any) => [t.id, t]));
 
     return users
       .filter((user) => user.id !== userId)
       .map((user) => ({
         id: user.id,
         email: user.email,
-        fullName: user.profile?.fullName || user.email.split('@')[0],
-        role: user.role.name,
+        fullName: (user as any).profile?.fullName || user.email.split('@')[0],
+        role: normalizeRoleName((user as any).role.name),
+        tenant: tenantById.get((user as any).tenantId) ?? null,
       }));
   },
 

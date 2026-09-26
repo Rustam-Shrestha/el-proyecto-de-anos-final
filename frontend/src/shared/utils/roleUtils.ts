@@ -9,3 +9,24 @@ export const normalizeRole = (role?: RoleLike): string => {
   }
   return "";
 };
+
+export type RoleKind = "superadmin" | "admin" | "reviewer" | "user";
+
+/** Canonical UI grouping. company_admin->admin, customer->user, supercontroller->superadmin. */
+export const roleKind = (role?: RoleLike): RoleKind => {
+  const raw = normalizeRole(role).replace(/[\s-]+/g, "_");
+  if (raw === "superadmin" || raw === "supercontroller" || raw === "super_admin") return "superadmin";
+  if (raw === "admin" || raw === "company_admin" || raw === "tenantadmin" || raw === "tenant_admin") return "admin";
+  if (raw === "reviewer" || raw === "validator" || raw === "loanapprover" || raw === "loan_approver" || raw === "employee") return "reviewer";
+  return "user";
+};
+
+/** Explicit human label — every logged-in account shows who it is. */
+export const roleLabel = (role?: RoleLike): string => {
+  switch (roleKind(role)) {
+    case "superadmin": return "Super Admin";
+    case "admin": return "Company Admin";
+    case "reviewer": return "Reviewer";
+    default: return "Customer";
+  }
+};

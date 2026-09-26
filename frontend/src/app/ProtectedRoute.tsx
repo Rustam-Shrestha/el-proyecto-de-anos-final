@@ -72,11 +72,15 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Company gate: if user is on dashboard and has default tenant (1), force onboarding
+  // Company gate: members of the default tenant must pick a company first.
+  // The platform owner lives on the default tenant permanently — never gate them.
   const tenantId = (userData as any)?.tenantId ?? (meQuery.data as any)?.tenantId;
+  const tenantSlug = (userData as any)?.tenant?.slug ?? (meQuery.data as any)?.tenant?.slug;
+  const gated = tenantSlug ? tenantSlug === "default" : tenantId === 1;
+  const isSuper = Boolean((userData as any)?.isSuperUser ?? (meQuery.data as any)?.isSuperUser);
   const isCompanyRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/company");
   const isInviteRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/invite");
-  if (isAuthenticated && tenantId === 1 && !isCompanyRoute && !isInviteRoute && window.location.pathname.startsWith("/dashboard")) {
+  if (isAuthenticated && !isSuper && gated && !isCompanyRoute && !isInviteRoute && window.location.pathname.startsWith("/dashboard")) {
     return <Navigate to="/company" replace />;
   }
 

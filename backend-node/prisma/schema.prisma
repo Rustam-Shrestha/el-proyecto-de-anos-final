@@ -88,9 +88,11 @@ model Tenant {
   name             String    @db.VarChar(255)
   domain           String?
   companyType      String?   @db.VarChar(50)
-  panNumber        String?   @unique @db.VarChar(10)
+  panNumber        String?   @unique @db.VarChar(30)
   logoUrl          String?   @db.VarChar(500)
   status           String    @default("active") @db.VarChar(20)
+  // how members join: 'open' (one tap) or 'code' (6-digit emailed invitation code)
+  joinMode         String    @default("code") @db.VarChar(10)
   createdAt        DateTime  @default(now())
   createdBy        Int?
   subscriptionTier String?   @db.VarChar(50)
@@ -132,7 +134,7 @@ model CompanyRequest {
   requestedBy     String
   companyName     String   @db.VarChar(255)
   slug            String   @unique @db.VarChar(50)
-  panNumber       String   @unique @db.VarChar(10)
+  panNumber       String   @unique @db.VarChar(30)
   gstin           String?  @db.VarChar(15)
   companyType     String?  @db.VarChar(50)
   domain          String?  @db.VarChar(255)
@@ -159,6 +161,8 @@ model CompanyInvite {
   email     String   @db.VarChar(255)
   role      String   @default("USER") @db.VarChar(50)
   token     String   @unique @db.VarChar(255)
+  // 6-digit numeric invitation code emailed to the invitee
+  code      String?  @db.VarChar(6)
   status    String   @default("PENDING") @db.VarChar(20)
   invitedBy String
   expiresAt DateTime

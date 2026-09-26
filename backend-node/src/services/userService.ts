@@ -185,6 +185,11 @@ export const userService = {
       const mapped: any = mapUserProfile(user);
       mapped.tenantId = (user as any).tenantId;
       mapped.tenant = tenant;
+      // platform flag: row in public.supercontroller (drives the Platform nav section)
+      try {
+        const sc = await (prisma as any).supercontroller?.findUnique?.({ where: { email: (user as any).email } });
+        mapped.isSuperUser = Boolean(sc);
+      } catch { mapped.isSuperUser = false; }
       return mapped;
     } catch (error) {
       if (error instanceof AppError) throw error;

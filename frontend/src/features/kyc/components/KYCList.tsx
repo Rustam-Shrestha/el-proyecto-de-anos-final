@@ -6,6 +6,7 @@ import { KYCDetailsModal } from "@features/kyc/components/KYCDetailsModal";
 import type { KYCApplication } from "@shared/types/common";
 import StatusBadge from "@shared/components/StatusBadge";
 import ErrorState from "@shared/components/ErrorState";
+import { apiErrorMessage } from "@shared/utils/apiError";
 import EmptyState from "@shared/components/EmptyState";
 import { Button } from "@shared/components/Button";
 import Card from "@shared/components/Card";
@@ -27,7 +28,7 @@ const KYCList = ({ status }: KYCListProps) => {
   const totalPages = Math.max(1, Math.ceil((applicationsQuery.data?.total ?? 0) / limit));
 
   if (applicationsQuery.isLoading) return <SkeletonLoader count={6} type="table" />;
-  if (applicationsQuery.isError) return <ErrorState message="Failed to load KYC applications" onRetry={() => applicationsQuery.refetch()} />;
+  if (applicationsQuery.isError) return <ErrorState message={apiErrorMessage(applicationsQuery.error, "Failed to load KYC applications")} onRetry={() => applicationsQuery.refetch()} />;
   if (!applications.length) return <EmptyState title="No applications found" description="Try a different filter or refresh later." />;
 
   return (

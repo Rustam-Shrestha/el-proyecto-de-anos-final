@@ -2,6 +2,7 @@ import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@app/ProtectedRoute";
 import { RoleProtectedRoute } from "@app/RoleProtectedRoute";
+import { DashboardIndex } from "@app/DashboardIndex";
 import { DashboardLayout } from "@shared/layouts/DashboardLayout";
 import ErrorPage from "../pages/ErrorPage";
 import UnauthorizedPage from "../pages/UnauthorizedPage";
@@ -19,7 +20,6 @@ const LoanApplicationPage = lazy(() => import("@features/loans/pages/LoanApplica
 const LoanStatusPage = lazy(() => import("@features/loans/pages/LoanStatusPage"));
 const LoanOfficerDashboardPage = lazy(() => import("@features/loans/pages/LoanOfficerDashboardPage"));
 const ReportsPage = lazy(() => import("@features/dashboard/pages/ReportsPage"));
-const DashboardPage = lazy(() => import("@pages/DashboardPage"));
 const FinguardDashboardPage = lazy(() => import("@features/finguard/pages/FinguardDashboardPage"));
 const PortfolioPage = lazy(() => import("@features/loans/pages/PortfolioPage"));
 const PortfolioAdminListPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminListPage"));
@@ -33,6 +33,10 @@ const SupercontrollerDashboardPage = lazy(() => import("@features/supercontrolle
 const SupercontrollerLoginPage = lazy(() => import("@features/supercontroller/pages/SupercontrollerLoginPage"));
 const CompanyOnboardingPage = lazy(() => import("@features/company/pages/CompanyOnboardingPage"));
 const AdminCompanyRequestsPage = lazy(() => import("@features/company/pages/AdminCompanyRequestsPage"));
+// Multi-tenant compat pages (MD Part 12): slug-scoped login + customer apply.
+const SlugLoginPage = lazy(() => import("@features/auth/pages/SlugLoginPage"));
+const SlugCustomerLoginPage = lazy(() => import("@features/auth/pages/SlugCustomerLoginPage"));
+const CustomerApplyPage = lazy(() => import("@features/loans/pages/CustomerApplyPage"));
 
 export const router = createBrowserRouter([
   {
@@ -53,8 +57,8 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
-                <DashboardPage />
+              <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer", "superadmin"]}>
+                <DashboardIndex />
               </RoleProtectedRoute>
             )
           },
@@ -117,7 +121,7 @@ export const router = createBrowserRouter([
           {
             path: "profile",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer", "superadmin"]}>
                 <ProfilePage />
               </RoleProtectedRoute>
             )
@@ -182,6 +186,11 @@ export const router = createBrowserRouter([
       },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
+      // Multi-tenant compat routes (MD Part 12). Static routes rank above
+      // these dynamic segments, so /login, /apply, etc. are unaffected.
+      { path: "/:slug/login", element: <SlugLoginPage /> },
+      { path: "/:slug/customer/login", element: <SlugCustomerLoginPage /> },
+      { path: "/:slug/apply", element: <CustomerApplyPage /> },
       { path: "/auth", element: <Navigate to="/login" replace /> },
       { path: "/supercontroller/login", element: <SupercontrollerLoginPage /> },
       {
@@ -195,11 +204,12 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        // Platform only: approving new-company requests creates tenants.
         path: "/admin/company-requests",
         element: (
           <ProtectedRoute>
             <DashboardLayout>
-              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+              <RoleProtectedRoute requiredRoles={["superadmin"]}>
                 <AdminCompanyRequestsPage />
               </RoleProtectedRoute>
             </DashboardLayout>
@@ -211,7 +221,9 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <DashboardLayout>
-              <SupercontrollerDashboardPage />
+              <RoleProtectedRoute requiredRoles={["superadmin"]}>
+                <SupercontrollerDashboardPage />
+              </RoleProtectedRoute>
             </DashboardLayout>
           </ProtectedRoute>
         ),
