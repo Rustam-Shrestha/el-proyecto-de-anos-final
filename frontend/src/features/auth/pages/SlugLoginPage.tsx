@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import axios from "axios";
 import { env } from "@shared/lib/env";
+import { useAppDispatch } from "@hooks/reduxHooks";
+import { setTokens, setUser } from "@store/slices/authSlice";
 
 /**
  * Multi-tenant staff login — MD Part 12 (`/:slug/login`, e.g. `/hdfc/login`).
@@ -19,6 +21,7 @@ const apiRoot = (env.VITE_API_BASE_URL || "").replace(/\/api\/v1\/?$/, "") || "h
 const SlugLoginPage: React.FC = () => {
   const { slug = "" } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const brand = BRANDING[slug.toLowerCase()] ?? { name: slug.toUpperCase(), color: "#1f2937" };
 
   const [email, setEmail] = useState("");
@@ -39,6 +42,14 @@ const SlugLoginPage: React.FC = () => {
       if (refresh) localStorage.setItem("refreshToken", refresh);
       localStorage.setItem("tenantSlug", slug);
       if (payload?.user) localStorage.setItem("slugUser", JSON.stringify(payload.user));
+      // Unify with the standard session: redux drives RoleProtectedRoute,
+      // Navbar badge and the company emblem (same as auth/index.tsx).
+      if (access) {
+        dispatch(setTokens({ accessToken: access, refreshToken: refresh ?? "" }));
+      }
+      if (payload?.user) {
+        dispatch(setUser({ ...payload.user, tenantSlug: slug }));
+      }
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       const msg =

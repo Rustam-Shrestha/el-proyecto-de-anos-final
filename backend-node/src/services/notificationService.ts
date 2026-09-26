@@ -1,5 +1,6 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
+import { getIO } from '@/config/socket';
 import type { NotificationStatus, NotificationType } from '@prisma/client';
 
 export interface CreateNotificationInput {
@@ -23,6 +24,27 @@ function resolveTid(tenantId?: number): number {
   }
   return tenantId;
 }
+/**
+ * Push the new notification to the user's socket room (user:<userId>).
+ * No-op when socket.io isn't initialized (tests, scripts). Never throws.
+ */
+function emitRealtime(userId: string, notificationId: string | undefined, input: CreateNotificationInput): void {
+  try {
+    const io = getIO();
+    if (!io || !notificationId) return;
+    io.to(`user:${userId}`).emit('notification:new', {
+      id: notificationId,
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      actionUrl: input.actionUrl ?? null,
+      priority: input.priority ?? 'NORMAL',
+    });
+  } catch (error) {
+    logger.warn({ err: error, userId }, 'Failed to emit realtime notification');
+  }
+}
+
 function isTenantSchemaError(e: unknown): boolean {
   const code = (e as { code?: string })?.code;
   const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
@@ -47,8 +69,9 @@ export const notificationService = {
           finalTid = 1;
         }
       }
+      let created: { id: string } | null = null;
       try {
-        await prisma.notification.create({
+        created = await prisma.notification.create({
           data: {
             tenantId: finalTid as number,
             userId: input.userId,
@@ -62,10 +85,11 @@ export const notificationService = {
             metadata: (input.metadata as object) || {},
             priority: input.priority || 'NORMAL',
           },
+          select: { id: true },
         });
       } catch (e) {
         if (isTenantSchemaError(e)) {
-          await prisma.notification.create({
+          created = await prisma.notification.create({
             data: {
               userId: input.userId,
               type: input.type,
@@ -78,9 +102,11 @@ export const notificationService = {
               metadata: (input.metadata as object) || {},
               priority: input.priority || 'NORMAL',
             },
+            select: { id: true },
           });
         } else throw e;
       }
+      emitRealtime(input.userId, created?.id, input);
     } catch (error) {
       logger.error({ err: error }, 'Failed to create notification');
     }

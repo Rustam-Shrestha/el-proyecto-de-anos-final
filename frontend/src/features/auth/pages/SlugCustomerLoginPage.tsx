@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import axios from "axios";
 import { env } from "@shared/lib/env";
+import { useAppDispatch } from "@hooks/reduxHooks";
+import { setTokens, setUser } from "@store/slices/authSlice";
 
 /**
  * Multi-tenant customer login — MD Part 12 (`/:slug/customer/login`).
@@ -12,6 +14,7 @@ const apiRoot = (env.VITE_API_BASE_URL || "").replace(/\/api\/v1\/?$/, "") || "h
 const SlugCustomerLoginPage: React.FC = () => {
   const { slug = "" } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -29,6 +32,13 @@ const SlugCustomerLoginPage: React.FC = () => {
       if (access) localStorage.setItem("accessToken", access);
       localStorage.setItem("tenantSlug", slug);
       if (payload?.user) localStorage.setItem("slugUser", JSON.stringify(payload.user));
+      // Same unified session as staff login (customer flow has no refresh token).
+      if (access) {
+        dispatch(setTokens({ accessToken: access, refreshToken: "" }));
+      }
+      if (payload?.user) {
+        dispatch(setUser({ ...payload.user, tenantSlug: slug }));
+      }
       navigate(`/${slug}/apply`);
     } catch (err: unknown) {
       const msg =

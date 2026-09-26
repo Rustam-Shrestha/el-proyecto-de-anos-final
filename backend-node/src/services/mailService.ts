@@ -173,6 +173,57 @@ export const mailService = {
     sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC rejection email');
   },
 
+  sendLoanApprovedMail(email: string, amount?: number | string, fullName?: string): void {
+    const portfolioUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/portfolio`;
+    const subject = 'Loan Application Approved - FinGuard';
+    const amountText = amount !== undefined && amount !== null && `${amount}` !== ''
+      ? ` for ₹${Number(amount).toLocaleString('en-IN')}` : '';
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #f0fdf4;">
+        <h2 style="color: #15803d; margin: 0 0 16px;">Loan Approved</h2>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Congratulations! Your loan application${amountText} has been approved. Funds will be disbursed within 2-3 business days.</p>
+        <p style="margin-top: 28px;">
+          <a href="${portfolioUrl}" style="background-color: #15803d; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">View Loan Details</a>
+        </p>
+      </div>
+    `;
+
+    const textContent = [
+      `Hi ${fullName || 'there'},`,
+      `Your loan application${amountText} has been approved. Funds will be disbursed within 2-3 business days.`,
+      `View details: ${portfolioUrl}`,
+    ].join('\n');
+
+    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send loan approval email');
+  },
+
+  sendLoanRejectedMail(email: string, fullName?: string, reason?: string): void {
+    const loansUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/loans`;
+    const subject = 'Loan Application Update - FinGuard';
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fef2f2;">
+        <h2 style="color: #dc2626; margin: 0 0 16px;">Loan Application Update</h2>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">We regret to inform you that your loan application has been reviewed and we cannot proceed at this time.</p>
+        ${reason ? `<p style="color: #374151; background-color: #fee2e2; padding: 12px; border-radius: 8px;"><strong>Reason:</strong> ${reason}</p>` : ''}
+        <p style="color: #6b7280; font-size: 13px;">You may reapply after 30 days. For assistance, please contact support.</p>
+        <p style="margin-top: 28px;">
+          <a href="${loansUrl}" style="background-color: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">View Applications</a>
+        </p>
+      </div>
+    `;
+
+    const textContent = [
+      `Hi ${fullName || 'there'},`,
+      'Your loan application has been reviewed and we cannot proceed at this time.',
+      reason ? `Reason: ${reason}` : null,
+      `View applications: ${loansUrl}`,
+    ].filter(Boolean).join('\n');
+
+    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send loan rejection email');
+  },
+
   sendKycResubmitMail(email: string, fullName?: string, note?: string): void {
     const resubmitUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/kyc/resubmit`;
     const subject = 'Action Required: Resubmit KYC Application';

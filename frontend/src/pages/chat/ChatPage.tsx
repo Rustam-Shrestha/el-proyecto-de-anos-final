@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquareText, SendHorizonal, UserCircle2 } from "lucide-react";
-import { io, type Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
+import { initSocket } from "@shared/lib/socketClient";
 import { apiClient } from "@shared/lib/apiClient";
 import { Button } from "@shared/components/Button";
 import { useAuth } from "@store/hooks";
@@ -108,13 +109,10 @@ const ChatPage = () => {
   useEffect(() => {
     if (!userData?.id) return;
 
-    const token = localStorage.getItem("accessToken");
-    const apiBase = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/api\/v1\/?$/, "");
-    const socket = io(apiBase || window.location.origin, {
-      auth: { token },
-      transports: ["websocket"],
-    });
-
+    // Shared singleton socket (also feeds NotificationBell). Do not disconnect
+    // on unmount — just detach this page's listeners.
+    const socket = initSocket();
+    if (!socket) return;
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -155,7 +153,8 @@ const ChatPage = () => {
     return () => {
       socket.off("chat:message", handleChatMessage);
       socket.off("chat:conversation_updated", handleConversationUpdated);
-      socket.disconnect();
+      socket.off("chat:error");
+      socket.off("connect_error");
       socketRef.current = null;
     };
   }, [userData?.id, refreshConversations]);

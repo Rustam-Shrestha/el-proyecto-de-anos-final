@@ -12,7 +12,6 @@ import {
 
 type ProtectedRouteProps = {
   children: ReactNode;
-  requiredRoles?: string[];
 };
 
 type MeResponse = {

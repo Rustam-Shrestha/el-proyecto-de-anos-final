@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Bell, Eye, Trash2, CheckCheck } from "lucide-react";
 import {
   useNotifications,
   useMarkAsRead,
   useMarkAllAsRead,
   useDeleteNotification,
+  notificationKeys,
   type Notification,
 } from "../api/notificationsApi";
+import { initSocket } from "@shared/lib/socketClient";
 import { NotificationModal } from "./NotificationModal";
 
 const getTypeIcon = (type: string) => {
@@ -47,6 +50,20 @@ export const NotificationBell = () => {
 
   const notifications = data?.notifications ?? [];
   const unreadCount = data?.unreadCount ?? 0;
+  const queryClient = useQueryClient();
+
+  // Realtime refresh: backend emits `notification:new` to user:<id> on create.
+  useEffect(() => {
+    const socket = initSocket();
+    if (!socket) return;
+    const handleNew = () => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+    };
+    socket.on("notification:new", handleNew);
+    return () => {
+      socket.off("notification:new", handleNew);
+    };
+  }, [queryClient]);
 
   useEffect(() => {
     const handleClick = (event: globalThis.MouseEvent) => {

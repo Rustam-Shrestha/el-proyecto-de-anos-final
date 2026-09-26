@@ -10,6 +10,7 @@ import { usePagination } from "@hooks/usePagination";
 import { useModal } from "@shared/hooks/useModal";
 import DeleteUserModal from "@features/users/components/DeleteUserModal";
 import type { User } from "@shared/types/common";
+import { apiErrorMessage } from "@shared/utils/apiError";
 import ErrorState from "@shared/components/ErrorState";
 import EmptyState from "@shared/components/EmptyState";
 import Card from "@shared/components/Card";
@@ -38,7 +39,7 @@ const UsersList = memo(({ onEdit }: { onEdit: (id: string) => void }) => {
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
 
   if (isLoading) return <SkeletonLoader count={6} type="table" />;
-  if (error) return <ErrorState message="Failed to load users" onRetry={() => refetch()} />;
+  if (error) return <ErrorState message={apiErrorMessage(error, "Failed to load users")} onRetry={() => refetch()} />;
   if (!users.length) return <EmptyState title="No users found" description="Try a different page or refresh later." />;
 
   const userColumns = [

@@ -74,3 +74,30 @@ describe('multi-tenant compat JWT (MD Part 5)', () => {
     });
   });
 });
+
+describe('loan decision emails + realtime notifications (debt fix)', () => {
+  it('exposes fire-and-forget loan approval/rejection mailers', () => {
+    const { mailService } = require('@/services/mailService') as typeof import('@/services/mailService');
+    expect(typeof mailService.sendLoanApprovedMail).toBe('function');
+    expect(typeof mailService.sendLoanRejectedMail).toBe('function');
+    // Must not throw; sends run in background and resolve via logger.
+    expect(() => mailService.sendLoanApprovedMail('test@example.com', 500000)).not.toThrow();
+    expect(() => mailService.sendLoanRejectedMail('test@example.com', 'Test User', 'Low score')).not.toThrow();
+    expect(() => mailService.sendLoanApprovedMail('test@example.com')).not.toThrow();
+  });
+
+  it('notificationService.create never throws when socket.io is not initialized', async () => {
+    const { getIO } = require('@/config/socket') as typeof import('@/config/socket');
+    expect(getIO()).toBeNull();
+    const { notificationService } = require('@/services/notificationService') as typeof import('@/services/notificationService');
+    // Fire-and-forget: resolves void even when the DB write fails (no DB in unit tests).
+    await expect(
+      notificationService.create({
+        userId: 'nonexistent-user',
+        type: 'LOAN_APPROVED',
+        title: 't',
+        message: 'm',
+      } as never)
+    ).resolves.toBeUndefined();
+  });
+});

@@ -4,6 +4,7 @@ import { AppError } from '@/utils/AppError';
 import { riskService } from '@/services/riskService';
 import { LoanPurpose, LoanStatus, Prisma } from '@prisma/client';
 import { notificationService } from '@/services/notificationService';
+import { mailService } from '@/services/mailService';
 import { finguardProxyService } from '@/services/finguardProxyService';
 import { centralRegistry } from '@/services/centralLoanRegistry';
 
@@ -330,6 +331,15 @@ export const loanService = {
         priority: 'CRITICAL',
         metadata: { status: action, notes: notes ?? null, requestedAmount: loan.requestedAmount },
       });
+
+      // Loan decision email (fire-and-forget, never blocks the review)
+      if (updated.user?.email) {
+        if (action === 'APPROVED') {
+          mailService.sendLoanApprovedMail(updated.user.email, Number(loan.requestedAmount));
+        } else {
+          mailService.sendLoanRejectedMail(updated.user.email, undefined, notes ?? undefined);
+        }
+      }
 
       return updated;
     } catch (error) {

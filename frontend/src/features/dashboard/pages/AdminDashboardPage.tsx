@@ -7,6 +7,7 @@ import Card from "@shared/components/Card";
 import PageHeader from "@shared/components/PageHeader";
 import { Button } from "@shared/components/Button";
 import { ExportBar } from "@shared/components/export/ExportBar";
+import { apiErrorMessage } from "@shared/utils/apiError";
 import ErrorState from "@shared/components/ErrorState";
 
 const KycPieChart = ({ data }: { data: Array<{ name: string; y: number; color: string }> }) => {
@@ -86,7 +87,7 @@ const Skeleton = () => (
 );
 
 const AdminDashboardPage = () => {
-  const { data, isLoading, isError, refetch } = useAdminStats();
+  const { data, isLoading, isError, error, refetch } = useAdminStats();
   const kycTotal = (data?.stats?.kyc?.approved ?? 0) + (data?.stats?.kyc?.pending ?? 0) + (data?.stats?.kyc?.rejected ?? 0);
   return (
     <section className="space-y-6">
@@ -97,7 +98,7 @@ const AdminDashboardPage = () => {
       {isLoading ? (
         <Skeleton />
       ) : isError || !data?.stats ? (
-        <ErrorState message="Unable to load admin statistics." onRetry={() => refetch()} />
+        <ErrorState message={apiErrorMessage(error, "Unable to load admin statistics.")} onRetry={() => refetch()} />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
