@@ -23,7 +23,7 @@ const userItems: MenuItem[] = [
   { label: "Financial Profile", path: "/dashboard/portfolio", icon: Briefcase },
   { label: "Financial Assistant", path: "/dashboard/finguard", icon: Sparkles },
   { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
-  { label: "Apply for Loan", path: "/dashboard/loans/apply", icon: HandCoins },
+  { label: "Browse Lenders", path: "/dashboard/lenders", icon: HandCoins },
   { label: "My Loans", path: "/dashboard/loans/status", icon: FileBarChart2 },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
@@ -32,7 +32,6 @@ const userItems: MenuItem[] = [
 const adminItems: MenuItem[] = [
   { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
   { label: "Users Management", path: "/dashboard/users", icon: Users },
-  { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
   { label: "Reports", path: "/dashboard/reports", icon: FileBarChart2 },
   { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
@@ -42,14 +41,15 @@ const adminItems: MenuItem[] = [
 // Reviewer: the review queue + staff chat + profile. Nothing else.
 const reviewerItems: MenuItem[] = [
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
-  { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
   { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
 
-// Platform owner only: all companies, creation approvals, new companies.
+// Platform owner only: all companies, creation approvals, new companies,
+// plus global KYC document verification (two-stage KYC, stage 1).
 const platformItems: MenuItem[] = [
   { label: "SuperController", path: "/supercontroller", icon: ShieldCheck },
+  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
   { label: "Company Requests", path: "/admin/company-requests", icon: Building2 },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];

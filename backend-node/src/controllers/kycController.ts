@@ -11,6 +11,7 @@ import { paginate } from '@/utils/pagination';
 import { getRelativePath, resolveAbsolutePath } from '@/utils/pathUtils';
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
+import { normalizeRoleName } from '@/utils/roles';
 
 const documentTypeMap: Record<string, string> = {
   selfie: 'SELFIE',
@@ -287,7 +288,10 @@ export const listKycApplications = async (
     const status = (req.query.status as string) || undefined;
     const search = (req.query.search as string) || undefined;
 
-    const tidList = (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
+    const isSuperAdmin = normalizeRoleName(req.user?.role) === 'SUPERADMIN';
+    const tidList = isSuperAdmin
+      ? undefined
+      : (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
     const { applications, total } = await kycService.listKycApplications(
       take,
       skip,
@@ -317,7 +321,10 @@ export const listKycApplications = async (
 export const getKycById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const tid = (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
+    const isSuperAdmin = normalizeRoleName(req.user?.role) === 'SUPERADMIN';
+    const tid = isSuperAdmin
+      ? undefined
+      : (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
 
     const kyc = await kycService.getKycById(id, tid);
 
@@ -339,9 +346,10 @@ export const approveKyc = async (req: Request, res: Response, next: NextFunction
     }
 
     const { id } = req.params;
-    const tidApprove = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
 
-    const result = await kycService.approveKyc(id, req.user.id, tidApprove);
+    // Two-stage KYC: route is SUPERADMIN-only, so verify globally (no tenant filter).
+    const result = await kycService.approveKyc(id, req.user.id, undefined);
+    const tidApprove = (result as unknown as { tenantId?: number }).tenantId ?? 1;
 
     // Log KYC approval
     await auditService.log({
@@ -375,9 +383,10 @@ export const rejectKyc = async (req: Request, res: Response, next: NextFunction)
 
     const { id } = req.params;
     const { rejectionReason } = req.body;
-    const tidReject = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
 
-    const result = await kycService.rejectKyc(id, req.user.id, rejectionReason, tidReject);
+    // Two-stage KYC: route is SUPERADMIN-only, so verify globally (no tenant filter).
+    const result = await kycService.rejectKyc(id, req.user.id, rejectionReason, undefined);
+    const tidReject = (result as unknown as { tenantId?: number }).tenantId ?? 1;
 
     // Log KYC rejection
     await auditService.log({
@@ -416,9 +425,10 @@ export const requestKycResubmit = async (
 
     const { id } = req.params;
     const { note } = req.body;
-    const tidResubmit = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
 
-    const result = await kycService.requestResubmit(id, req.user.id, note, tidResubmit);
+    // Two-stage KYC: route is SUPERADMIN-only, so review globally (no tenant filter).
+    const result = await kycService.requestResubmit(id, req.user.id, note, undefined);
+    const tidResubmit = (result as unknown as { tenantId?: number }).tenantId ?? 1;
 
     // Log resubmit request
     await auditService.log({

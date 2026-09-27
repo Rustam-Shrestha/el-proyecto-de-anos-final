@@ -46,7 +46,10 @@ Note: dependencies may appear in root node_modules because npm workspaces hoist 
 - Auth middleware and role checks
 
 ## Docs
-- Swagger UI: /docs
+- Swagger UI: `http://localhost:4000/docs`
+- Swagger UI compatibility alias: `http://localhost:4000/api-docs`
+- OpenAPI JSON: `http://localhost:4000/openapi.json`
+- OpenAPI JSON compatibility alias: `http://localhost:4000/api-docs/openapi.json`
 
 ## Testing
 - Jest + Supertest tests in tests/

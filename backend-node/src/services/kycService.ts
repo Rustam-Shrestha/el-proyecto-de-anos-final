@@ -528,11 +528,15 @@ export const kycService = {
    */
   async approveKyc(kycId: string, reviewerId: string, tenantId?: number): Promise<KycApplicationDetail> {
     try {
-      const tid = resolveTid(tenantId);
+      // Two-stage KYC: document verification is GLOBAL (superadmin-only route).
+      // tenantId undefined => look up across all tenants; the KYC's own
+      // tenant is used for notifications/logging below.
+      const tid = tenantId ?? resolveTid(undefined);
+      const lookup = tenantId === undefined ? { id: kycId } : { id: kycId, tenantId: tid };
       let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
       try {
         kyc = await prisma.kycApplication.findFirst({
-          where: { id: kycId, tenantId: tid },
+          where: lookup,
           include: {
             user: {
               select: {
@@ -608,7 +612,7 @@ export const kycService = {
 
       await notificationService.create({
         userId: kyc.userId,
-        tenantId: tid,
+        tenantId: (kyc as unknown as { tenantId?: number }).tenantId ?? tid,
         type: 'KYC_APPROVED',
         title: 'KYC Application Approved',
         message:
@@ -649,11 +653,13 @@ export const kycService = {
     tenantId?: number
   ): Promise<KycApplicationDetail> {
     try {
-      const tid = resolveTid(tenantId);
+      // Two-stage KYC: global lookup when tenantId is undefined (superadmin).
+      const tid = tenantId ?? resolveTid(undefined);
+      const lookup = tenantId === undefined ? { id: kycId } : { id: kycId, tenantId: tid };
       let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
       try {
         kyc = await prisma.kycApplication.findFirst({
-          where: { id: kycId, tenantId: tid },
+          where: lookup,
           include: {
             user: {
               select: {
@@ -731,7 +737,7 @@ export const kycService = {
 
       await notificationService.create({
         userId: kyc.userId,
-        tenantId: tid,
+        tenantId: (kyc as unknown as { tenantId?: number }).tenantId ?? tid,
         type: 'KYC_REJECTED',
         title: 'KYC Application Rejected',
         message: `Your KYC application has been rejected. Reason: ${rejectionReason}. You can resubmit after correcting the issues.`,
@@ -763,11 +769,13 @@ export const kycService = {
    */
   async requestResubmit(kycId: string, reviewerId: string, note: string, tenantId?: number): Promise<KycApplicationDetail> {
     try {
-      const tid = resolveTid(tenantId);
+      // Two-stage KYC: global lookup when tenantId is undefined (superadmin).
+      const tid = tenantId ?? resolveTid(undefined);
+      const lookup = tenantId === undefined ? { id: kycId } : { id: kycId, tenantId: tid };
       let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
       try {
         kyc = await prisma.kycApplication.findFirst({
-          where: { id: kycId, tenantId: tid },
+          where: lookup,
           include: {
             user: {
               select: {

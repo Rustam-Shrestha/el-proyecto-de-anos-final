@@ -47,6 +47,8 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 // MD-compat alias: FINGUARD_MULTITENANT_COMPLETE_FIX Part 9 expects /api-docs
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
+app.get("/openapi.json", (_req, res) => res.json(openApiSpec));
+app.get("/api-docs/openapi.json", (_req, res) => res.json(openApiSpec));
 app.use("/api/v1", apiRouter);
 // MD-compat root routes: POST /login, POST /:slug/login, POST /:slug/apply, ...
 // Must be after /api/v1 + /docs so versioned routes keep priority.

@@ -389,10 +389,10 @@ const ApprovedSection = ({
         Your identity has been verified. You can now apply for a loan.
       </p>
       <Link
-        to="/dashboard"
+        to="/dashboard/lenders"
         className="mt-2 inline-block text-sm font-semibold text-green-800 underline "
       >
-        Go to Dashboard
+        Browse lenders and quick-apply
       </Link>
     </div>
   </div>

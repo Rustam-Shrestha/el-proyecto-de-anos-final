@@ -13,9 +13,9 @@ const KYCListPage = () => {
     <section className="space-y-6">
       <Card>
         <PageHeader
-          label="KYC Applications"
-          title="KYC Applications"
-          description="Review submitted applications and manage status."
+          label="Document Verification"
+          title="KYC Document Verification"
+          description="Verify customer identity documents once — approval works across all companies."
           actions={
             <div className="w-full sm:w-56">
               <CustomSelectField

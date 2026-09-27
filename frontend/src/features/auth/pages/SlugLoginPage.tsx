@@ -77,7 +77,7 @@ const SlugLoginPage: React.FC = () => {
         </button>
       </form>
       <p style={{ marginTop: 12 }}>
-        <Link to={`/${slug}/customer/login`}>Customer login</Link> · <Link to="/login">Superadmin login</Link>
+        <Link to={`/${slug}/customer/login`}>Customer login</Link> · <Link to="/login">Superadmin login</Link> · <Link to="/forgot-password">Forgot password?</Link>
       </p>
     </div>
   );

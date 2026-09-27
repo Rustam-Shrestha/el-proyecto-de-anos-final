@@ -24,15 +24,18 @@ export const loanService = {
   async applyForLoan(userId: string, data: ApplyLoanInput, tenantId?: number) {
     try {
       const tid = tenantId ?? 1;
+      // Two-stage KYC: document approval is global (superadmin, one-time,
+      // reusable across tenants). Financial verification stays per-tenant
+      // via the portfolio check below.
       let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
       try {
         kyc = await prisma.kycApplication.findFirst({
-          where: { userId, tenantId: tid, status: 'APPROVED' },
+          where: { userId, status: 'APPROVED' },
           orderBy: { createdAt: 'desc' },
         });
       } catch (e) {
         if (isTenantSchemaError(e)) {
-          kyc = await prisma.kycApplication.findFirst({ where: { userId, status: 'APPROVED' }, orderBy: { createdAt: 'desc' } });
+          kyc = await prisma.kycApplication.findFirst({ where: { userId, tenantId: tid, status: 'APPROVED' }, orderBy: { createdAt: 'desc' } });
         } else throw e;
       }
 

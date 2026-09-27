@@ -18,6 +18,7 @@ const UserKYCPage = lazy(() => import("@features/kyc/pages/UserKYCPage"));
 const KYCStatusPage = lazy(() => import("@features/kyc/pages/KYCStatusPage"));
 const LoanApplicationPage = lazy(() => import("@features/loans/pages/LoanApplicationPage"));
 const LoanStatusPage = lazy(() => import("@features/loans/pages/LoanStatusPage"));
+const LendersPage = lazy(() => import("@features/loans/pages/LendersPage"));
 const LoanOfficerDashboardPage = lazy(() => import("@features/loans/pages/LoanOfficerDashboardPage"));
 const ReportsPage = lazy(() => import("@features/dashboard/pages/ReportsPage"));
 const FinguardDashboardPage = lazy(() => import("@features/finguard/pages/FinguardDashboardPage"));
@@ -36,6 +37,8 @@ const AdminCompanyRequestsPage = lazy(() => import("@features/company/pages/Admi
 // Multi-tenant compat pages (MD Part 12): slug-scoped login + customer apply.
 const SlugLoginPage = lazy(() => import("@features/auth/pages/SlugLoginPage"));
 const SlugCustomerLoginPage = lazy(() => import("@features/auth/pages/SlugCustomerLoginPage"));
+const ForgotPasswordPage = lazy(() => import("@pages/auth/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("@pages/auth/ResetPasswordPage"));
 const CustomerApplyPage = lazy(() => import("@features/loans/pages/CustomerApplyPage"));
 
 export const router = createBrowserRouter([
@@ -79,9 +82,10 @@ export const router = createBrowserRouter([
             )
           },
           {
+            // Two-stage KYC: identity-document verification queue (superadmin only).
             path: "kyc",
             element: (
-              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+              <RoleProtectedRoute requiredRoles={["superadmin"]}>
                 <KYCListPage />
               </RoleProtectedRoute>
             )
@@ -167,6 +171,16 @@ export const router = createBrowserRouter([
             )
           },
           {
+            // Two-stage KYC: approved customers pick a lender card, then
+            // quick-apply (amount/tenure/purpose only) at /:slug/apply.
+            path: "lenders",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user"]}>
+                <LendersPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
             path: "chat",
             element: (
               <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer"]}>
@@ -186,6 +200,8 @@ export const router = createBrowserRouter([
       },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
+      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
       // Multi-tenant compat routes (MD Part 12). Static routes rank above
       // these dynamic segments, so /login, /apply, etc. are unaffected.
       { path: "/:slug/login", element: <SlugLoginPage /> },

@@ -1,6 +1,5 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
-import { AppError } from '@/utils/AppError';
 import { statementParserService } from './statementParserService';
 import { finguardProxyService, normalizeFinguardInput } from './finguardProxyService';
 import type { FinguardInput, FinguardResult } from './finguardProxyService';
@@ -124,8 +123,20 @@ export const loanAssessmentService = {
       }
     }
 
+    // Graceful empty: assess a zero profile (score 0, not eligible) with an
+    // upload-guidance recommendation instead of 404. Missing data is an
+    // empty state, not a missing route.
+    const needsData = !profile;
     if (!profile) {
-      throw new AppError('No financial data found. Upload a bank statement first.', 404);
+      profile = {
+        totalStatements: 0,
+        avgMonthlyIncome: 0,
+        avgMonthlyExpense: 0,
+        savingsRate: 0,
+        debtToIncomeRatio: 0,
+        incomeStabilityScore: 0,
+        creditScoreEstimate: 600,
+      } as unknown as NonNullable<typeof profile>;
     }
 
     const calc = new LoanEligibilityCalculator({
@@ -139,6 +150,9 @@ export const loanAssessmentService = {
     }, requestedAmount);
 
     const result = calc.assess(interestRate, tenureMonths);
+    const recommendation = needsData
+      ? 'No financial data found. Upload a bank statement first, then request a new assessment.'
+      : this.generateRecommendation(result);
 
     let assessment: Awaited<ReturnType<typeof prisma.loanAssessment.create>>;
     try {
@@ -154,7 +168,7 @@ export const loanAssessmentService = {
           recommendedTenure: result.recommendedTenure,
           eligibilityScore: result.eligibilityScore,
           riskLevel: result.riskLevel,
-          recommendation: this.generateRecommendation(result),
+          recommendation,
           assessmentDetails: result.details,
         },
       });
@@ -171,10 +185,33 @@ export const loanAssessmentService = {
             recommendedTenure: result.recommendedTenure,
             eligibilityScore: result.eligibilityScore,
             riskLevel: result.riskLevel,
-            recommendation: this.generateRecommendation(result),
+            recommendation,
             assessmentDetails: result.details,
           },
         });
+      } else if ((e as { code?: string })?.code === 'P2003') {
+        // Non-customer identity (e.g. superadmin token sub "sc-1" is a
+        // supercontroller row, not an auth.User): FK can't persist, so return
+        // the computed assessment ephemerally instead of 500.
+        logger.warn({ userId, requestedAmount }, 'assess: unknown user, returning ephemeral assessment');
+        return {
+          id: `ephemeral-${Date.now()}`,
+          tenantId: tid,
+          userId,
+          requestedAmount,
+          loanTenureMonths: tenureMonths,
+          interestRateAssumed: interestRate,
+          eligibleAmount: result.eligibleAmount,
+          maxMonthlyEmi: result.maxMonthlyEmi,
+          recommendedTenure: result.recommendedTenure,
+          eligibilityScore: result.eligibilityScore,
+          riskLevel: result.riskLevel,
+          recommendation,
+          assessmentDetails: result.details,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          persisted: false,
+        } as unknown as typeof assessment;
       } else throw e;
     }
 

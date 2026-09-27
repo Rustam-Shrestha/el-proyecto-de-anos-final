@@ -1,6 +1,5 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
-import { AppError } from '@/utils/AppError';
 import { statementParserService } from './statementParserService';
 
 function resolveTid(tenantId?: number): number {
@@ -38,7 +37,28 @@ export const financialProfileService = {
     }
 
     if (!profile) {
-      throw new AppError('No financial profile found. Upload a bank statement first.', 404);
+      // Graceful empty (two-stage flow: financial data arrives once, at KYC/statement
+      // upload). Consumers (chatbot, assess, dashboard) render zeros + hasData:false.
+      // Never 404 — a missing profile is an empty state, not a missing route.
+      return {
+        id: `empty-${userId}`,
+        tenantId: tid,
+        userId,
+        totalStatements: 0,
+        dateRangeStart: null,
+        dateRangeEnd: null,
+        avgMonthlyIncome: 0,
+        avgMonthlyExpense: 0,
+        totalIncome: 0,
+        totalExpense: 0,
+        totalSavings: 0,
+        savingsRate: 0,
+        debtToIncomeRatio: 0,
+        incomeStabilityScore: 0,
+        creditScoreEstimate: 600,
+        lastUpdated: new Date(),
+        hasData: false,
+      } as unknown as NonNullable<typeof profile>;
     }
 
     return profile;

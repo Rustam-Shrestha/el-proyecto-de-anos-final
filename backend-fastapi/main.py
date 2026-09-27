@@ -15,6 +15,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import JSONResponse
 
 try:
     from .app.db import init_db
@@ -126,6 +128,24 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router)
+
+    @app.get("/api/v1/openapi.json", include_in_schema=False)
+    async def versioned_openapi():
+        return JSONResponse(app.openapi())
+
+    @app.get("/api/v1/docs", include_in_schema=False)
+    async def versioned_swagger_ui():
+        return get_swagger_ui_html(
+            openapi_url="/api/v1/openapi.json",
+            title=f"{app.title} - Swagger UI",
+        )
+
+    @app.get("/api/v1/redoc", include_in_schema=False)
+    async def versioned_redoc():
+        return get_redoc_html(
+            openapi_url="/api/v1/openapi.json",
+            title=f"{app.title} - ReDoc",
+        )
 
     # Spec aliases: mount the FinGuard + NLU routers at the service root so both
     # /api/v1/finguard/* (legacy) and /finguard/* (spec) resolve to the same

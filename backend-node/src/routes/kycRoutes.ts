@@ -285,7 +285,8 @@ kycRouter.get(
 kycRouter.patch(
   '/:id/approve',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: document verification is superadmin-only, global across tenants.
+  authorize('SUPERADMIN'),
   validate(approveKycSchema),
   approveKyc
 );
@@ -331,7 +332,8 @@ kycRouter.patch(
 kycRouter.patch(
   '/:id/reject',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: document verification is superadmin-only, global across tenants.
+  authorize('SUPERADMIN'),
   validate(rejectKycSchema),
   rejectKyc
 );
@@ -377,7 +379,8 @@ kycRouter.patch(
 kycRouter.patch(
   '/:id/request-resubmit',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: document review cycle is superadmin-only, global across tenants.
+  authorize('SUPERADMIN'),
   validate(requestResubmitSchema),
   requestKycResubmit
 );

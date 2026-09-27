@@ -140,6 +140,10 @@ const Auth = () => {
             <Link to="/register" className="text-blue-600 hover:underline font-medium">
               Register
             </Link>
+            <span className="text-gray-500"> · </span>
+            <Link to="/forgot-password" className="text-blue-600 hover:underline font-medium">
+              Forgot password?
+            </Link>
           </div>
         </div>
       </div>

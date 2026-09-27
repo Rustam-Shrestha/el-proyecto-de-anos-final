@@ -376,15 +376,12 @@ router.post('/:slug/kyc/complete', slugAuthMiddleware, async (req: Request, res:
       res.status(400).json({ status: 400, error: 'PAN upload required first' });
       return;
     }
-    const updated = await prisma.kycApplication.update({ where: { id: kyc.id }, data: { status: 'APPROVED', reviewedAt: new Date() } });
-    // MVP: auto-verify portfolio stub so MD loan-apply flow passes without the
-    // full employment+documents pipeline (documented deviation).
-    await prisma.portfolioVerification.upsert({
-      where: { userId: req.scope.user_id },
-      create: { userId: req.scope.user_id, tenantId: (kyc as unknown as { tenantId: number }).tenantId, verificationStatus: 'VERIFIED', allDocumentsVerified: true, canProceedToLoan: true } as never,
-      update: { verificationStatus: 'VERIFIED', allDocumentsVerified: true, canProceedToLoan: true },
-    });
-    res.status(200).json({ status: 200, customer_id: updated.userId, kyc_status: 'approved', message: 'KYC completed successfully. You can now apply for loans.' });
+    // Two-stage KYC: submitting docs moves the application to PENDING for
+    // superadmin document verification (global, one-time, reusable). No
+    // self-approval, no portfolio stub — the tenant reviewer verifies the
+    // financial profile per loan application instead.
+    const updated = await prisma.kycApplication.update({ where: { id: kyc.id }, data: { status: 'PENDING' } });
+    res.status(200).json({ status: 200, customer_id: updated.userId, kyc_status: 'pending', message: 'KYC documents submitted. The platform team will verify them, then you can apply for loans.' });
   } catch {
     res.status(500).json({ status: 500, error: 'KYC completion failed' });
   }
