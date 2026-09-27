@@ -3,8 +3,8 @@
  * MultiSelectField — Memoized
  */
 import React, { memo, useEffect, useRef, useState } from "react";
-import { DownArrow } from "../../../assets/data/icons";
 import useClickOutside from "../../../hooks/useClickOutside";
+import { ChevronDown } from "lucide-react";
 
 const MultiSelectField = memo(({
   label,
@@ -100,7 +100,7 @@ const MultiSelectField = memo(({
           </span>
         )}
         <div className="ml-auto pointer-events-none">
-          <DownArrow />
+          <ChevronDown />
         </div>
       </div>
 

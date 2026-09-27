@@ -3,14 +3,9 @@
  * MultiSelectDatePicker — Memoized
  */
 import React, { memo, useEffect, useState } from "react";
-import {
-  CalenderIcon,
-  CloseIcon,
-  LeftIcon,
-  RightIcon,
-} from "../../../assets/data/icons";
 import { parseDateString } from "../../../helper";
 import useClickOutside from "../../../hooks/useClickOutside";
+import { CalendarDays } from "lucide-react";
 
 const MultiSelectDatePicker = memo(({
   label = null,
@@ -162,7 +157,7 @@ const MultiSelectDatePicker = memo(({
           placeholder="Select dates..."
         />
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-          <CalenderIcon className="h-5 w-5 text-gray-400" />
+          <CalendarDays className="h-5 w-5 text-gray-400" />
         </div>
       </div>
 

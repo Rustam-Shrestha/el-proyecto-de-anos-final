@@ -54,11 +54,22 @@ export const uploadStatement = async (req: Request, res: Response, next: NextFun
     const fileChecksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
     const text = await readStatementTextFast(req.file.path, req.file.mimetype);
 
+    // fileChecksum is globally unique, so re-uploading the same file is a
+    // replace (old row + its transactions cascade away) instead of a 409.
+    // A checksum already owned by somebody else stays a hard conflict.
     const existing = await prisma.bankStatement.findUnique({ where: { fileChecksum } });
+    let replacedStatementId: string | null = null;
     if (existing) {
-      await fs.unlink(req.file.path).catch(() => {});
-      res.status(409).json(apiResponse.error('This statement has already been uploaded', 409));
-      return;
+      if (existing.userId !== user.id) {
+        await fs.unlink(req.file.path).catch(() => {});
+        res.status(409).json(apiResponse.error('This statement has already been uploaded by another account', 409));
+        return;
+      }
+      if (existing.filePath) {
+        await fs.unlink(existing.filePath).catch(() => {});
+      }
+      await prisma.bankStatement.delete({ where: { id: existing.id } });
+      replacedStatementId = existing.id;
     }
 
     if (!text || text.trim().length < 50) {
@@ -69,7 +80,7 @@ export const uploadStatement = async (req: Request, res: Response, next: NextFun
 
     const parsed = await statementParserService.parseStatementText(text);
 
-    await prisma.bankStatement.create({
+    const created = await prisma.bankStatement.create({
       data: {
         userId: user.id,
         filePath: req.file.path,
@@ -85,7 +96,9 @@ export const uploadStatement = async (req: Request, res: Response, next: NextFun
       },
     });
 
-    const statementId = await statementParserService.saveParsedStatement(user.id, parsed);
+    // Reuse the row created above (it carries filePath/fileChecksum) instead of
+    // writing a second statement record for the same upload.
+    const statementId = await statementParserService.saveParsedStatement(user.id, parsed, created.id);
 
     await statementParserService.recalculateFinancialProfile(user.id);
 
@@ -94,6 +107,7 @@ export const uploadStatement = async (req: Request, res: Response, next: NextFun
       action: 'UPLOAD_BANK_STATEMENT',
       metadata: {
         statementId,
+        replacedStatementId,
         bankName: parsed.bankName,
         txCount: parsed.transactions.length,
         dateRange: `${parsed.statementFromDate.toISOString()} - ${parsed.statementToDate.toISOString()}`,
@@ -102,8 +116,11 @@ export const uploadStatement = async (req: Request, res: Response, next: NextFun
       userAgent: req.headers['user-agent'],
     });
 
-    res.status(201).json(apiResponse.success('Bank statement uploaded and processed', {
+    res.status(201).json(apiResponse.success(
+      replacedStatementId ? 'Bank statement replaced and processed' : 'Bank statement uploaded and processed',
+      {
       id: statementId,
+      replacedStatementId,
       bankName: parsed.bankName,
       accountNumber: parsed.accountNumber,
       transactionCount: parsed.transactions.length,

@@ -95,6 +95,22 @@ function resolveTid(tenantId?: number): number {
   return tenantId;
 }
 
+/**
+ * Reviewer ids can belong to the platform Supercontroller table (a numeric id
+ * that is NOT a User row). Writing those into a User foreign key would fail the
+ * whole review, so callers guard reviewer stamping with this.
+ */
+async function hasUserRow(userId?: string | null): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const row = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    return Boolean(row);
+  } catch (e) {
+    if (isTenantSchemaError(e)) return false;
+    throw e;
+  }
+}
+
 export const kycService = {
   /**
    * Submit a new KYC application
@@ -220,14 +236,20 @@ export const kycService = {
 
   /**
    * Get user's KYC status
+   *
+   * KYC is a one-time, platform-wide record: pass tenantId = undefined to read
+   * the latest application the user ever submitted (any tenant), which is what
+   * the customer-facing status endpoint needs now that approval is global.
    */
   async getKycStatus(userId: string, tenantId?: number): Promise<KycApplicationDetail | null> {
     try {
       const tid = resolveTid(tenantId);
+      // Global (platform) read when no tenant scope is supplied.
+      const lookup = tenantId === undefined ? { userId } : { userId, tenantId: tid };
       let kyc: Awaited<ReturnType<typeof prisma.kycApplication.findFirst>>;
       try {
         kyc = await prisma.kycApplication.findFirst({
-          where: { userId, tenantId: tid },
+          where: lookup,
           orderBy: { createdAt: 'desc' },
             include: {
               documents: {
@@ -582,6 +604,20 @@ export const kycService = {
         throw new AppError('KYC application is already approved', 400);
       }
 
+      // Stage-1 outcome is written to every identity document too, so the
+      // superadmin queue and the customer's status page agree.
+      await prisma.document.updateMany({
+        where: { kycId, isDeleted: false },
+        data: {
+          verificationStatus: 'VERIFIED',
+          verificationNotes: 'Verified during superadmin KYC approval',
+          verifiedAt: new Date(),
+          // reviewerId may be a platform Supercontroller id (not a User row),
+          // so only stamp it when it resolves to a real user.
+          ...(await hasUserRow(reviewerId) ? { verifiedBy: reviewerId } : {}),
+        },
+      });
+
       const updated = await prisma.kycApplication.update({
         where: { id: kycId },
         data: {
@@ -616,14 +652,14 @@ export const kycService = {
         type: 'KYC_APPROVED',
         title: 'KYC Application Approved',
         message:
-          'Congratulations! Your KYC verification has been approved. You can now proceed to portfolio verification.',
+          'Your identity verification is approved and now works with every lender on FinGuard. Pick a lender and apply — we reuse your profile, no re-uploading.',
         relatedEntityType: 'KycApplication',
         relatedEntityId: kycId,
-        actionUrl: '/portfolio',
+        actionUrl: '/dashboard/lenders',
         priority: 'HIGH',
         metadata: {
           approvedAt: new Date().toISOString(),
-          nextStep: 'Portfolio Verification',
+          nextStep: 'Choose a lender',
         },
       });
 
@@ -704,6 +740,18 @@ export const kycService = {
       if (kyc.status === 'REJECTED') {
         throw new AppError('KYC application is already rejected', 400);
       }
+
+      await prisma.document.updateMany({
+        where: { kycId, isDeleted: false },
+        data: {
+          verificationStatus: 'REJECTED',
+          verificationNotes: rejectionReason
+            ? `Rejected during superadmin KYC review: ${rejectionReason}`
+            : 'Rejected during superadmin KYC review',
+          verifiedAt: new Date(),
+          ...(await hasUserRow(reviewerId) ? { verifiedBy: reviewerId } : {}),
+        },
+      });
 
       const updated = await prisma.kycApplication.update({
         where: { id: kycId },

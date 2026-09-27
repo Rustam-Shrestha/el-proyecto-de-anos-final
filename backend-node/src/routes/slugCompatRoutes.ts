@@ -411,10 +411,8 @@ router.post('/:slug/apply', slugAuthMiddleware, slugCompanyGuard, async (req: Re
     const reviewer = reviewerRole
       ? await prisma.user.findFirst({ where: { tenantId: company.id, roleId: reviewerRole.id } })
       : null;
-    if (!reviewer) {
-      res.status(503).json({ status: 503, error: 'No reviewer available. Try again later.' });
-      return;
-    }
+    // A lender with no reviewer on staff must not dead-end the customer: the
+    // application is still lodged and the tenant assigns a reviewer later.
     const estimatedEmi = Math.round(Number(amount_requested) / Number(tenure_months));
     const application = await prisma.loanApplication.create({
       data: {
@@ -425,8 +423,12 @@ router.post('/:slug/apply', slugAuthMiddleware, slugCompanyGuard, async (req: Re
         purpose: mdPurposeToEnum(purpose),
         status: 'SUBMITTED',
         calculatedEmi: estimatedEmi,
-        reviewedBy: reviewer.id,
-        loanOfficerNotes: `Auto-assigned to ${reviewer.email}; MD-compat apply`,
+        ...(reviewer
+          ? {
+              reviewedBy: reviewer.id,
+              loanOfficerNotes: `Auto-assigned to ${reviewer.email}; MD-compat apply`,
+            }
+          : { loanOfficerNotes: 'No reviewer available yet; tenant must assign one.' }),
       } as never,
     });
     res.status(201).json({

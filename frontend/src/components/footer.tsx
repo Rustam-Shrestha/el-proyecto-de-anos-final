@@ -16,14 +16,14 @@ const Footer = memo(() => {
          borderColor: 'var(--border-color)'
        }}
      >
-       <div>2024(c) Webapp, Rustam</div>
+       <div>2025 &copy; Finguard</div>
        <nav aria-label="Footer" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 4 }}>
          <a href="/about">About</a>
          <a href="/contact">Contact</a>
          <a href="/pricing">Pricing</a>
          <a href="/terms">Terms</a>
          <a href="/privacy">Privacy</a>
-         <a href="/docs">API docs</a>
+         <a href="http://localhost:4000/docs">API docs</a>
        </nav>
      </footer>
    );

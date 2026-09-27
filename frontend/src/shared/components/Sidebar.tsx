@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase, MessageSquareText, Sparkles, Building2 } from "lucide-react";
+import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase, MessageSquareText, Sparkles, Building2, ClipboardCheck } from "lucide-react";
 import { useAuth } from "@store/hooks";
 import { roleKind } from "@shared/utils/roleUtils";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
@@ -29,9 +29,12 @@ const userItems: MenuItem[] = [
 ];
 
 // Tenant admin: own company only. Platform pages are never shown here.
+// Stage 2 of the two-stage flow: financial review (income + employment) lives
+// here — identity documents were already verified globally by the platform.
 const adminItems: MenuItem[] = [
   { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
   { label: "Users Management", path: "/dashboard/users", icon: Users },
+  { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
   { label: "Reports", path: "/dashboard/reports", icon: FileBarChart2 },
   { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
@@ -40,6 +43,7 @@ const adminItems: MenuItem[] = [
 
 // Reviewer: the review queue + staff chat + profile. Nothing else.
 const reviewerItems: MenuItem[] = [
+  { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
   { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },

@@ -1,5 +1,6 @@
 import { useState, useRef, type RefObject } from 'react';
-import { Building2, Users, CreditCard, Activity, Plus, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Building2, Users, CreditCard, Activity, Plus, Shield, FileCheck } from 'lucide-react';
 import { MetricCard } from '../components/MetricCard';
 import { TenantList } from '../components/TenantList';
 import { TimeSeriesChart } from '../components/TimeSeriesChart';
@@ -49,7 +50,15 @@ export default function SupercontrollerDashboardPage() {
               <p className="text-xs text-slate-500">Manage tenants, features, and platform health — live data</p>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#15803D] text-white text-sm font-medium hover:bg-[#166534]"><Plus className="w-4 h-4" /> Create Tenant</button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/dashboard/kyc"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#15803D] text-[#15803D] text-sm font-medium hover:bg-[#f0fdf4]"
+            >
+              <FileCheck className="w-4 h-4" /> KYC verification queue
+            </Link>
+            <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#15803D] text-white text-sm font-medium hover:bg-[#166534]"><Plus className="w-4 h-4" /> Create Tenant</button>
+          </div>
         </div>
 
         {/* Metrics */}

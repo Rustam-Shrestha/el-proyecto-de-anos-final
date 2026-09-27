@@ -95,7 +95,7 @@ export const chatbotService = {
   /**
    * Who can chat with whom (same company only):
    * - customers (USER) see their company's ADMIN + REVIEWER staff
-   * - staff (ADMIN/REVIEWER) see fellow staff in the same company — never customers
+   * - staff (ADMIN/REVIEWER) see fellow staff AND their own company's customers
    * - platform SUPERADMIN sees staff across companies
    */
   async listParticipants(userId: string) {
@@ -107,15 +107,22 @@ export const chatbotService = {
     const requesterRole = normalizeRoleName((requester as any)?.role?.name);
     const requesterTenant = (requester as any)?.tenantId as number | null;
 
-    let where: any;
+    let roleFilter: { name: { in: string[] } };
     if (requesterRole === 'SUPERADMIN') {
-      where = { isDeleted: false, role: { name: { in: ['ADMIN', 'REVIEWER'] } } };
+      roleFilter = { name: { in: ['ADMIN', 'REVIEWER'] } };
     } else if (requesterRole === 'USER') {
-      where = { isDeleted: false, tenantId: requesterTenant ?? undefined, role: { name: { in: ['ADMIN', 'REVIEWER'] } } };
+      roleFilter = { name: { in: ['ADMIN', 'REVIEWER'] } };
     } else {
-      // staff: fellow staff of the same company
-      where = { isDeleted: false, tenantId: requesterTenant ?? undefined, role: { name: { in: ['ADMIN', 'REVIEWER'] } } };
+      // staff: fellow staff plus the customers of their own company
+      roleFilter = { name: { in: ['ADMIN', 'REVIEWER', 'USER'] } };
     }
+
+    const where: any = {
+      isDeleted: false,
+      role: roleFilter,
+      // Platform owner is not tenant-scoped; everyone else stays inside their company.
+      ...(requesterRole === 'SUPERADMIN' ? {} : { tenantId: requesterTenant ?? undefined }),
+    };
 
     const users = await prisma.user.findMany({
       where,

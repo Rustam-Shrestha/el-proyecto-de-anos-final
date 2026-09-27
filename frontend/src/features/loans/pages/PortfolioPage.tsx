@@ -14,7 +14,7 @@ import { FileUploadField } from "@shared/components/FileUploadField";
 import InputField from "@components/common/InputField";
 import CustomDatePicker from "@components/common/CutomDatePicker";
 import CustomSelectField from "@components/common/SelectField";
-import { CheckMarkIcon } from "@assets/data/icons";
+import { Check } from "lucide-react";
 import { DocumentType } from "@shared/types/common";
 import { useToast } from "@shared/hooks/useToast";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
@@ -290,7 +290,7 @@ const PortfolioPage = () => {
                       : "bg-gray-200 text-gray-500"
                 }`}
               >
-                {isDone ? <CheckMarkIcon /> : i + 1}
+                {isDone ? <Check className="h-4 w-4" /> : i + 1}
               </div>
               <span
                 className={`text-sm ${

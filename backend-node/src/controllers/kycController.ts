@@ -260,8 +260,9 @@ export const getKycStatus = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const tid = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
-    const kyc = await kycService.getKycStatus(req.user.id, tid);
+    // Two-stage KYC: identity verification is global, so the customer's own
+    // status is read across every tenant (no X-Tenant scoping).
+    const kyc = await kycService.getKycStatus(req.user.id, undefined);
 
     if (!kyc) {
       res.json(apiResponse.success('No KYC application found', null));

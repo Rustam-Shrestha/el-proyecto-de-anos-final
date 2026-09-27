@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@store/hooks";
 import { Button } from "@components/common/Button";
 import { resolveAvatarUrl } from "@shared/lib/avatar";
 import { NotificationBell } from "@features/notifications/components/NotificationBell";
-import { MessageIcon } from "../../assets/data/icons";
 import { roleKind, roleLabel } from "@shared/utils/roleUtils";
 import { companyApi } from "@features/company/api/companyApi";
 
@@ -105,7 +104,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
             aria-label="Messages"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9] transition-colors"
           >
-            <MessageIcon />
+            <MessageSquare className="h-4 w-4" />
           </Link>
           <NotificationBell />
           <button

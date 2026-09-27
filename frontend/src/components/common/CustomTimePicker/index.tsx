@@ -4,8 +4,8 @@
  */
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ClockIcon } from "../../../assets/data/icons";
 import useClickOutside from "../../../hooks/useClickOutside";
+import { Clock } from "lucide-react";
 
 const CustomTimePicker = memo(({
   label = null,
@@ -182,7 +182,7 @@ const CustomTimePicker = memo(({
           className={`cursor-pointer w-full text-sm bg-[#F6F6F6] text-gray-500 px-3 py-2.5 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-primary`}
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
-          <ClockIcon />
+          <Clock />
         </div>
       </div>
       {error && <span style={{ color: "red" }}>{error}</span>}

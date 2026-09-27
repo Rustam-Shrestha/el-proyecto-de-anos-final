@@ -8,8 +8,8 @@
  * - Same visual behavior as before
  */
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { DownArrow } from "../../../assets/data/icons";
 import useClickOutside from "../../../hooks/useClickOutside";
+import { ChevronDown } from "lucide-react";
 
 const CustomSelectField = memo(({
   label,
@@ -147,7 +147,7 @@ const CustomSelectField = memo(({
           className="w-full h-10 text-sm text-[#0F172A] bg-white border border-[#CBD5E1] px-3 rounded-[6px] focus:outline-none focus:border-[#15803D] focus:ring-2 focus:ring-[rgba(21,128,61,0.12)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 disabled:bg-[#F1F5F9]"
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
-          <DownArrow />
+          <ChevronDown />
         </div>
 
         {isOpen && (

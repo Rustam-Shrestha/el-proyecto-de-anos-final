@@ -43,16 +43,23 @@ export const loanService = {
         throw new AppError('You must have an approved KYC before applying for a loan', 400);
       }
 
-      const portfolio = await prisma.portfolioVerification.findUnique({
-        where: { userId },
-      });
+      // Stage 2: the tenant reviewer verifies income + employment together with
+      // the loan, so the customer is not blocked by a pre-approved portfolio.
+      // The one-time profile is reused as-is; only an explicit rejection (or a
+      // missing employment record) is surfaced to the customer/reviewer.
+      const [portfolio, employmentForGate] = await Promise.all([
+        prisma.portfolioVerification.findUnique({ where: { userId } }),
+        prisma.employmentInfo.findUnique({ where: { userId } }),
+      ]);
 
-      if (!portfolio || portfolio.verificationStatus !== 'VERIFIED' || (portfolio as unknown as { tenantId?: number }).tenantId !== undefined && (portfolio as unknown as { tenantId: number }).tenantId !== tid) {
+      if (portfolio?.verificationStatus === 'REJECTED') {
         throw new AppError(
-          'Your financial portfolio must be verified before applying for a loan. Complete your employment info and document upload, then wait for admin verification.',
+          'Your financial profile was rejected during review. Correct the details and try again.',
           400
         );
       }
+
+      const profileIncomplete = !employmentForGate;
 
       const emi = riskService.calculateEmi(data.requestedAmount, data.tenureMonths);
 
@@ -109,6 +116,11 @@ export const loanService = {
       } catch { /* ignore ml error */ }
 
       let loan: Awaited<ReturnType<typeof prisma.loanApplication.create>>;
+      // Tell the reviewer when the reusable financial profile is thin, instead
+      // of blocking the customer before the tenant ever reviews it.
+      const reviewerNote = profileIncomplete
+        ? 'Customer has not completed employment/income details yet — request them before deciding.'
+        : null;
       try {
         loan = await prisma.loanApplication.create({
           data: {
@@ -119,6 +131,7 @@ export const loanService = {
             purpose: data.purpose,
             calculatedEmi: emi,
             status: 'SUBMITTED',
+            ...(reviewerNote ? { loanOfficerNotes: reviewerNote } : {}),
             riskScore: ml ? Math.round(ml.default_probability * 100) : riskScore,
             riskLevel: ml ? (ml.risk_band.toUpperCase() as typeof riskLevel) : riskLevel,
             defaultProbability: ml?.default_probability,

@@ -126,30 +126,31 @@ export const mailService = {
   },
 
   sendKycApprovedMail(email: string, fullName?: string): void {
-    const dashboardUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`;
+    const lendersUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/dashboard/lenders`;
     const subject = 'KYC Verification Approved';
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #f0fdf4;">
         <h2 style="color: #15803d; margin: 0 0 16px;">KYC Verification Approved</h2>
         <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Your KYC application has been approved. You now have full access to all eligible features.</p>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Your identity verification is approved. It is valid for every lender on FinGuard, so you never submit your documents again.</p>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Pick a lender and apply in a couple of minutes &mdash; we reuse your verified profile.</p>
         <p style="margin-top: 28px;">
-          <a href="${dashboardUrl}" style="background-color: #15803d; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">Go to Dashboard</a>
+          <a href="${lendersUrl}" style="background-color: #15803d; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">Browse lenders</a>
         </p>
       </div>
     `;
 
     const textContent = [
       `Hi ${fullName || 'there'},`,
-      'Your KYC application has been approved.',
-      `Open the dashboard: ${dashboardUrl}`,
+      'Your identity verification is approved and works with every FinGuard lender.',
+      `Choose a lender and apply: ${lendersUrl}`,
     ].join('\n');
 
     sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC approval email');
   },
 
   sendKycRejectedMail(email: string, fullName?: string, reason?: string): void {
-    const resubmitUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/kyc/resubmit`;
+    const resubmitUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/dashboard/kyc-submit`;
     const subject = 'KYC Verification Rejected';
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fef2f2;">

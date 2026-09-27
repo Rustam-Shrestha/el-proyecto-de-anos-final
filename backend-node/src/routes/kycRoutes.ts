@@ -212,12 +212,13 @@ kycRouter.get('/status/:kycId', authenticate, async (req: Request, res: Response
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden - Admin/Reviewer access required
+ *         description: Forbidden - Super Admin access required
  */
 kycRouter.get(
   '/',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: identity documents are reviewed by the platform owner only.
+  authorize('SUPERADMIN'),
   validate(listKycApplicationsSchema),
   listKycApplications
 );
@@ -250,7 +251,8 @@ kycRouter.get(
 kycRouter.get(
   '/:id',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: identity documents are reviewed by the platform owner only.
+  authorize('SUPERADMIN'),
   validate(getKycByIdSchema),
   getKycById
 );
@@ -389,7 +391,8 @@ kycRouter.patch(
 kycRouter.get(
   '/:kycId/documents',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: PAN / Aadhaar / selfie review is superadmin-only.
+  authorize('SUPERADMIN'),
   validate(getKycDocumentsSchema),
   getKycDocuments
 );
