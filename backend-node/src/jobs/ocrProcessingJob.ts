@@ -122,12 +122,20 @@ export async function processOcrJob(documentId: string): Promise<void> {
   }
 
   activeJobs.add(documentId);
+  try {
+    await runOcrJobInner(documentId);
+  } finally {
+    // Single release point: every exit path (early return, success, throw)
+    // funnels through here instead of scattered manual deletes.
+    activeJobs.delete(documentId);
+  }
+}
 
+async function runOcrJobInner(documentId: string): Promise<void> {
   try {
     const doc = await prisma.financialDocument.findUnique({ where: { id: documentId } });
     if (!doc || doc.isDeleted) {
       logger.warn({ documentId }, 'Document not found or deleted, aborting OCR');
-      activeJobs.delete(documentId);
       return;
     }
 
@@ -145,7 +153,6 @@ export async function processOcrJob(documentId: string): Promise<void> {
         },
       });
       logger.info({ documentId, documentType: doc.documentType }, 'Financial document processing skipped: text extraction disabled');
-      activeJobs.delete(documentId);
       return;
     }
 
@@ -183,7 +190,6 @@ export async function processOcrJob(documentId: string): Promise<void> {
     });
 
     if (!processed) {
-      activeJobs.delete(documentId);
       return;
     }
 
@@ -275,8 +281,6 @@ export async function processOcrJob(documentId: string): Promise<void> {
       flags: flags.count,
       status: verificationStatus,
     }, 'OCR processing completed for financial document');
-
-    activeJobs.delete(documentId);
   } catch (error) {
     logger.error({ err: error, documentId }, 'Unexpected OCR job error');
     try {
@@ -290,7 +294,6 @@ export async function processOcrJob(documentId: string): Promise<void> {
     } catch {
       logger.error({ documentId }, 'Failed to update OCR error status');
     }
-    activeJobs.delete(documentId);
   }
 }
 
@@ -327,6 +330,32 @@ async function updatePortfolioDocumentCounters(userId: string): Promise<void> {
     });
   } catch (error) {
     logger.error({ err: error, userId }, 'Failed to update portfolio document counters');
+  }
+}
+
+/**
+ * Crash recovery: documents stuck in PROCESSING (worker died mid-job) would
+ * otherwise sit there forever — no worker re-queues them. Mark anything
+ * older than the job timeout as FAILED so it can be retried or triaged.
+ * Called once at server startup; returns the number of rows reset.
+ */
+export async function resetStaleOcrJobs(staleAfterMs: number = JOB_TIMEOUT_MS): Promise<number> {
+  try {
+    const cutoff = new Date(Date.now() - staleAfterMs);
+    const { count } = await prisma.financialDocument.updateMany({
+      where: { ocrStatus: 'PROCESSING', updatedAt: { lt: cutoff } },
+      data: {
+        ocrStatus: 'FAILED',
+        ocrErrorMessage: 'OCR worker restarted: stale PROCESSING job reset for retry.',
+      },
+    });
+    if (count > 0) {
+      logger.info({ count }, 'Reset stale OCR jobs left PROCESSING by a previous run');
+    }
+    return count;
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to reset stale OCR jobs');
+    return 0;
   }
 }
 

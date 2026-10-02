@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { chatbotService } from '@/services/chatbotService';
+import { prisma } from '@/config/database';
 import { apiResponse } from '@/utils/apiResponse';
 import { getIO } from '@/config/socket';
 
@@ -16,6 +17,18 @@ export const askQuestion = async (req: Request, res: Response, next: NextFunctio
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       res.status(400).json(apiResponse.error('Message is required', 400));
       return;
+    }
+
+    // Ownership check: a chat session scoped to one statement must not leak
+    // across tenants — the scoped statement must belong to the caller.
+    const scoped = await prisma.chatConversation.findFirst({ where: { userId: user.id, sessionId } });
+    const scopedStatementId = (scoped?.context as { bankStatementId?: string } | null | undefined)?.bankStatementId;
+    if (scopedStatementId) {
+      const statement = await prisma.bankStatement.findFirst({ where: { id: scopedStatementId, userId: user.id } });
+      if (!statement) {
+        res.status(403).json(apiResponse.error('You do not have access to this chat session', 403));
+        return;
+      }
     }
 
     const result = await chatbotService.processQuery(user.id, message, sessionId);

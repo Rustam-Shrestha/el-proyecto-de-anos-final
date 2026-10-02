@@ -606,7 +606,12 @@ kycRouter.post('/submit-confirmed', authenticate, async (req: Request, res: Resp
       return res.status(400).json(apiResponse.error('kycApplicationId and confirmedData are required', 400));
     }
 
-    const kyc = await kycService.submitKycWithConfirmedData(kycApplicationId, confirmedData);
+    const kyc = await kycService.submitKycWithConfirmedData(
+      kycApplicationId,
+      confirmedData,
+      (req as unknown as { tenantId?: number }).tenantId
+        ?? (req.user as unknown as { tenantId?: number })?.tenantId,
+    );
 
     await kycVerificationService.generateVerificationReport(kycApplicationId);
 

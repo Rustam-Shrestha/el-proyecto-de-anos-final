@@ -38,8 +38,12 @@ echo.
 echo ============================================================
 echo  Fresh DB seed complete. Verify with:
 echo    npx prisma studio  (run inside backend-node)
-echo  Demo logins (password for all: Password@123):
-echo    admin@finguard.local / reviewer@finguard.local / user@finguard.local
-echo    customer1@acme.finguard.test  (tenant demo)
+echo  Demo logins (from backend-node/src/seed.ts):
+echo    santosh.787402@smc.tu.edu.np / SuperAdmin@123!  (SUPERADMIN platform owner)
+echo    shrestharama65@gmail.com     / AcmeAdmin@123!   (Acme ADMIN)
+echo    bcasmc2078@gmail.com         / AcmeReviewer@123! (Acme REVIEWER)
+echo    shrestharama650@gmail.com    / Customer@123!    (Acme demo CUSTOMER)
+echo  Demo CUSTOMER ships with: pending KYC + submitted loan,
+echo  1 parsed statement + statement-scoped chat session.
 echo ============================================================
 endlocal

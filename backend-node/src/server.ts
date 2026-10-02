@@ -5,6 +5,7 @@ import { env } from '@/config/env';
 import { logger } from '@/config/logger';
 import { app } from '@/app';
 import { prisma } from '@/config/database';
+import { auditService } from '@/services/auditService';
 import { chatbotService } from '@/services/chatbotService';
 import { setIO } from '@/config/socket';
 
@@ -95,6 +96,24 @@ const server = httpServer.listen(PORT, async () => {
   } catch (error) {
     logger.error({ err: error }, 'Database connection failed');
     process.exit(1);
+  }
+
+  // OCR hygiene: recover jobs stuck in PROCESSING by a previous crashed run.
+  // Best-effort — never blocks startup.
+  try {
+    const { resetStaleOcrJobs } = await import('@/jobs/ocrProcessingJob');
+    await resetStaleOcrJobs();
+  } catch (error) {
+    logger.warn({ err: error }, 'Skipping stale OCR job reset');
+  }
+
+  // Audit retention trim: audit_logs grows on every mutating request, so prune
+  // rows older than AUDIT_LOG_RETENTION_DAYS (default 180). Best-effort.
+  try {
+    const retentionDays = Number(process.env.AUDIT_LOG_RETENTION_DAYS ?? 180) || 180;
+    await auditService.trimOldLogs(retentionDays);
+  } catch (error) {
+    logger.warn({ err: error }, 'Skipping audit log retention trim');
   }
 });
 

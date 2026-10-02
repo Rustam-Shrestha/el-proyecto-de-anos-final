@@ -48,8 +48,9 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
       });
       toast("Data saved successfully", "success");
       onComplete(form);
-    } catch {
-      toast("Failed to save data. Please try again.", "error");
+    } catch (error) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      toast(apiError.response?.data?.message || "Failed to save data. Please try again.", "error");
     } finally {
       setSaving(false);
     }

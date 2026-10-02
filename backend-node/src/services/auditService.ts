@@ -107,8 +107,7 @@ export const auditService = {
     }
   },
 
-  async getAllFiltered(where: Record<string, unknown>, limit: number = 50, offset: number = 0, tenantId?: number) {
-    const finalWhere = { ...where, ...(tenantId !== undefined ? { tenantId } : {}) };
+  async getAllFiltered(where: Record<string, unknown>, limit: number = 50, offset: number = 0, tenantId?: number) {    const finalWhere = { ...where, ...(tenantId !== undefined ? { tenantId } : {}) };
     try {
       const [logs, total] = await Promise.all([
         prisma.auditLog.findMany({ where: finalWhere as never, orderBy: { createdAt: 'desc' }, take: limit, skip: offset, include: { user: { select: { id: true, email: true } } } }),
@@ -125,5 +124,25 @@ export const auditService = {
       }
       throw e;
     }
-  }
+  },
+
+  /**
+   * Retention trim: delete audit rows older than `retentionDays`.
+   * Returns the number of rows removed. Best-effort — never throws.
+   */
+  async trimOldLogs(retentionDays: number = 180): Promise<number> {
+    try {
+      const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+      const result = await prisma.auditLog.deleteMany({
+        where: { createdAt: { lt: cutoff } },
+      });
+      if (result.count > 0) {
+        logger.info({ count: result.count, retentionDays }, 'Audit log retention trim completed');
+      }
+      return result.count;
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to trim old audit logs');
+      return 0;
+    }
+  },
 };

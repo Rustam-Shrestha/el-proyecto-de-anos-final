@@ -214,6 +214,21 @@ class CreditDefaultPredictor:
             logger.warning(f"SHAP compute failed: {e}")
             return None
 
+    def warmup(self) -> None:
+        """Warm-start: one dummy predict_proba + SHAP pass on a zeros frame
+        so the first real request doesn't pay native/JIT cold-start cost.
+        Best-effort — never raises."""
+        try:
+            n = len(self._features_used()) or self.total_features
+            if n > 0:
+                frame = np.zeros((1, n))
+                if self.model is not None:
+                    self.model.predict_proba(frame)
+                if self.explainer is not None:
+                    self._shap_values(frame)
+        except Exception as e:
+            logger.warning(f"Predictor warmup skipped: {e}")
+
     def _build_envelope(self, prob: float, shap_summary: Dict[str, float]) -> Dict[str, Any]:
         """Adapter envelope carrying both internal and spec naming sets."""
         threshold = float(self.threshold)

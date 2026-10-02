@@ -74,7 +74,9 @@ loanRouter.get(
 loanRouter.patch(
   '/:id/review',
   authenticate,
-  requirePermission('loans.approve'),
+  // Loan review is staff-only: ADMIN + REVIEWER (+ SUPERADMIN passthrough).
+  // CUSTOMER/USER must never reach the controller — enforced again inside it.
+  authorize('ADMIN', 'REVIEWER'),
   validate(loanReviewSchema),
   reviewLoan
 );

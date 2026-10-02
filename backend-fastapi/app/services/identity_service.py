@@ -12,12 +12,44 @@ os.environ['TF_USE_LEGACY_KERAS'] = '1'
 
 import cv2
 import numpy as np
-from deepface import DeepFace
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FaceVerification, KYCApplication
 
 logger = logging.getLogger(__name__)
+
+
+class FaceEngineUnavailableError(RuntimeError):
+    """Raised when the DeepFace engine could not be imported (e.g. Keras 3 incompatibility)."""
+
+
+try:
+    # deepface 0.0.75 eagerly imports LocallyConnected2D from
+    # tensorflow.keras.layers at module scope (basemodels/FbDeepFace.py),
+    # which was removed in Keras 3. This service only ever uses the
+    # Facenet / VGG-Face models — FbDeepFace is never instantiated — so
+    # injecting a placeholder attribute before the import is safe.
+    # NOTE: patch sys.modules['tensorflow.keras.layers'] directly: under
+    # TF 2.21 `from tensorflow.keras import layers` returns a *different*
+    # module object than the one deepface's import statement resolves, so
+    # patching the former is a no-op.
+    import sys as _sys
+    import tensorflow.keras.layers  # noqa: F401  (ensure the sys.modules entry exists)
+    _keras_layers = _sys.modules["tensorflow.keras.layers"]
+    if not hasattr(_keras_layers, "LocallyConnected2D"):
+        class _LocallyConnected2DPlaceholder:
+            def __init__(self, *args, **kwargs):
+                raise ImportError(
+                    "LocallyConnected2D is unavailable under Keras 3; "
+                    "the FbDeepFace model is not supported in this environment"
+                )
+        _keras_layers.LocallyConnected2D = _LocallyConnected2DPlaceholder  # type: ignore[attr-defined]
+    from deepface import DeepFace
+    DEEPFACE_IMPORT_ERROR: Optional[str] = None
+except Exception as _deepface_import_error:  # pragma: no cover - environment dependent
+    DeepFace = None  # type: ignore[assignment]
+    DEEPFACE_IMPORT_ERROR = str(_deepface_import_error)
+    logger.warning("DeepFace engine unavailable: %s", DEEPFACE_IMPORT_ERROR)
 
 
 class FaceVerificationService:
@@ -70,7 +102,12 @@ class FaceVerificationService:
         Raises:
             FileNotFoundError: If either image file does not exist.
             ValueError: If faces cannot be detected or comparison fails.
+            FaceEngineUnavailableError: If the DeepFace engine failed to import.
         """
+        if DeepFace is None:
+            raise FaceEngineUnavailableError(
+                f"Face verification engine unavailable: {DEEPFACE_IMPORT_ERROR}"
+            )
         if not Path(selfie_path).exists():
             raise FileNotFoundError(f"Selfie not found: {selfie_path}")
         if not Path(id_document_path).exists():
@@ -167,6 +204,10 @@ class FaceVerificationService:
         return max(0.0, min(quality, 1.0))
 
     def _detect_and_crop_face(self, image_path: str, label: str = "Image") -> np.ndarray:
+        if DeepFace is None:
+            raise FaceEngineUnavailableError(
+                f"Face verification engine unavailable: {DEEPFACE_IMPORT_ERROR}"
+            )
         image = cv2.imread(image_path)
         if image is None:
             raise ValueError(f"Cannot load image: {image_path}")

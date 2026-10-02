@@ -13,6 +13,10 @@ import process from 'node:process';
  *
  *  Companies: acme (open join), everest (open join), himalayan (invitation-code join).
  *  Invite mails + join codes are sent from rustamshrestha619@gmail.com (SMTP in .env).
+ *
+ *  Demo customer extras: 1 parsed BankStatement (SUCCESS + 4 transactions) and
+ *  1 statement-scoped chat session (bankStatementId FK + statement_chat context)
+ *  so the per-upload chat flow works out of the box after seeding.
  */
 async function main() {
   try {
@@ -198,6 +202,49 @@ async function main() {
         prisma.chatConversation.create({ data: { tenantId: acme.id, userId: reviewerId, sessionId: convId, messages: messages as never, context: context as never } }),
       ]);
       logger.info('Seeded admin<->reviewer conversation');
+    }
+
+    // ---- demo statement + statement-scoped chat (P1 parsed upload + P3 chat link) ----
+    let demoStatement = await prisma.bankStatement.findFirst({ where: { userId: customerId, tenantId: acme.id } });
+    if (!demoStatement) {
+      const now = Date.now();
+      const day = 24 * 3600 * 1000;
+      demoStatement = await prisma.bankStatement.create({
+        data: {
+          tenantId: acme.id,
+          userId: customerId,
+          bankName: 'Acme Demo Bank',
+          accountHolderName: 'Demo Customer',
+          parsingStatus: 'SUCCESS',
+          transactions: {
+            create: [
+              { tenantId: acme.id, userId: customerId, transactionDate: new Date(now - 28 * day), description: 'Monthly salary credit - Acme Partners', credit: 85000, transactionType: 'SALARY', category: 'INCOME' },
+              { tenantId: acme.id, userId: customerId, transactionDate: new Date(now - 20 * day), description: 'House rent payment', debit: 18000, transactionType: 'BILL_PAYMENT', category: 'EXPENSE' },
+              { tenantId: acme.id, userId: customerId, transactionDate: new Date(now - 12 * day), description: 'Grocery store purchase', debit: 12000, transactionType: 'BILL_PAYMENT', category: 'EXPENSE' },
+              { tenantId: acme.id, userId: customerId, transactionDate: new Date(now - 5 * day), description: 'Electricity + water utilities', debit: 5000, transactionType: 'BILL_PAYMENT', category: 'EXPENSE' },
+            ],
+          },
+        },
+      });
+      logger.info('Demo customer parsed BankStatement + 4 transactions created');
+    }
+    const stmtSessionId = 'stmt_seed_demo_statement';
+    const stmtChat = await prisma.chatConversation.findFirst({ where: { userId: customerId, sessionId: stmtSessionId } });
+    if (!stmtChat) {
+      await prisma.chatConversation.create({
+        data: {
+          tenantId: acme.id,
+          userId: customerId,
+          sessionId: stmtSessionId,
+          bankStatementId: demoStatement.id,
+          context: { type: 'statement_chat', bankStatementId: demoStatement.id },
+          messages: [
+            { role: 'user', content: 'What is my savings rate on this statement?', timestamp: new Date(Date.now() - 600 * 1000).toISOString() },
+            { role: 'assistant', content: 'On this statement you earned ₹85,000 and spent ₹35,000, giving a savings rate of about 59%.', timestamp: new Date(Date.now() - 590 * 1000).toISOString() },
+          ],
+        } as never,
+      });
+      logger.info('Demo statement-scoped chat session created');
     }
 
     // ---- feature toggles + usage counters ----

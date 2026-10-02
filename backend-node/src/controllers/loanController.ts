@@ -3,6 +3,7 @@ import { loanService } from '@/services/loanService';
 import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
+import { normalizeRoleName } from '@/utils/roles';
 import { LoanStatus, LoanPurpose } from '@prisma/client';
 
 export const applyForLoan = async (
@@ -120,6 +121,13 @@ export const reviewLoan = async (
 
     const { id } = req.params as { id: string };
     const { action, notes } = req.body;
+
+    // Defense in depth: customers must never approve/reject loans, even if
+    // the route middleware is ever relaxed. Staff = REVIEWER, ADMIN, SUPERADMIN.
+    if (normalizeRoleName(user.role) === 'USER') {
+      res.status(403).json(apiResponse.error('Only staff reviewers can review loan applications', 403));
+      return;
+    }
 
     const result = await loanService.reviewLoan(
       id,

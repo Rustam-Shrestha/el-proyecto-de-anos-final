@@ -60,9 +60,17 @@ async def lifespan(app: FastAPI):
             man = Path(settings.ML_MANIFEST_PATH)
             sch = Path(settings.ML_SCHEMA_PATH)
         if mp.exists() and pp.exists() and man.exists():
-            init_predictor(str(mp), str(man), str(pp), schema_path=str(sch))
+            predictor = init_predictor(str(mp), str(man), str(pp), schema_path=str(sch))
             _models_ready["finguard"] = True
             logger.info(f"FinGuard model loaded: {mp}")
+            # Warm-start: pay JIT/native cold-start now, not on the first request.
+            try:
+                predictor.warmup()
+                _models_ready["finguard_warm"] = True
+                logger.info("FinGuard predictor warmed up")
+            except Exception as e:
+                _models_ready["finguard_warm"] = False
+                logger.warning(f"FinGuard warmup skipped: {e}")
         else:
             _models_ready["finguard"] = False
             logger.warning(f"FinGuard artifacts missing: {mp} {pp} {man}")

@@ -334,12 +334,20 @@ export const chatbotService = {
     const entities = this.extractEntities(message);
     const intent = this.classifyIntent(q);
 
+    // Per-upload chat scope: if this session is tied to one BankStatement,
+    // answer from that statement's transactions instead of the tenant-wide aggregate.
+    const conversation = await prisma.chatConversation.findFirst({ where: { userId, sessionId } });
+    const scopedStatementId = (conversation?.context as { bankStatementId?: string } | null | undefined)?.bankStatementId;
+    const getProfile = scopedStatementId
+      ? () => this.getFinancialProfileForStatement(userId, scopedStatementId)
+      : () => this.getFinancialProfile(userId);
+
     let answer = '';
 
     try {
       switch (intent) {
         case 'LOAN_ELIGIBILITY': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
           if (!profile.hasData) {
             answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
             break;
@@ -361,7 +369,7 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'INCOME_ANALYSIS': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
           if (!profile.hasData) {
             answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
             break;
@@ -397,7 +405,7 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'SAVINGS_ANALYSIS': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
           if (!profile.hasData) {
             answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
             break;
@@ -428,7 +436,7 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'FINANCIAL_HEALTH': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
           if (!profile.hasData) {
             answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
             break;
@@ -448,7 +456,7 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'DEBT_ANALYSIS': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
           if (!profile.hasData) {
             answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
             break;
@@ -467,7 +475,7 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'COMPARISON': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
           if (!profile.hasData) {
             answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
             break;
@@ -517,7 +525,8 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
 • Debt analysis: "What's my debt-to-income ratio?"
 • Transactions: "Show my recent transactions"
 • Trends: "Show my income trend"
-• Comparison: "Compare my income vs expenses"`;
+• Comparison: "Compare my income vs expenses"
+Try asking about income, spending, or loan eligibility — or upload a statement for a personal analysis.`;
         }
       }
 
@@ -593,6 +602,11 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
     }
     if (/(?:trend|growth|decline|change|over time|month|weekly)/.test(q)) {
       return 'TREND_ANALYSIS';
+    }
+    // Generic finance-ish fallback before giving up — route to FINANCIAL_HEALTH
+    // (the broadest, most informative single answer) instead of the static menu.
+    if (/(?:loan|money|finance|financial|amount|budget|afford|emi|interest)/.test(q)) {
+      return 'FINANCIAL_HEALTH';
     }
     return 'UNRECOGNIZED';
   },
@@ -671,6 +685,46 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
       totalExpense: Number(profile.totalExpense || 0),
       totalSavings: Number(profile.totalSavings || 0),
       hasData: (profile.totalStatements ?? 0) > 0,
+    };
+  },
+
+  async getFinancialProfileForStatement(userId: string, bankStatementId: string) {
+    const transactions = await prisma.transaction.findMany({ where: { userId, bankStatementId } });
+    if (transactions.length === 0) {
+      return {
+        avgMonthlyIncome: 0,
+        avgMonthlyExpense: 0,
+        savingsRate: 0,
+        debtToIncomeRatio: 0,
+        incomeStabilityScore: 50,
+        creditScoreEstimate: 600,
+        totalStatements: 1,
+        totalIncome: 0,
+        totalExpense: 0,
+        totalSavings: 0,
+        hasData: false,
+      };
+    }
+
+    const incomeTx = transactions.filter((t) => t.category === 'INCOME');
+    const expenseTx = transactions.filter((t) => t.category === 'EXPENSE');
+    const totalIncome = incomeTx.reduce((s, t) => s + Number(t.credit || 0), 0);
+    const totalExpense = expenseTx.reduce((s, t) => s + Number(t.debit || 0), 0);
+    const totalSavings = totalIncome - totalExpense;
+    const savingsRate = totalIncome > 0 ? totalSavings / totalIncome : 0;
+
+    return {
+      avgMonthlyIncome: totalIncome, // single-statement scope: treat period total as the "monthly" figure
+      avgMonthlyExpense: totalExpense,
+      totalIncome,
+      totalExpense,
+      totalSavings,
+      savingsRate,
+      debtToIncomeRatio: 0,
+      incomeStabilityScore: 50,
+      creditScoreEstimate: 600,
+      totalStatements: 1,
+      hasData: true,
     };
   },
 

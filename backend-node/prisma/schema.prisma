@@ -947,6 +947,7 @@ model BankStatement {
   errorMessage       String?
 
   transactions       Transaction[]
+  chatConversations ChatConversation[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -1075,12 +1076,16 @@ model ChatConversation {
   messages  Json?    // [{role, content, timestamp}]
   context   Json?    // {focusedLoanAmount, focusedTenure, etc.}
 
+  bankStatementId String?
+  bankStatement   BankStatement? @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([userId])
   @@index([sessionId])
+  @@index([bankStatementId])
   @@map("chat_conversations")
   @@schema("auth")
 }

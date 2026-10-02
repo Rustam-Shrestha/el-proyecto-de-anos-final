@@ -58,8 +58,10 @@ def get_ocr_service():
 def get_face_service():
     global face_service
     if face_service is None:
-        from app.services.identity_service import face_service as _face
-        face_service = _face
+        from app.services import identity_service as _identity
+        if _identity.DeepFace is None:
+            raise HTTPException(status_code=503, detail="Face verification engine unavailable")
+        face_service = _identity.face_service
     return face_service
 
 
@@ -229,6 +231,8 @@ async def verify_face(
             "message": message,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         await session.rollback()
         logger.error("Face verification failed: %s", str(e), exc_info=True)
@@ -338,6 +342,8 @@ async def verify_face_stateless(
             "status": status,
             "recommendation": recommendation,
         }
+    except HTTPException:
+        raise
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Image file not found")
     except ValueError as e:
