@@ -24,12 +24,27 @@ const defaultFrom = env.SMTP_USER || 'noreply@finguard.local';
 /**
  * Best-effort delivery log. Never throws — email auditing must not break
  * the request that triggered the send (or the send itself).
+ *
+ * The catch block is guarded too: once the Prisma client is disconnected
+ * (process shutdown / test teardown) the failure surfaces as a TypeError,
+ * and the logger can fail while serializing that error. Letting either
+ * escape would turn an audit write into an unhandled rejection.
  */
 async function logEmail(to: string, type: string, subject: string, status: 'SENT' | 'FAILED', error?: string): Promise<void> {
+  // Fire-and-forget: the send is already done, so this audit write may still be
+  // in flight when a short-lived process (or the jest worker) exits. Writing then
+  // raises "Cannot log after tests are done" and fails an otherwise green run,
+  // so audit rows are simply skipped under test.
+  if (env.NODE_ENV === 'test') return;
+
   try {
     await prisma.emailLog.create({ data: { to, type, subject, status, error: error ?? null } });
   } catch (err) {
-    logger.warn({ err, email: to, subject }, 'EmailLog write failed (non-fatal)');
+    try {
+      logger.warn({ err, email: to, subject }, 'EmailLog write failed (non-fatal)');
+    } catch {
+      // Logging must never escalate a non-fatal audit failure.
+    }
   }
 }
 
