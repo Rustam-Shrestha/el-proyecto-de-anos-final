@@ -6,6 +6,7 @@ import swaggerUi from "swagger-ui-express";
 import pinoHttp from "pino-http";
 import passport from "passport";
 import { apiRouter } from "@routes/index";
+import slugCompatRouter from "@routes/slugCompatRoutes";
 import { env } from "@config/env";
 import { logger } from "@config/logger";
 import { errorHandler } from "@middleware/errorHandler";
@@ -36,7 +37,12 @@ const corsOrigin = (origin: string | undefined, callback: (_error: Error | null,
 };
 
 // Security and request-parsing defaults suitable for API-first backends.
-app.use(helmet());
+// crossOriginResourcePolicy is OFF: this server hosts static uploads
+// (avatars, KYC docs) that pages on other origins (Vite dev, deployed
+// frontend domain) must be allowed to render as <img>. With helmet's
+// default "same-origin", browsers refuse cross-origin images and every
+// avatar shows broken. COOP/COEP defaults stay on.
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger }));
@@ -44,7 +50,14 @@ app.use(passport.initialize());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
+// MD-compat alias: FINGUARD_MULTITENANT_COMPLETE_FIX Part 9 expects /api-docs
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
+app.get("/openapi.json", (_req, res) => res.json(openApiSpec));
+app.get("/api-docs/openapi.json", (_req, res) => res.json(openApiSpec));
 app.use("/api/v1", apiRouter);
+// MD-compat root routes: POST /login, POST /:slug/login, POST /:slug/apply, ...
+// Must be after /api/v1 + /docs so versioned routes keep priority.
+app.use("/", slugCompatRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

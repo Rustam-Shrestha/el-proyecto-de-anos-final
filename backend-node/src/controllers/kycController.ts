@@ -2,15 +2,16 @@ import type { Request, Response, NextFunction } from 'express';
 import { kycService } from '@/services/kycService';
 import { userService } from '@/services/userService';
 import { auditService } from '@/services/auditService';
-import { ocrService } from '@/services/ocrService';
+import { ocrService as _ocrService } from '@/services/ocrService';
 import { faceService } from '@/services/faceService';
 import { kycSubmissionFileService } from '@/services/kycSubmissionFileService';
-import { extractionVerificationService } from '@/services/extractionVerificationService';
+import { extractionVerificationService as _extractionVerificationService } from '@/services/extractionVerificationService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
 import { getRelativePath, resolveAbsolutePath } from '@/utils/pathUtils';
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
+import { normalizeRoleName } from '@/utils/roles';
 
 const documentTypeMap: Record<string, string> = {
   selfie: 'SELFIE',
@@ -33,7 +34,8 @@ export const getMyStatus = async (
       return;
     }
 
-    const application = await kycService.getKycStatus(req.user.id);
+    const tid = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
+    const application = await kycService.getKycStatus(req.user.id, tid);
 
     if (!application) {
       res.json(apiResponse.success('No KYC application found', null));
@@ -90,10 +92,11 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
       }))
     );
 
+    const tidSubmit = (req as unknown as { tenantId?: number }).tenantId ?? req.user.tenantId ?? 1;
     const result = await kycService.submitKyc({
       userId: req.user.id,
       documents,
-    });
+    }, tidSubmit);
 
     // Update user profile with submitted info
     await userService.updateUser(req.user.id, {
@@ -105,6 +108,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
     // Log KYC submission
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidSubmit,
       action: 'SUBMIT_KYC',
       metadata: {
         kycId: result.id,
@@ -122,7 +126,7 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
     setImmediate(async () => {
       try {
         const frontDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_FRONT');
-        const backDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_BACK');
+        const _backDoc = result.documents.find((d) => d.type === 'CITIZENSHIP_BACK');
         const selfieDoc = result.documents.find((d) => d.type === 'SELFIE');
 
         await prisma.kycApplication.update({
@@ -214,139 +218,21 @@ export const submitKyc = async (req: Request, res: Response, next: NextFunction)
           }
         }
 
-        // STEP 3: OCR in background (only if face succeeded)
-        if (faceSucceeded) {
-          await prisma.kycApplication.update({
-            where: { id: result.id },
-            data: { ocrProcessingStatus: 'EXTRACTING' },
-          });
+        // OCR extraction is intentionally disabled. Only face verification is required.
+        // The user provides all identity details manually in the form; legacy OCR logic has been moved out of the active flow.
+        await prisma.kycApplication.update({
+          where: { id: result.id },
+          data: {
+            ocrProcessingStatus: 'SKIPPED',
+            ocrFrontStatus: 'SKIPPED',
+            ocrBackStatus: 'SKIPPED',
+            processingStatus: 'DONE',
+            workflowStage: 'COMPLETE',
+            queuedForManualReview: false,
+          },
+        });
 
-          // OCR Front
-          if (frontDoc && process.env.OCR_ENABLED !== 'false') {
-            await prisma.kycApplication.update({
-              where: { id: result.id },
-              data: { ocrFrontStatus: 'PROCESSING' },
-            });
-            const frontPath = resolveAbsolutePath(frontDoc.filePath);
-            const ocrFront = await ocrService.extractCitizenshipData(frontPath, 'CITIZENSHIP_FRONT');
-
-            if (ocrFront.error) {
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { ocrFrontStatus: 'FAILED', ocrProcessingError: ocrFront.error, ocrProcessingStatus: 'FAILED' },
-              });
-            } else {
-              await prisma.ocrResult.create({
-                data: {
-                  kycApplicationId: result.id,
-                  documentType: 'CITIZENSHIP_FRONT',
-                  rawOcrText: ocrFront.rawText,
-                  extractedData: ocrFront.extractedData,
-                  overallConfidence: ocrFront.overallConfidence,
-                },
-              });
-              await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_FRONT', ocrFront);
-              const prefill: Record<string, string | undefined> = {};
-              if (ocrFront.extractedData.name) prefill.ocrFullName = String(ocrFront.extractedData.name);
-              if (ocrFront.extractedData.citizenship_number) prefill.ocrCitizenshipNumber = String(ocrFront.extractedData.citizenship_number);
-              if (ocrFront.extractedData.dob) prefill.ocrDateOfBirth = String(ocrFront.extractedData.dob);
-              if (ocrFront.extractedData.gender) prefill.ocrGender = String(ocrFront.extractedData.gender);
-              if (ocrFront.extractedData.address) prefill.ocrAddress = String(ocrFront.extractedData.address);
-              if (Object.keys(prefill).length > 0) {
-                await prisma.kycApplication.update({ where: { id: result.id }, data: { ...prefill, ocrFrontStatus: 'DONE' } });
-              } else {
-                await prisma.kycApplication.update({ where: { id: result.id }, data: { ocrFrontStatus: 'DONE' } });
-              }
-            }
-          }
-
-          // OCR Back
-          if (backDoc && process.env.OCR_ENABLED !== 'false') {
-            await prisma.kycApplication.update({
-              where: { id: result.id },
-              data: { ocrBackStatus: 'PROCESSING' },
-            });
-            const backPath = resolveAbsolutePath(backDoc.filePath);
-            const ocrBack = await ocrService.extractCitizenshipData(backPath, 'CITIZENSHIP_BACK');
-
-            if (ocrBack.error) {
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { ocrBackStatus: 'FAILED', ocrProcessingError: ocrBack.error },
-              });
-            } else {
-              await prisma.ocrResult.create({
-                data: {
-                  kycApplicationId: result.id,
-                  documentType: 'CITIZENSHIP_BACK',
-                  rawOcrText: ocrBack.rawText,
-                  extractedData: ocrBack.extractedData,
-                  overallConfidence: ocrBack.overallConfidence,
-                },
-              });
-              await extractionVerificationService.storeExtraction(result.id, 'CITIZENSHIP_BACK', ocrBack);
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { ocrBackStatus: 'DONE' },
-              });
-            }
-          }
-
-          // Determine OCR final status
-          const appAfterOcr = await prisma.kycApplication.findUnique({ where: { id: result.id } });
-          if (appAfterOcr) {
-            const ocrFrontDone = appAfterOcr.ocrFrontStatus === 'DONE' || appAfterOcr.ocrFrontStatus === 'FAILED' || !frontDoc;
-            const ocrBackDone = appAfterOcr.ocrBackStatus === 'DONE' || appAfterOcr.ocrBackStatus === 'FAILED' || !backDoc;
-            const ocrAnyFailed = appAfterOcr.ocrFrontStatus === 'FAILED' || appAfterOcr.ocrBackStatus === 'FAILED';
-            const ocrAllDone = appAfterOcr.ocrFrontStatus === 'DONE' && (!backDoc || appAfterOcr.ocrBackStatus === 'DONE');
-
-            let ocrStatus = 'EXTRACTED';
-            if (ocrAnyFailed && ocrAllDone) ocrStatus = 'PARTIAL';
-            else if (ocrAnyFailed) ocrStatus = 'PARTIAL';
-            else if (!ocrFrontDone && !ocrBackDone) ocrStatus = 'FAILED';
-
-            await prisma.kycApplication.update({
-              where: { id: result.id },
-              data: {
-                ocrProcessingStatus: ocrStatus,
-                workflowStage: 'AWAITING_USER_CONFIRMATION',
-              },
-            });
-
-            if (ocrStatus === 'PARTIAL' || ocrStatus === 'FAILED') {
-              await prisma.kycApplication.update({
-                where: { id: result.id },
-                data: { queuedForManualReview: true },
-              });
-              await prisma.manualReviewQueue.create({
-                data: {
-                  kycApplicationId: result.id,
-                  reason: ocrStatus === 'FAILED' ? 'OCR_PROCESSING_ERROR' : 'PARTIAL_EXTRACTION',
-                  details: appAfterOcr.ocrProcessingError || 'OCR completed with partial results',
-                  priority: 'NORMAL',
-                },
-              });
-            }
-          }
-        }
-
-        // Final status
-        const finalApp = await prisma.kycApplication.findUnique({ where: { id: result.id } });
-        if (finalApp) {
-          const allDone = finalApp.faceStatus !== 'PENDING' && finalApp.faceStatus !== 'PROCESSING' &&
-            (!frontDoc || finalApp.ocrFrontStatus !== 'PENDING') && finalApp.ocrFrontStatus !== 'PROCESSING' &&
-            (!backDoc || finalApp.ocrBackStatus !== 'PENDING') && finalApp.ocrBackStatus !== 'PROCESSING';
-          const anyFailed = finalApp.faceStatus === 'FAILED' || finalApp.ocrFrontStatus === 'FAILED' || finalApp.ocrBackStatus === 'FAILED';
-          await prisma.kycApplication.update({
-            where: { id: result.id },
-            data: {
-              processingStatus: anyFailed ? 'FAILED' : allDone ? 'DONE' : 'PROCESSING',
-              workflowStage: allDone ? 'COMPLETE' : finalApp.workflowStage,
-            },
-          });
-        }
-
-        logger.info({ kycId: result.id }, 'Background face-first processing complete');
+        logger.info({ kycId: result.id }, 'Background face verification complete; OCR step intentionally skipped');
       } catch (bgError: unknown) {
         logger.error({ err: bgError, kycId: result.id }, 'Background face-first processing failed');
         await prisma.kycApplication.update({
@@ -374,7 +260,9 @@ export const getKycStatus = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const kyc = await kycService.getKycStatus(req.user.id);
+    // Two-stage KYC: identity verification is global, so the customer's own
+    // status is read across every tenant (no X-Tenant scoping).
+    const kyc = await kycService.getKycStatus(req.user.id, undefined);
 
     if (!kyc) {
       res.json(apiResponse.success('No KYC application found', null));
@@ -401,11 +289,16 @@ export const listKycApplications = async (
     const status = (req.query.status as string) || undefined;
     const search = (req.query.search as string) || undefined;
 
+    const isSuperAdmin = normalizeRoleName(req.user?.role) === 'SUPERADMIN';
+    const tidList = isSuperAdmin
+      ? undefined
+      : (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
     const { applications, total } = await kycService.listKycApplications(
       take,
       skip,
       status,
-      search
+      search,
+      tidList
     );
 
     res.json(
@@ -429,8 +322,12 @@ export const listKycApplications = async (
 export const getKycById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
+    const isSuperAdmin = normalizeRoleName(req.user?.role) === 'SUPERADMIN';
+    const tid = isSuperAdmin
+      ? undefined
+      : (req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId;
 
-    const kyc = await kycService.getKycById(id);
+    const kyc = await kycService.getKycById(id, tid);
 
     res.json(apiResponse.success('KYC application retrieved', kyc));
   } catch (error) {
@@ -451,11 +348,14 @@ export const approveKyc = async (req: Request, res: Response, next: NextFunction
 
     const { id } = req.params;
 
-    const result = await kycService.approveKyc(id, req.user.id);
+    // Two-stage KYC: route is SUPERADMIN-only, so verify globally (no tenant filter).
+    const result = await kycService.approveKyc(id, req.user.id, undefined);
+    const tidApprove = (result as unknown as { tenantId?: number }).tenantId ?? 1;
 
     // Log KYC approval
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidApprove,
       action: 'APPROVE_KYC',
       metadata: {
         kycId: id,
@@ -485,11 +385,14 @@ export const rejectKyc = async (req: Request, res: Response, next: NextFunction)
     const { id } = req.params;
     const { rejectionReason } = req.body;
 
-    const result = await kycService.rejectKyc(id, req.user.id, rejectionReason);
+    // Two-stage KYC: route is SUPERADMIN-only, so verify globally (no tenant filter).
+    const result = await kycService.rejectKyc(id, req.user.id, rejectionReason, undefined);
+    const tidReject = (result as unknown as { tenantId?: number }).tenantId ?? 1;
 
     // Log KYC rejection
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidReject,
       action: 'REJECT_KYC',
       metadata: {
         kycId: id,
@@ -524,11 +427,14 @@ export const requestKycResubmit = async (
     const { id } = req.params;
     const { note } = req.body;
 
-    const result = await kycService.requestResubmit(id, req.user.id, note);
+    // Two-stage KYC: route is SUPERADMIN-only, so review globally (no tenant filter).
+    const result = await kycService.requestResubmit(id, req.user.id, note, undefined);
+    const tidResubmit = (result as unknown as { tenantId?: number }).tenantId ?? 1;
 
     // Log resubmit request
     await auditService.log({
       userId: req.user.id,
+      tenantId: tidResubmit,
       action: 'REQUEST_RESUBMIT_KYC',
       metadata: {
         kycId: id,

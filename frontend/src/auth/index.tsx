@@ -100,9 +100,8 @@ const Auth = () => {
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl items-center justify-center">
         <div className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--surface-color)] p-6 shadow-sm sm:p-8">
           <div className="mb-6 space-y-2 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--green-icon)]">
-              CMS Access
-            </p>
+                    <img src="..\..\public\logo512.png" alt="FinGuard logo" className="mx-auto h-20 w-20 rounded-[6px] object-cover p-0" />
+
             <h1 className="text-3xl font-semibold text-[var(--text-color)]">Login to FinGuard</h1>
             <p className="text-sm text-gray-500 ">Enter your credentials</p>
           </div>
@@ -140,6 +139,10 @@ const Auth = () => {
             <span className="text-gray-500">Don't have an account? </span>
             <Link to="/register" className="text-blue-600 hover:underline font-medium">
               Register
+            </Link>
+            <span className="text-gray-500"> · </span>
+            <Link to="/forgot-password" className="text-blue-600 hover:underline font-medium">
+              Forgot password?
             </Link>
           </div>
         </div>

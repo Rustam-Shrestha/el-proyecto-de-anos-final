@@ -1,6 +1,7 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
+import { notificationService } from '@/services/notificationService';
 import { DocumentType, DocumentVerificationStatus } from '@prisma/client';
 
 export interface DocumentSummary {
@@ -152,6 +153,27 @@ export const documentService = {
         { documentId, reviewerId, status },
         'Document verification status updated'
       );
+
+      // Notify the customer on terminal outcomes — every other verify flow
+      // (KYC decision, financial doc, portfolio, loan) already does this.
+      // Fire-and-forget: notificationService.create never throws.
+      if (status === 'VERIFIED' || status === 'REJECTED') {
+        await notificationService.create({
+          userId: document.userId,
+          tenantId: document.tenantId,
+          type: status === 'VERIFIED' ? 'DOCUMENT_VERIFIED' : 'DOCUMENT_FLAGGED',
+          title: status === 'VERIFIED' ? 'Document Verified' : 'Document Needs Attention',
+          message:
+            status === 'VERIFIED'
+              ? `Your ${document.documentType} document has been verified.`
+              : `Your ${document.documentType} document was not approved.${notes ? ` Reason: ${notes}` : ' Please re-upload a clearer copy.'}`,
+          relatedEntityType: 'Document',
+          relatedEntityId: documentId,
+          actionUrl: '/dashboard/kyc',
+          priority: status === 'REJECTED' ? 'HIGH' : 'NORMAL',
+          metadata: { status, verifiedBy: reviewerId, notes: notes ?? null },
+        });
+      }
 
       return updated;
     } catch (error) {

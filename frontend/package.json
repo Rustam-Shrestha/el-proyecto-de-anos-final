@@ -20,12 +20,17 @@
     "axios": "^1.16.1",
     "balanced-match": "3.0.1",
     "highcharts": "13.0.0",
+    "html2canvas": "1.4.1",
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.8",
     "lucide-react": "^1.16.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-hook-form": "^7.76.0",
     "react-redux": "^9.3.0",
     "react-router-dom": "^7.15.1",
+    "socket.io-client": "^4.8.1",
+    "xlsx": "0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -42,6 +47,6 @@
     "tailwindcss": "^3.4.13",
     "ts-api-utils": "2.4.0",
     "typescript": "^6.0.3",
-    "vite": "8.0.13"
+    "vite": "8.2.2"
   }
 }

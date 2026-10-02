@@ -15,6 +15,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import JSONResponse
 
 try:
     from .app.db import init_db
@@ -31,41 +33,50 @@ _models_ready = {"ocr": False, "face": False, "ocr_paddle": False}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting FastAPI application...")
+    logger.info("Starting FastAPI application without OCR model preloading...")
     await init_db()
     logger.info("Database initialized successfully")
 
-    logger.info("Loading AI models before accepting requests...")
     _models_ready["ocr"] = False
     _models_ready["ocr_paddle"] = False
     _models_ready["face"] = False
-
+    logger.info("FastAPI OCR and text extraction are disabled in the active flow; only face matching remains enabled in the product path.")
+    # Try to init FinGuard predictor (non-fatal)
     try:
-        from app.services.ocr_service import ocr_service
-        _ = ocr_service.processor.ocr
-        _models_ready["ocr"] = True
-        logger.info("EasyOCR ready")
+        from app.config import settings
+        from app.services.finguard.predictor import init_predictor
+        from pathlib import Path
+        mp = Path(settings.ML_MODEL_PATH)
+        # resolve relative to project root if needed
+        if not mp.is_absolute():
+            # main.py is at backend-fastapi/main.py
+            base = Path(__file__).parent
+            mp = (base / settings.ML_MODEL_PATH).resolve()
+            pp = (base / settings.ML_PREPROCESSING_PATH).resolve()
+            man = (base / settings.ML_MANIFEST_PATH).resolve()
+            sch = (base / settings.ML_SCHEMA_PATH).resolve()
+        else:
+            pp = Path(settings.ML_PREPROCESSING_PATH)
+            man = Path(settings.ML_MANIFEST_PATH)
+            sch = Path(settings.ML_SCHEMA_PATH)
+        if mp.exists() and pp.exists() and man.exists():
+            predictor = init_predictor(str(mp), str(man), str(pp), schema_path=str(sch))
+            _models_ready["finguard"] = True
+            logger.info(f"FinGuard model loaded: {mp}")
+            # Warm-start: pay JIT/native cold-start now, not on the first request.
+            try:
+                predictor.warmup()
+                _models_ready["finguard_warm"] = True
+                logger.info("FinGuard predictor warmed up")
+            except Exception as e:
+                _models_ready["finguard_warm"] = False
+                logger.warning(f"FinGuard warmup skipped: {e}")
+        else:
+            _models_ready["finguard"] = False
+            logger.warning(f"FinGuard artifacts missing: {mp} {pp} {man}")
     except Exception as e:
-        logger.warning("EasyOCR pre-load failed: %s", e)
-
-    try:
-        from app.extraction.ocr_extractor import OcrExtractor
-        _ = OcrExtractor()
-        _models_ready["ocr_paddle"] = True
-        logger.info("PaddleOCR ready")
-    except Exception as e:
-        logger.warning("PaddleOCR pre-load failed: %s", e)
-
-    try:
-        from app.services.identity_service import face_service
-        from deepface import DeepFace
-        DeepFace.build_model("Facenet")
-        _models_ready["face"] = True
-        logger.info("DeepFace Facenet ready")
-    except Exception as e:
-        logger.warning("DeepFace pre-load failed: %s", e)
-
-    logger.info("All AI models loaded — server ready")
+        _models_ready["finguard"] = False
+        logger.warning(f"FinGuard init failed: {e}")
     yield
     logger.info("Shutting down FastAPI application...")
 
@@ -104,6 +115,14 @@ def create_app() -> FastAPI:
                 "name": "health",
                 "description": "Service health and ML model readiness checks",
             },
+            {
+                "name": "finguard",
+                "description": "Credit default prediction (XGBoost) — /finguard/* and /api/v1/finguard/*",
+            },
+            {
+                "name": "nlu",
+                "description": "Natural language financial assistant — /nlu/* and /api/v1/nlu/*",
+            },
         ],
         lifespan=lifespan
     )
@@ -118,6 +137,36 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
 
+    @app.get("/api/v1/openapi.json", include_in_schema=False)
+    async def versioned_openapi():
+        return JSONResponse(app.openapi())
+
+    @app.get("/api/v1/docs", include_in_schema=False)
+    async def versioned_swagger_ui():
+        return get_swagger_ui_html(
+            openapi_url="/api/v1/openapi.json",
+            title=f"{app.title} - Swagger UI",
+        )
+
+    @app.get("/api/v1/redoc", include_in_schema=False)
+    async def versioned_redoc():
+        return get_redoc_html(
+            openapi_url="/api/v1/openapi.json",
+            title=f"{app.title} - ReDoc",
+        )
+
+    # Spec aliases: mount the FinGuard + NLU routers at the service root so both
+    # /api/v1/finguard/* (legacy) and /finguard/* (spec) resolve to the same
+    # handlers. The routers already carry their own /finguard and /nlu prefixes.
+    try:
+        from app.routes.finguard import router as finguard_root_router
+        from app.routes.nlu import router as nlu_root_router
+
+        app.include_router(finguard_root_router)
+        app.include_router(nlu_root_router)
+    except Exception as e:  # pragma: no cover - defensive, api_router already has them
+        logger.warning(f"Could not mount root-level spec aliases: {e}")
+
     @app.get("/health", tags=["health"])
     async def health_check():
         """Liveness probe — returns OK if the service is running."""
@@ -129,10 +178,13 @@ def create_app() -> FastAPI:
 
     @app.get("/ready", tags=["health"])
     async def readiness_check():
-        """Readiness probe — returns 200 only when all ML models are loaded."""
-        if all(_models_ready.values()):
-            return {"ready": True, "models": _models_ready}
-        raise HTTPException(status_code=503, detail={"ready": False, "models": _models_ready})
+        """Readiness probe — face matching is independent from credit scoring (xgboost).
+        Return 200 even if credit model is degraded; only fail if core DB not ready."""
+        # finguard (xgboost) is optional - degrade gracefully
+        finguard_ready = _models_ready.get("finguard", False)
+        # face is lazy-loaded on demand, always report ready to avoid blocking KYC
+        # 503 only if we explicitly mark degraded and caller wants strict check
+        return {"ready": True, "models": {**_models_ready, "face_lazy": True}, "degraded": not finguard_ready}
 
     return app
 

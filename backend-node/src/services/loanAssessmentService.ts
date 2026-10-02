@@ -1,7 +1,45 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
-import { AppError } from '@/utils/AppError';
 import { statementParserService } from './statementParserService';
+import { finguardProxyService, normalizeFinguardInput } from './finguardProxyService';
+import type { FinguardInput, FinguardResult } from './finguardProxyService';
+import { Prisma } from '@prisma/client';
+
+/** Penalty applied to the heuristic eligibility score: probability (0-1) * 20 points. */
+const FINGUARD_PENALTY_WEIGHT = 20;
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function riskLevelFromScore(score: number): string {
+  if (score >= 80) return 'LOW';
+  if (score >= 60) return 'MEDIUM';
+  if (score >= 40) return 'HIGH';
+  return 'REJECTED';
+}
+
+function multiplierFor(riskLevel: string): number {
+  switch (riskLevel) {
+    case 'LOW': return 1.0;
+    case 'MEDIUM': return 0.8;
+    case 'HIGH': return 0.5;
+    default: return 0.0;
+  }
+}
+
+function resolveTid(tenantId?: number): number {
+  if (tenantId === undefined || tenantId === null) {
+    logger.warn("loanAssessmentService: tenantId not provided, falling back to 1");
+    return 1;
+  }
+  return tenantId;
+}
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
 
 class LoanEligibilityCalculator {
   constructor(
@@ -65,16 +103,40 @@ class LoanEligibilityCalculator {
 }
 
 export const loanAssessmentService = {
-  async assess(userId: string, requestedAmount: number, tenureMonths = 24, interestRate = 10.5) {
-    let profile = await prisma.financialProfile.findUnique({ where: { userId } });
-
-    if (!profile) {
-      await statementParserService.recalculateFinancialProfile(userId);
-      profile = await prisma.financialProfile.findUnique({ where: { userId } });
+  async assess(userId: string, requestedAmount: number, tenureMonths = 24, interestRate = 10.5, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    let profile: Awaited<ReturnType<typeof prisma.financialProfile.findFirst>>;
+    try {
+      profile = await prisma.financialProfile.findFirst({ where: { userId, tenantId: tid } });
+    } catch (e) {
+      if (isTenantSchemaError(e)) profile = await prisma.financialProfile.findUnique({ where: { userId } }) as never;
+      else throw e;
     }
 
     if (!profile) {
-      throw new AppError('No financial data found. Upload a bank statement first.', 404);
+      await statementParserService.recalculateFinancialProfile(userId);
+      try {
+        profile = await prisma.financialProfile.findFirst({ where: { userId, tenantId: tid } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) profile = await prisma.financialProfile.findUnique({ where: { userId } }) as never;
+        else throw e;
+      }
+    }
+
+    // Graceful empty: assess a zero profile (score 0, not eligible) with an
+    // upload-guidance recommendation instead of 404. Missing data is an
+    // empty state, not a missing route.
+    const needsData = !profile;
+    if (!profile) {
+      profile = {
+        totalStatements: 0,
+        avgMonthlyIncome: 0,
+        avgMonthlyExpense: 0,
+        savingsRate: 0,
+        debtToIncomeRatio: 0,
+        incomeStabilityScore: 0,
+        creditScoreEstimate: 600,
+      } as unknown as NonNullable<typeof profile>;
     }
 
     const calc = new LoanEligibilityCalculator({
@@ -88,26 +150,223 @@ export const loanAssessmentService = {
     }, requestedAmount);
 
     const result = calc.assess(interestRate, tenureMonths);
+    const recommendation = needsData
+      ? 'No financial data found. Upload a bank statement first, then request a new assessment.'
+      : this.generateRecommendation(result);
 
-    const assessment = await prisma.loanAssessment.create({
-      data: {
-        userId,
-        requestedAmount,
-        loanTenureMonths: tenureMonths,
-        interestRateAssumed: interestRate,
-        eligibleAmount: result.eligibleAmount,
-        maxMonthlyEmi: result.maxMonthlyEmi,
-        recommendedTenure: result.recommendedTenure,
-        eligibilityScore: result.eligibilityScore,
-        riskLevel: result.riskLevel,
-        recommendation: this.generateRecommendation(result),
-        assessmentDetails: result.details,
-      },
-    });
+    let assessment: Awaited<ReturnType<typeof prisma.loanAssessment.create>>;
+    try {
+      assessment = await prisma.loanAssessment.create({
+        data: {
+          tenantId: tid,
+          userId,
+          requestedAmount,
+          loanTenureMonths: tenureMonths,
+          interestRateAssumed: interestRate,
+          eligibleAmount: result.eligibleAmount,
+          maxMonthlyEmi: result.maxMonthlyEmi,
+          recommendedTenure: result.recommendedTenure,
+          eligibilityScore: result.eligibilityScore,
+          riskLevel: result.riskLevel,
+          recommendation,
+          assessmentDetails: result.details,
+        },
+      });
+    } catch (e) {
+      if (isTenantSchemaError(e)) {
+        assessment = await prisma.loanAssessment.create({
+          data: {
+            userId,
+            requestedAmount,
+            loanTenureMonths: tenureMonths,
+            interestRateAssumed: interestRate,
+            eligibleAmount: result.eligibleAmount,
+            maxMonthlyEmi: result.maxMonthlyEmi,
+            recommendedTenure: result.recommendedTenure,
+            eligibilityScore: result.eligibilityScore,
+            riskLevel: result.riskLevel,
+            recommendation,
+            assessmentDetails: result.details,
+          },
+        });
+      } else if ((e as { code?: string })?.code === 'P2003') {
+        // Non-customer identity (e.g. superadmin token sub "sc-1" is a
+        // supercontroller row, not an auth.User): FK can't persist, so return
+        // the computed assessment ephemerally instead of 500.
+        logger.warn({ userId, requestedAmount }, 'assess: unknown user, returning ephemeral assessment');
+        return {
+          id: `ephemeral-${Date.now()}`,
+          tenantId: tid,
+          userId,
+          requestedAmount,
+          loanTenureMonths: tenureMonths,
+          interestRateAssumed: interestRate,
+          eligibleAmount: result.eligibleAmount,
+          maxMonthlyEmi: result.maxMonthlyEmi,
+          recommendedTenure: result.recommendedTenure,
+          eligibilityScore: result.eligibilityScore,
+          riskLevel: result.riskLevel,
+          recommendation,
+          assessmentDetails: result.details,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          persisted: false,
+        } as unknown as typeof assessment;
+      } else throw e;
+    }
 
-    logger.info({ userId, requestedAmount, riskLevel: result.riskLevel }, 'Loan assessment completed');
+    logger.info({ userId, tenantId: tid, requestedAmount, riskLevel: result.riskLevel }, 'Loan assessment completed');
 
     return assessment;
+  },
+
+  /**
+   * Best-effort derivation of HomeCredit/FinGuard features from the stored
+   * profile, employment and financial-profile rows. Never throws.
+   */
+  async buildFinguardFeatures(userId: string, requestedAmount = 0): Promise<Record<string, number | string>> {
+    const features: Record<string, number | string> = {};
+    if (requestedAmount > 0) features.amt_credit = requestedAmount;
+
+    type ProfileRow = { dateOfBirth?: Date | string | null };
+    type EmploymentRow = {
+      employmentStartDate?: Date | string | null;
+      annualIncome?: number | string | null;
+      occupationJobTitle?: string | null;
+      dependentsCount?: number | null;
+    };
+    type FinancialRow = { avgMonthlyIncome?: number | string | null };
+
+    let profile: ProfileRow | null = null;
+    let employment: EmploymentRow | null = null;
+    let financial: FinancialRow | null = null;
+
+    try { profile = await prisma.profile.findUnique({ where: { userId } }) as unknown as ProfileRow | null; } catch { /* schema drift */ }
+    try { employment = await prisma.employmentInfo.findUnique({ where: { userId } }) as unknown as EmploymentRow | null; } catch { /* schema drift */ }
+    try { financial = await prisma.financialProfile.findFirst({ where: { userId } }) as unknown as FinancialRow | null; } catch { /* schema drift */ }
+
+    if (profile?.dateOfBirth) {
+      features.days_birth = -Math.floor((Date.now() - new Date(profile.dateOfBirth).getTime()) / 86400000);
+    }
+    if (employment?.employmentStartDate) {
+      features.days_employed = -Math.floor((Date.now() - new Date(employment.employmentStartDate).getTime()) / 86400000);
+    }
+
+    const monthlyIncome = Number(financial?.avgMonthlyIncome ?? 0);
+    const annualFromEmployment = Number(employment?.annualIncome ?? 0);
+    const annualIncome = annualFromEmployment > 0 ? annualFromEmployment : monthlyIncome * 12;
+    if (annualIncome > 0) features.amt_income_total = round2(annualIncome);
+
+    if (employment?.occupationJobTitle) features.occupation_type = String(employment.occupationJobTitle);
+
+    const dependents = Number(employment?.dependentsCount ?? 0);
+    if (dependents > 0) {
+      features.cnt_children = dependents;
+      features.cnt_fam_members = dependents + 1;
+    }
+
+    return features;
+  },
+
+  /**
+   * Heuristic assessment (unchanged) merged with the FinGuard ML probability.
+   * eligibilityScore -= probability * 20 (max 20 point penalty), then the
+   * risk level / eligible amount / recommendation are recomputed.
+   * Falls back to the pure heuristic result when FinGuard is unavailable.
+   */
+  async assessWithFinguard(
+    userId: string,
+    requestedAmount: number,
+    tenureMonths = 24,
+    interestRate = 10.5,
+    tenantId?: number,
+  ) {
+    const base = await this.assess(userId, requestedAmount, tenureMonths, interestRate, tenantId);
+
+    let ml: FinguardResult | null = null;
+    let features: FinguardInput | null = null;
+    try {
+      const derived = await this.buildFinguardFeatures(userId, requestedAmount);
+      features = normalizeFinguardInput(derived) as unknown as FinguardInput;
+    } catch (e) {
+      logger.warn({ err: e, userId }, 'Insufficient data for FinGuard features, using heuristic only');
+    }
+    if (features) {
+      try {
+        ml = await finguardProxyService.evaluate(features);
+      } catch (e) {
+        logger.warn({ err: e, userId }, 'FinGuard ML evaluation failed, using heuristic only');
+      }
+    }
+
+    if (!ml) {
+      return { ...base, finguardAdjusted: false, finguard: null };
+    }
+
+    const probability = Number(ml.default_probability ?? 0);
+    const penalty = probability * FINGUARD_PENALTY_WEIGHT;
+    const baseScore = Number(base.eligibilityScore ?? 0);
+    const eligibilityScore = round2(Math.max(0, baseScore - penalty));
+    const riskLevel = riskLevelFromScore(eligibilityScore);
+    const eligibleAmount = round2(requestedAmount * multiplierFor(riskLevel));
+    const maxMonthlyEmi = round2(Number(base.maxMonthlyEmi ?? 0));
+    const monthlyEmi = round2(Number(base.assessmentDetails && typeof base.assessmentDetails === 'object'
+      ? ((base.assessmentDetails as { monthlyEmi?: number }).monthlyEmi ?? 0)
+      : 0));
+
+    const recommendation = this.generateRecommendation({
+      riskLevel, eligibleAmount, eligibilityScore, maxMonthlyEmi, monthlyEmi,
+    });
+
+    const assessmentDetails = {
+      ...(typeof base.assessmentDetails === 'object' && base.assessmentDetails !== null ? base.assessmentDetails : {}),
+      heuristicScore: baseScore,
+      finguard: {
+        defaultProbability: probability,
+        creditScore: ml.credit_score,
+        riskBand: ml.risk_band,
+        decision: ml.decision,
+        modelVersion: ml.model_version,
+        penaltyApplied: round2(penalty),
+        penaltyWeight: FINGUARD_PENALTY_WEIGHT,
+      },
+    } as unknown as Prisma.InputJsonValue;
+
+    try {
+      await prisma.loanAssessment.update({
+        where: { id: base.id },
+        data: { eligibilityScore, riskLevel, eligibleAmount, recommendation, assessmentDetails },
+      });
+    } catch (e) {
+      if (!isTenantSchemaError(e)) throw e;
+      await prisma.loanAssessment.update({
+        where: { id: base.id },
+        data: { eligibilityScore, riskLevel, eligibleAmount, recommendation, assessmentDetails },
+      });
+    }
+
+    logger.info(
+      { userId, probability, baseScore, eligibilityScore, riskLevel },
+      'Loan assessment adjusted with FinGuard ML probability',
+    );
+
+    return {
+      ...base,
+      eligibilityScore,
+      riskLevel,
+      eligibleAmount,
+      recommendation,
+      assessmentDetails,
+      finguardAdjusted: true,
+      finguard: {
+        defaultProbability: probability,
+        creditScore: ml.credit_score,
+        riskBand: ml.risk_band,
+        decision: ml.decision,
+        modelVersion: ml.model_version,
+        penaltyApplied: round2(penalty),
+      },
+    };
   },
 
   generateRecommendation(result: {
@@ -128,11 +387,17 @@ export const loanAssessmentService = {
     }
   },
 
-  async getHistory(userId: string) {
-    return prisma.loanAssessment.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
+  async getHistory(userId: string, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    try {
+      return prisma.loanAssessment.findMany({
+        where: { userId, tenantId: tid },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+    } catch (e) {
+      if (isTenantSchemaError(e)) return prisma.loanAssessment.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 20 });
+      throw e;
+    }
   },
 };

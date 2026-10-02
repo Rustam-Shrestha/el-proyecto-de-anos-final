@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLoansList } from "@features/loans/api/loansApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
+import { apiErrorMessage } from "@shared/utils/apiError";
 
 
 const statusBadgeClasses: Record<string, string> = {
@@ -75,7 +76,7 @@ const LoanStatusPage = () => {
 
       {loansQuery.isError ? (
         <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
-          Failed to load loan applications. Please try again later.
+          {apiErrorMessage(loansQuery.error, "Failed to load loan applications. Please try again later.")}
         </div>
       ) : null}
 
@@ -117,8 +118,11 @@ const LoanStatusPage = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Risk
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
+                    ML
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 ">
                     Applied
@@ -164,6 +168,13 @@ const LoanStatusPage = () => {
                           {formatRiskLevel(loan.riskLevel)}
                         </span>
                       ) : "--"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 ">
+                      {loan.mlDecision ? (
+                        <span title={loan.shapValues ? Object.entries(loan.shapValues).slice(0,3).map(([k,v])=>`${k}:${v.toFixed(3)}`).join(', ') : ''} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${loan.mlDecision === 'Approve' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {loan.mlDecision} {loan.defaultProbability != null ? `(${(loan.defaultProbability*100).toFixed(1)}%)` : ''}
+                        </span>
+                      ) : loan.modelVersion ? `v${loan.modelVersion}` : "--"}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 ">
                       {formatDate(loan.appliedAt)}

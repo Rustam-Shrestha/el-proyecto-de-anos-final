@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["auth"]
+  schemas  = ["auth", "public"]
 }
 
 // Document types for KYC and loan documents
@@ -35,6 +35,7 @@ enum DocumentVerificationStatus {
   VERIFIED
   REJECTED
   MANUAL_REVIEW
+  FLAGGED_REVIEW
 
   @@schema("auth")
 }
@@ -68,7 +69,7 @@ enum RiskLevel {
   @@schema("auth")
 }
 
-// Roles for RBAC
+// Roles for RBAC (legacy string role)
 model Role {
   id   String @id @default(cuid())
   name String @unique
@@ -81,6 +82,204 @@ model Role {
   @@schema("auth")
 }
 
+// ===== Shared multi-tenant tables (prompt spec adapted to auth schema) =====
+model Tenant {
+  id               Int       @id @default(autoincrement())
+  slug             String    @unique @db.VarChar(50)
+  name             String    @db.VarChar(255)
+  domain           String?
+  companyType      String?   @db.VarChar(50)
+  panNumber        String?   @unique @db.VarChar(30)
+  logoUrl          String?   @db.VarChar(500)
+  status           String    @default("active") @db.VarChar(20)
+  // how members join: 'open' (one tap) or 'code' (6-digit emailed invitation code)
+  joinMode         String    @default("code") @db.VarChar(10)
+  createdAt        DateTime  @default(now())
+  createdBy        Int?
+  subscriptionTier String?   @db.VarChar(50)
+  maxUsers         Int       @default(100)
+  maxLoans         Int       @default(1000)
+  usageLoans       Int       @default(0)
+  usageUsers       Int       @default(0)
+  lastActivity     DateTime?
+  featureMlScoring       Boolean @default(true)
+  featureAuditLogs       Boolean @default(true)
+  featureApiAccess       Boolean @default(true)
+  featureCustomWorkflows Boolean @default(false)
+  dataResidency    String?   @db.VarChar(50)
+  encryptionEnabled Boolean  @default(true)
+
+  admins TenantAdmin[]
+
+  // Note: FeatureToggle / TenantMetrics live in public schema with FK to auth.tenants but no Prisma relation
+  // to keep cross-schema compatibility; accessed via raw/prisma.public.* queries
+  @@map("tenants")
+  @@schema("auth")
+}
+
+model TenantAdmin {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  userId    String
+  email     String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_admins")
+  @@schema("auth")
+}
+
+model CompanyRequest {
+  id              String   @id @default(cuid())
+  requestedBy     String
+  companyName     String   @db.VarChar(255)
+  slug            String   @unique @db.VarChar(50)
+  panNumber       String   @unique @db.VarChar(30)
+  gstin           String?  @db.VarChar(15)
+  companyType     String?  @db.VarChar(50)
+  domain          String?  @db.VarChar(255)
+  address         String?  @db.Text
+  documentUrls    Json?
+  status          String   @default("PENDING") @db.VarChar(20)
+  rejectionReason String?  @db.Text
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  tenantId        Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([requestedBy])
+  @@index([status])
+  @@index([panNumber])
+  @@map("company_requests")
+  @@schema("auth")
+}
+
+model CompanyInvite {
+  id        String   @id @default(cuid())
+  tenantId  Int
+  email     String   @db.VarChar(255)
+  role      String   @default("USER") @db.VarChar(50)
+  token     String   @unique @db.VarChar(255)
+  // 6-digit numeric invitation code emailed to the invitee
+  code      String?  @db.VarChar(6)
+  status    String   @default("PENDING") @db.VarChar(20)
+  invitedBy String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  acceptedAt DateTime?
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([token])
+  @@map("company_invites")
+  @@schema("auth")
+}
+
+model RoleDefinition {
+  id             Int     @id @default(autoincrement())
+  name           String  @db.VarChar(100)
+  description    String?
+  hierarchyLevel Int
+  isSystem       Boolean @default(true)
+  colorCode      String? @db.VarChar(7)
+  icon           String? @db.VarChar(50)
+
+  permissions RolePermission[]
+
+  @@map("role_definitions")
+  @@schema("auth")
+}
+
+model PermissionDefinition {
+  id             Int     @id @default(autoincrement())
+  name           String  @db.VarChar(100) @unique
+  description    String?
+  resource       String? @db.VarChar(100)
+  action         String? @db.VarChar(50)
+  isSystem       Boolean @default(true)
+  category       String? @db.VarChar(50)
+  hierarchyLevel Int?
+
+  roles RolePermission[]
+
+  @@map("permission_definitions")
+  @@schema("auth")
+}
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  role       RoleDefinition       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission PermissionDefinition @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("auth")
+}
+
+// ===== Supercontroller layer (public schema) =====
+model Supercontroller {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @db.VarChar(255)
+  fullName     String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now())
+  lastLogin    DateTime?
+  status       String    @default("active") @db.VarChar(20)
+
+  @@map("supercontroller")
+  @@schema("public")
+}
+
+model FeatureToggle {
+  id           Int       @id @default(autoincrement())
+  tenantId     Int
+  featureName  String    @db.VarChar(100)
+  isEnabled    Boolean   @default(false)
+  enabledBy    Int?
+  enabledAt    DateTime?
+  metadataJson String?   @db.Text
+
+  @@unique([tenantId, featureName])
+  @@map("feature_toggles")
+  @@schema("public")
+}
+
+model SupercontrollerAuditLog {
+  id                  Int      @id @default(autoincrement())
+  supercontrollerId   Int?
+  action              String   @db.VarChar(100)
+  targetType          String?  @db.VarChar(50)
+  targetId            String?  @db.VarChar(255)
+  changesJson         String?  @db.Text
+  ipAddress           String?  @db.VarChar(45)
+  createdAt           DateTime @default(now())
+
+  @@map("supercontroller_audit_logs")
+  @@schema("public")
+}
+
+model TenantMetrics {
+  id                Int      @id @default(autoincrement())
+  tenantId          Int
+  metricDate        DateTime @db.Date
+  totalUsers        Int?
+  totalLoans        Int?
+  totalRevenue      Decimal? @db.Decimal(12, 2)
+  apiCalls          Int?
+  errorRate         Decimal? @db.Decimal(5, 2)
+  avgResponseTimeMs Int?
+  createdAt         DateTime @default(now())
+
+  @@unique([tenantId, metricDate])
+  @@map("tenant_metrics")
+  @@schema("public")
+}
+
 // Main user model
 model User {
   id           String  @id @default(cuid())
@@ -89,6 +288,7 @@ model User {
   isVerified   Boolean @default(false)
   isDeleted    Boolean @default(false)
 
+  tenantId Int     @default(1)
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
 
@@ -121,6 +321,7 @@ model User {
 
   @@index([email])
   @@index([roleId])
+  @@index([tenantId])
   @@map("users")
   @@schema("auth")
 }
@@ -163,6 +364,7 @@ model Session {
 // Audit logging
 model AuditLog {
   id        String  @id @default(cuid())
+  tenantId  Int     @default(1)
   userId    String?
   user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
@@ -172,6 +374,7 @@ model AuditLog {
 
   createdAt DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@index([action])
   @@index([createdAt])
@@ -179,9 +382,29 @@ model AuditLog {
   @@schema("auth")
 }
 
+// Transactional email delivery log (best-effort; never blocks sending)
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  type      String
+  subject   String
+  status    String   @default("SENT") // SENT, FAILED
+  error     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([to])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
+  @@schema("auth")
+}
+
 // KYC Application
 model KycApplication {
   id              String    @id @default(cuid())
+  tenantId        Int       @default(1)
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   status          String    @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, RESUBMIT_REQUIRED
@@ -238,6 +461,7 @@ model KycApplication {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([status])
   @@map("kyc_applications")
@@ -392,6 +616,7 @@ model ManualReviewQueue {
 // Document storage
 model Document {
   id                 String                     @id @default(cuid())
+  tenantId           Int                        @default(1)
   userId             String
   user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   kycId              String
@@ -422,6 +647,7 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([kycId])
   @@index([documentType])
@@ -449,6 +675,7 @@ model DocumentVersion {
 // Financial documents for portfolio verification (separate from KYC documents)
 model FinancialDocument {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -487,6 +714,7 @@ model FinancialDocument {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([verificationStatus])
   @@index([documentType])
@@ -497,6 +725,7 @@ model FinancialDocument {
 // Portfolio verification status and admin review
 model PortfolioVerification {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String   @unique
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -532,6 +761,7 @@ model PortfolioVerification {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([verificationStatus])
   @@map("portfolio_verifications")
@@ -541,6 +771,7 @@ model PortfolioVerification {
 // Active/closed loan accounts for portfolio evolution
 model LoanAccount {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -558,6 +789,7 @@ model LoanAccount {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([status])
   @@index([isActive])
@@ -568,6 +800,7 @@ model LoanAccount {
 // Employment information for borrower income assessment
 model EmploymentInfo {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String   @unique
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -603,6 +836,7 @@ model EmploymentInfo {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@map("employment_info")
   @@schema("auth")
@@ -610,6 +844,7 @@ model EmploymentInfo {
 
 model LoanFeatures {
   id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
   userId                    String   @unique
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   loanApplicationId         String?  // FK to active loan
@@ -643,6 +878,7 @@ model LoanFeatures {
 
   lastCalculated            DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("loan_features")
   @@schema("auth")
@@ -651,6 +887,7 @@ model LoanFeatures {
 // Precomputed borrower features for risk assessment
 model BorrowerFeatures {
   id                      String   @id @default(cuid())
+  tenantId                Int      @default(1)
   userId                  String   @unique
   user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amtIncomeTotal          Decimal? @db.Decimal(12, 2)
@@ -665,6 +902,7 @@ model BorrowerFeatures {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@map("borrower_features")
   @@schema("auth")
@@ -673,6 +911,7 @@ model BorrowerFeatures {
 // Loan applications with risk assessment
 model LoanApplication {
   id               String      @id @default(cuid())
+  tenantId         Int         @default(1)
   userId           String
   user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   requestedAmount  Decimal     @db.Decimal(12, 2)
@@ -686,9 +925,17 @@ model LoanApplication {
   reviewedBy       String?
   reviewedByUser   User?       @relation("LoanReviewer", fields: [reviewedBy], references: [id])
   reviewedAt       DateTime?
+  // FinGuard ML audit fields
+  defaultProbability Float?
+  modelVersion     String?
+  shapValues       Json?
+  featureSnapshot  Json?
+  mlDecision       String?
+  creditScore      Int?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([status])
   @@map("loan_applications")
@@ -702,6 +949,7 @@ model LoanApplication {
 // Bank Statement upload metadata
 model BankStatement {
   id                 String   @id @default(cuid())
+  tenantId           Int      @default(1)
   userId             String
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -719,9 +967,11 @@ model BankStatement {
   errorMessage       String?
 
   transactions       Transaction[]
+  chatConversations ChatConversation[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([parsingStatus])
   @@map("bank_statements")
@@ -731,6 +981,7 @@ model BankStatement {
 // Extracted transactions from bank statements
 model Transaction {
   id                String   @id @default(cuid())
+  tenantId          Int      @default(1)
   bankStatementId   String
   bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
   userId            String
@@ -747,6 +998,7 @@ model Transaction {
 
   createdAt         DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@index([bankStatementId])
   @@index([transactionDate])
@@ -758,6 +1010,7 @@ model Transaction {
 // Aggregated financial profile per user
 model FinancialProfile {
   id                    String   @id @default(cuid())
+  tenantId              Int      @default(1)
   userId                String   @unique
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -776,6 +1029,7 @@ model FinancialProfile {
 
   lastUpdated           DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("financial_profiles")
   @@schema("auth")
@@ -784,6 +1038,7 @@ model FinancialProfile {
 // Loan eligibility assessments
 model LoanAssessment {
   id                  String   @id @default(cuid())
+  tenantId            Int      @default(1)
   userId              String
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -800,6 +1055,7 @@ model LoanAssessment {
 
   createdAt           DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("loan_assessments")
   @@schema("auth")
@@ -808,6 +1064,7 @@ model LoanAssessment {
 // NLU query logs for debugging & learning
 model NluQuery {
   id                String   @id @default(cuid())
+  tenantId          Int      @default(1)
   userId            String?
   user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -822,6 +1079,7 @@ model NluQuery {
 
   createdAt         DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId])
   @@map("nlu_queries")
   @@schema("auth")
@@ -830,6 +1088,7 @@ model NluQuery {
 // Chat conversation history
 model ChatConversation {
   id        String   @id @default(cuid())
+  tenantId  Int      @default(1)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -837,11 +1096,16 @@ model ChatConversation {
   messages  Json?    // [{role, content, timestamp}]
   context   Json?    // {focusedLoanAmount, focusedTenure, etc.}
 
+  bankStatementId String?
+  bankStatement   BankStatement? @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId])
   @@index([sessionId])
+  @@index([bankStatementId])
   @@map("chat_conversations")
   @@schema("auth")
 }
@@ -885,6 +1149,7 @@ enum NotificationStatus {
 // In-app notification
 model Notification {
   id                 String             @id @default(cuid())
+  tenantId           Int                @default(1)
   userId             String
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -909,6 +1174,7 @@ model Notification {
   emailSent          Boolean            @default(false)
   smsSent            Boolean            @default(false)
 
+  @@index([tenantId])
   @@index([userId, status, createdAt])
   @@index([type, createdAt])
   @@map("notifications")

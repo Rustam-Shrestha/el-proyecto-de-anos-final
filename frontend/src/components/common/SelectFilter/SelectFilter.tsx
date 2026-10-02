@@ -8,8 +8,8 @@
  * - Same visual behavior as before
  */
 import React, { memo, useState } from "react";
-import { DownArrow } from "../../../assets/data/icons";
 import useClickOutside from "../../../hooks/useClickOutside";
+import { ChevronDown } from "lucide-react";
 
 const SelectFilter = memo(({
   options,
@@ -49,7 +49,7 @@ const SelectFilter = memo(({
         `}
       >
         <span className="truncate">{displayText}</span>
-        <DownArrow
+        <ChevronDown
           className={`w-3 h-3 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}

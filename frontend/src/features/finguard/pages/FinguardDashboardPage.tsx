@@ -3,12 +3,19 @@ import FinancialOverview from "../components/FinancialOverview";
 import StatementUpload from "../components/StatementUpload";
 import LoanAssessor from "../components/LoanAssessor";
 import NluChatbot from "../components/NluChatbot";
+import { Seo } from "@components/seo/Seo";
+import { Breadcrumb } from "@components/seo/Breadcrumb";
+import { Tooltip } from "@components/common/Tooltip";
 
 const FinguardDashboardPage: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
+      <Seo path="/dashboard" />
+      <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Dashboard", href: "/dashboard" }, { label: "Financial Analysis" }]} />
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Financial Analysis</h1>
+        <h1 className="text-2xl font-bold text-gray-800">
+          <Tooltip content="AI-powered loan default risk prediction">Financial Analysis</Tooltip>
+        </h1>
         <p className="text-sm text-gray-500">
           Upload bank statements, analyze your finances, and check loan eligibility
         </p>

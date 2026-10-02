@@ -5,17 +5,17 @@ const slides = [
   {
     title: "Secure KYC, simplified",
     subtitle: "Fast, reliable identity verification for your users.",
-    color: "from-indigo-500 to-purple-500",
+    color: "bg-[#15803D]",
   },
   {
     title: "Automated OCR & Face Match",
     subtitle: "Extract documents and verify faces with confidence.",
-    color: "from-green-500 to-teal-500",
+    color: "bg-[#166534]",
   },
   {
     title: "Reports & Audits",
     subtitle: "Exportable audit trails and compliance-ready logs.",
-    color: "from-yellow-400 to-orange-500",
+    color: "bg-[#14532D]",
   },
 ];
 
@@ -35,7 +35,7 @@ const HeroSlider = () => {
 
   return (
     <section className="w-full rounded-lg overflow-hidden mb-6">
-      <div className={`w-full h-56 sm:h-72 flex items-center justify-center bg-gradient-to-r ${slides[index].color}`}>
+      <div className={`w-full h-56 sm:h-72 flex items-center justify-center ${slides[index].color}`}>
         <div className="max-w-4xl px-6 text-center text-white">
           <h1 className="text-2xl sm:text-4xl font-bold mb-2">{slides[index].title}</h1>
           <p className="text-sm sm:text-lg opacity-90">{slides[index].subtitle}</p>

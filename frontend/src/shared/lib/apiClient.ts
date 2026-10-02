@@ -22,11 +22,36 @@ const getStoredAccessToken = () => {
   }
 };
 
+export const createApiClient = (tenantSlug?: string) => {
+  const inst = axios.create({
+    baseURL: env.VITE_API_BASE_URL,
+    headers: {
+      "Content-Type": "application/json",
+      ...(tenantSlug ? { "X-Tenant": tenantSlug } : {}),
+    },
+  });
+  inst.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
+    const t = getStoredAccessToken();
+    if (t) cfg.headers.Authorization = `Bearer ${t}`;
+    if (cfg.data instanceof FormData) { delete (cfg.headers as Record<string, unknown>)["Content-Type"]; delete (cfg.headers as Record<string, unknown>)["content-type"]; }
+    const ts = tenantSlug || localStorage.getItem("tenantSlug");
+    if (ts && ts !== "default") cfg.headers["X-Tenant"] = ts;
+    return cfg;
+  });
+  inst.interceptors.response.use((r) => r, async (e) => { if (e.response?.status === 401) { localStorage.clear(); window.location.href = "/login"; } return Promise.reject(e); });
+  return inst;
+};
+
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getStoredAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // tenant header — only when the user actually picked a workspace. Sending
+  // the "default" fallback would make every request look like an explicit
+  // cross-tenant request and trip the backend's Tenant-mismatch guard.
+  const tenantSlug = localStorage.getItem("tenantSlug") || new URLSearchParams(window.location.search).get("tenant");
+  if (tenantSlug && tenantSlug !== "default") config.headers["X-Tenant"] = tenantSlug;
 
   // When sending FormData (multipart), clear the default application/json Content-Type
   // so the browser can set the correct multipart boundary.

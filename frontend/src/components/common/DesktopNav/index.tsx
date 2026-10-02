@@ -10,7 +10,7 @@
  */
 import React, { memo } from "react";
 import { Link } from "react-router-dom";
-import { DownArrow } from "../../../assets/data/icons";
+import { ChevronDown } from "lucide-react";
 
 const DesktopNav = ({
   navItems,
@@ -49,9 +49,9 @@ const DesktopNav = ({
           >
             {item.label}
             {item.hasDesktopDropdown && !item.isDisable && (
-              <DownArrow
+              <ChevronDown
                 onClick={() => onNavClick(item.label)}
-                className={`${
+                className={`h-4 w-4 transition-transform ${
                   openDropdown === item.label ? "rotate-180" : "rotate-0"
                 }`}
               />

@@ -25,6 +25,9 @@ export const ROUTES = {
     DETAIL: (id = ':id') => `/documents/${id}`,
     ADMIN: '/admin/documents',
   },
+  CHAT: {
+    INDEX: '/chat',
+  },
   ADMIN: {
     DASHBOARD: '/admin/dashboard',
     USERS: '/admin/users',

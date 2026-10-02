@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Bell, Eye, Trash2, CheckCheck } from "lucide-react";
 import {
   useNotifications,
   useMarkAsRead,
   useMarkAllAsRead,
   useDeleteNotification,
+  notificationKeys,
   type Notification,
 } from "../api/notificationsApi";
+import { initSocket } from "@shared/lib/socketClient";
 import { NotificationModal } from "./NotificationModal";
 
 const getTypeIcon = (type: string) => {
@@ -47,10 +50,24 @@ export const NotificationBell = () => {
 
   const notifications = data?.notifications ?? [];
   const unreadCount = data?.unreadCount ?? 0;
+  const queryClient = useQueryClient();
+
+  // Realtime refresh: backend emits `notification:new` to user:<id> on create.
+  useEffect(() => {
+    const socket = initSocket();
+    if (!socket) return;
+    const handleNew = () => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+    };
+    socket.on("notification:new", handleNew);
+    return () => {
+      socket.off("notification:new", handleNew);
+    };
+  }, [queryClient]);
 
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+    const handleClick = (event: globalThis.MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as globalThis.Node)) {
         setIsOpen(false);
       }
     };
@@ -118,7 +135,12 @@ export const NotificationBell = () => {
                     onClick={() => openDetails(notification)}
                     className="flex-1 text-left"
                   >
-                    <h4 className="text-sm font-semibold text-gray-900">{notification.title}</h4>
+                    <div className="flex items-center gap-2">
+                      {notification.status === "UNREAD" && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" aria-label="Unread notification" />
+                      )}
+                      <h4 className={notification.status === "UNREAD" ? "text-sm font-semibold text-gray-900" : "text-sm font-medium text-gray-500"}>{notification.title}</h4>
+                    </div>
                     <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{notification.message}</p>
                     <p className="mt-1 text-[11px] text-gray-400">{timeAgo(notification.createdAt)}</p>
                   </button>

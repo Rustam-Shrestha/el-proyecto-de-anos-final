@@ -15,6 +15,9 @@ import {
 } from "@features/kyc/api/kycApi";
 import type { KYCApplication, KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
 import { DocumentType } from "@shared/types/common";
+import { useAppSelector } from "@hooks/reduxHooks";
+import { selectUserData } from "@store/slices/authSlice";
+import { roleKind } from "@shared/utils/roleUtils";
 
 type OCRResult = {
   id: string;
@@ -230,6 +233,12 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
   const isPending = resolvedApplication?.status === "PENDING" || resolvedApplication?.status === "UNDER_REVIEW";
   const isRejecting = showRejectForm;
   const isMutating = approveMutation.isPending || rejectMutation.isPending;
+  // Two-stage KYC: only the platform owner verifies identity documents.
+  // Tenant staff never see the actions (backend enforces SUPERADMIN-only).
+  const viewerData = useAppSelector(selectUserData);
+  const canVerifyDocs =
+    Boolean((viewerData as { isSuperUser?: boolean } | null)?.isSuperUser) ||
+    roleKind(viewerData?.role) === "superadmin";
 
   const docUrl = resolveDocumentUrl;
   const app = resolvedApplication;
@@ -564,7 +573,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
 
           <ArrowDown className="mx-auto h-5 w-5 text-gray-300" />
 
-          {isPending ? (
+          {isPending && canVerifyDocs ? (
             <div className="space-y-4 border-t border-gray-200 pt-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -649,10 +658,17 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
               )}
             </div>
           ) : (
-            <div className="flex justify-end border-t border-gray-200 pt-4">
-              <Button variant="ghost" type="button" onClick={onClose}>
-                Close
-              </Button>
+            <div className="border-t border-gray-200 pt-4">
+              {isPending && !canVerifyDocs ? (
+                <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  Document verification is done by the platform team. Tenant reviewers verify the financial profile when this customer applies for a loan.
+                </p>
+              ) : null}
+              <div className="flex justify-end">
+                <Button variant="ghost" type="button" onClick={onClose}>
+                  Close
+                </Button>
+              </div>
             </div>
           )}
         </div>

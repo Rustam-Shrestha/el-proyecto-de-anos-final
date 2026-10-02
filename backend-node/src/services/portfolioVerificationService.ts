@@ -4,15 +4,44 @@ import { AppError } from '@/utils/AppError';
 import { Prisma } from '@prisma/client';
 import { notificationService } from '@/services/notificationService';
 
+function resolveTid(tenantId?: number): number {
+  if (tenantId === undefined || tenantId === null) {
+    logger.warn("portfolioVerificationService: tenantId not provided, falling back to 1");
+    return 1;
+  }
+  return tenantId;
+}
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
+
 export const portfolioVerificationService = {
-  async calculatePortfolioMetrics(userId: string) {
+  async calculatePortfolioMetrics(userId: string, tenantId?: number) {
     try {
-      const [employment, profile, loanFeatures, activeAccounts] = await Promise.all([
-        prisma.employmentInfo.findUnique({ where: { userId } }),
-        prisma.profile.findUnique({ where: { userId } }),
-        prisma.loanFeatures.findUnique({ where: { userId } }),
-        prisma.loanAccount.findMany({ where: { userId, isActive: true } }),
-      ]);
+      const tid = resolveTid(tenantId);
+      let employment: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
+      let profile: Awaited<ReturnType<typeof prisma.profile.findUnique>>;
+      let loanFeatures: Awaited<ReturnType<typeof prisma.loanFeatures.findFirst>>;
+      let activeAccounts: Awaited<ReturnType<typeof prisma.loanAccount.findMany>>;
+      try {
+        [employment, profile, loanFeatures, activeAccounts] = await Promise.all([
+          prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } }),
+          prisma.profile.findUnique({ where: { userId } }),
+          prisma.loanFeatures.findFirst({ where: { userId, tenantId: tid } }),
+          prisma.loanAccount.findMany({ where: { userId, tenantId: tid, isActive: true } }),
+        ]);
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          [employment, profile, loanFeatures, activeAccounts] = await Promise.all([
+            prisma.employmentInfo.findUnique({ where: { userId } }) as never,
+            prisma.profile.findUnique({ where: { userId } }),
+            prisma.loanFeatures.findUnique({ where: { userId } }) as never,
+            prisma.loanAccount.findMany({ where: { userId, isActive: true } }),
+          ]);
+        } else throw e;
+      }
 
       if (!employment) {
         throw new AppError('Employment info not found. Complete employment declaration first.', 400);
@@ -71,33 +100,98 @@ export const portfolioVerificationService = {
       const clampedRiskScore = Math.max(0, Math.min(100, overallRiskScore));
       const riskLevel = clampedRiskScore < 35 ? 'LOW' : clampedRiskScore < 65 ? 'MEDIUM' : 'HIGH';
 
-      const portfolio = await prisma.portfolioVerification.upsert({
-        where: { userId },
-        create: {
-          userId,
-          loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
-          emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
-          incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
-          employmentStabilityScore,
-          ageCategory,
-          overallRiskScore: clampedRiskScore,
-          riskLevel,
-        },
-        update: {
-          loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
-          emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
-          incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
-          employmentStabilityScore,
-          ageCategory,
-          overallRiskScore: clampedRiskScore,
-          riskLevel,
-          lastUpdated: new Date(),
-        },
-      });
+      // tenant-aware upsert via findFirst + update/create to allow tenantId filtering (userId unique constraint)
+      let portfolio: Awaited<ReturnType<typeof prisma.portfolioVerification.findFirst>>;
+      try {
+        const existing = await prisma.portfolioVerification.findFirst({ where: { userId, tenantId: tid } });
+        if (existing) {
+          portfolio = await prisma.portfolioVerification.update({
+            where: { id: existing.id },
+            data: {
+              loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
+              emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
+              incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
+              employmentStabilityScore,
+              ageCategory,
+              overallRiskScore: clampedRiskScore,
+              riskLevel,
+              lastUpdated: new Date(),
+            },
+          });
+        } else {
+          try {
+            portfolio = await prisma.portfolioVerification.create({
+              data: {
+                tenantId: tid,
+                userId,
+                loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
+                emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
+                incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
+                employmentStabilityScore,
+                ageCategory,
+                overallRiskScore: clampedRiskScore,
+                riskLevel,
+              },
+            });
+          } catch (e) {
+            if (isTenantSchemaError(e)) {
+              portfolio = await prisma.portfolioVerification.upsert({
+                where: { userId },
+                create: {
+                  userId,
+                  loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
+                  emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
+                  incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
+                  employmentStabilityScore,
+                  ageCategory,
+                  overallRiskScore: clampedRiskScore,
+                  riskLevel,
+                },
+                update: {
+                  loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
+                  emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
+                  incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
+                  employmentStabilityScore,
+                  ageCategory,
+                  overallRiskScore: clampedRiskScore,
+                  riskLevel,
+                  lastUpdated: new Date(),
+                },
+              }) as never;
+            } else throw e;
+          }
+        }
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          portfolio = await prisma.portfolioVerification.upsert({
+            where: { userId },
+            create: {
+              userId,
+              loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
+              emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
+              incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
+              employmentStabilityScore,
+              ageCategory,
+              overallRiskScore: clampedRiskScore,
+              riskLevel,
+            },
+            update: {
+              loanToIncomeRatio: new Prisma.Decimal(loanToIncomeRatio.toFixed(2)),
+              emiToIncomeRatio: new Prisma.Decimal(emiToIncomeRatio.toFixed(2)),
+              incomePerDependent: new Prisma.Decimal(incomePerDependent.toFixed(2)),
+              employmentStabilityScore,
+              ageCategory,
+              overallRiskScore: clampedRiskScore,
+              riskLevel,
+              lastUpdated: new Date(),
+            },
+          }) as never;
+        } else throw e;
+      }
 
-      logger.info({ userId, riskScore: clampedRiskScore, riskLevel }, 'Portfolio metrics calculated');
+      logger.info({ userId, tenantId: tid, riskScore: clampedRiskScore, riskLevel }, 'Portfolio metrics calculated');
 
-      return portfolio;
+      return portfolio!;
     } catch (error) {
       if (error instanceof AppError) throw error;
       const cause = error instanceof Error ? error.message : 'Unknown error';
@@ -107,14 +201,26 @@ export const portfolioVerificationService = {
     }
   },
 
-  async detectAnomalies(userId: string) {
+  async detectAnomalies(userId: string, tenantId?: number) {
     try {
-      const [employment, documents] = await Promise.all([
-        prisma.employmentInfo.findUnique({ where: { userId } }),
-        prisma.financialDocument.findMany({
-          where: { userId, isDeleted: false, ocrStatus: 'COMPLETED' },
-        }),
-      ]);
+      const tid = resolveTid(tenantId);
+      let employment: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
+      let documents: Awaited<ReturnType<typeof prisma.financialDocument.findMany>>;
+      try {
+        [employment, documents] = await Promise.all([
+          prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } }),
+          prisma.financialDocument.findMany({
+            where: { userId, tenantId: tid, isDeleted: false, ocrStatus: 'COMPLETED' },
+          }),
+        ]);
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          [employment, documents] = await Promise.all([
+            prisma.employmentInfo.findUnique({ where: { userId } }) as never,
+            prisma.financialDocument.findMany({ where: { userId, isDeleted: false, ocrStatus: 'COMPLETED' } }),
+          ]);
+        } else throw e;
+      }
 
       const flags: Array<{ field: string; issue: string; severity: 'LOW' | 'MEDIUM' | 'HIGH' }> = [];
 
@@ -165,9 +271,13 @@ export const portfolioVerificationService = {
         });
       }
 
-      const existingLoans = await prisma.loanAccount.findMany({
-        where: { userId, isActive: true },
-      });
+      let existingLoans: Awaited<ReturnType<typeof prisma.loanAccount.findMany>>;
+      try {
+        existingLoans = await prisma.loanAccount.findMany({ where: { userId, tenantId: tid, isActive: true } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) existingLoans = await prisma.loanAccount.findMany({ where: { userId, isActive: true } });
+        else throw e;
+      }
       if (existingLoans.length > 0) {
         const totalMonthlyDebt = existingLoans.reduce((sum, l) => sum + l.monthlyEMI.toNumber(), 0);
         const monthlyIncome = employment.monthlyGrossIncome.toNumber();
@@ -180,20 +290,26 @@ export const portfolioVerificationService = {
         }
       }
 
-      await prisma.portfolioVerification.upsert({
-        where: { userId },
-        create: {
-          userId,
-          flagsCount: flags.length,
-          flagDetails: flags,
-        },
-        update: {
-          flagsCount: flags.length,
-          flagDetails: flags,
-        },
-      });
+      try {
+        const existingPv = await prisma.portfolioVerification.findFirst({ where: { userId, tenantId: tid } });
+        if (existingPv) {
+          await prisma.portfolioVerification.update({ where: { id: existingPv.id }, data: { flagsCount: flags.length, flagDetails: flags as unknown as Prisma.InputJsonValue } });
+        } else {
+          try {
+            await prisma.portfolioVerification.create({ data: { tenantId: tid, userId, flagsCount: flags.length, flagDetails: flags as unknown as Prisma.InputJsonValue } });
+          } catch (e) {
+            if (isTenantSchemaError(e)) {
+              await prisma.portfolioVerification.upsert({ where: { userId }, create: { userId, flagsCount: flags.length, flagDetails: flags as unknown as Prisma.InputJsonValue }, update: { flagsCount: flags.length, flagDetails: flags as unknown as Prisma.InputJsonValue } });
+            } else throw e;
+          }
+        }
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          await prisma.portfolioVerification.upsert({ where: { userId }, create: { userId, flagsCount: flags.length, flagDetails: flags as unknown as Prisma.InputJsonValue }, update: { flagsCount: flags.length, flagDetails: flags as unknown as Prisma.InputJsonValue } });
+        } else throw e;
+      }
 
-      logger.info({ userId, flagsCount: flags.length }, 'Anomaly detection completed');
+      logger.info({ userId, tenantId: tid, flagsCount: flags.length }, 'Anomaly detection completed');
 
       return { flags, flagsCount: flags.length };
     } catch (error) {
@@ -205,30 +321,60 @@ export const portfolioVerificationService = {
     }
   },
 
-  async updateVerificationStatus(userId: string, status: string, adminNotes?: string, reviewedBy?: string) {
+  async updateVerificationStatus(userId: string, status: string, adminNotes?: string, reviewedBy?: string, tenantId?: number) {
     try {
-      const updated = await prisma.portfolioVerification.upsert({
-        where: { userId },
-        create: {
-          userId,
-          verificationStatus: status,
-          adminNotes: adminNotes ?? null,
-          reviewedBy: reviewedBy ?? null,
-          reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null,
-        },
-        update: {
-          verificationStatus: status,
-          adminNotes: adminNotes ?? null,
-          reviewedBy: reviewedBy ?? null,
-          reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null,
-        },
-      });
+      const tid = resolveTid(tenantId);
+      let updated: Awaited<ReturnType<typeof prisma.portfolioVerification.findFirst>>;
+      try {
+        const existing = await prisma.portfolioVerification.findFirst({ where: { userId, tenantId: tid } });
+        if (existing) {
+          updated = await prisma.portfolioVerification.update({
+            where: { id: existing.id },
+            data: {
+              verificationStatus: status,
+              adminNotes: adminNotes ?? null,
+              reviewedBy: reviewedBy ?? null,
+              reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null,
+            },
+          });
+        } else {
+          try {
+            updated = await prisma.portfolioVerification.create({
+              data: {
+                tenantId: tid,
+                userId,
+                verificationStatus: status,
+                adminNotes: adminNotes ?? null,
+                reviewedBy: reviewedBy ?? null,
+                reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null,
+              },
+            });
+          } catch (e) {
+            if (isTenantSchemaError(e)) {
+              updated = await prisma.portfolioVerification.upsert({
+                where: { userId },
+                create: { userId, verificationStatus: status, adminNotes: adminNotes ?? null, reviewedBy: reviewedBy ?? null, reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null },
+                update: { verificationStatus: status, adminNotes: adminNotes ?? null, reviewedBy: reviewedBy ?? null, reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null },
+              }) as never;
+            } else throw e;
+          }
+        }
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          updated = await prisma.portfolioVerification.upsert({
+            where: { userId },
+            create: { userId, verificationStatus: status, adminNotes: adminNotes ?? null, reviewedBy: reviewedBy ?? null, reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null },
+            update: { verificationStatus: status, adminNotes: adminNotes ?? null, reviewedBy: reviewedBy ?? null, reviewedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null },
+          }) as never;
+        } else throw e;
+      }
 
-      logger.info({ userId, status, reviewedBy }, 'Portfolio verification status updated');
+      logger.info({ userId, tenantId: tid, status, reviewedBy }, 'Portfolio verification status updated');
 
       if (status === 'VERIFIED' || status === 'REJECTED') {
         await notificationService.create({
           userId,
+          tenantId: tid,
           type: status === 'VERIFIED' ? 'PORTFOLIO_APPROVED' : 'PORTFOLIO_REJECTED',
           title:
             status === 'VERIFIED'
@@ -245,7 +391,7 @@ export const portfolioVerificationService = {
         });
       }
 
-      return updated;
+      return updated!;
     } catch (error) {
       if (error instanceof AppError) throw error;
       const cause = error instanceof Error ? error.message : 'Unknown error';
@@ -255,18 +401,33 @@ export const portfolioVerificationService = {
     }
   },
 
-  async getPortfolioSummary(userId: string) {
+  async getPortfolioSummary(userId: string, tenantId?: number) {
     try {
-      const [employment, verification, documents, loanFeatures, activeAccounts] = await Promise.all([
-        prisma.employmentInfo.findUnique({ where: { userId } }),
-        prisma.portfolioVerification.findUnique({ where: { userId } }),
-        prisma.financialDocument.findMany({
-          where: { userId, isDeleted: false },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.loanFeatures.findUnique({ where: { userId } }),
-        prisma.loanAccount.findMany({ where: { userId, isActive: true } }),
-      ]);
+      const tid = resolveTid(tenantId);
+      let employment: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
+      let verification: Awaited<ReturnType<typeof prisma.portfolioVerification.findFirst>>;
+      let documents: Awaited<ReturnType<typeof prisma.financialDocument.findMany>>;
+      let loanFeatures: Awaited<ReturnType<typeof prisma.loanFeatures.findFirst>>;
+      let activeAccounts: Awaited<ReturnType<typeof prisma.loanAccount.findMany>>;
+      try {
+        [employment, verification, documents, loanFeatures, activeAccounts] = await Promise.all([
+          prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } }),
+          prisma.portfolioVerification.findFirst({ where: { userId, tenantId: tid } }),
+          prisma.financialDocument.findMany({ where: { userId, tenantId: tid, isDeleted: false }, orderBy: { createdAt: 'desc' } }),
+          prisma.loanFeatures.findFirst({ where: { userId, tenantId: tid } }),
+          prisma.loanAccount.findMany({ where: { userId, tenantId: tid, isActive: true } }),
+        ]);
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          [employment, verification, documents, loanFeatures, activeAccounts] = await Promise.all([
+            prisma.employmentInfo.findUnique({ where: { userId } }) as never,
+            prisma.portfolioVerification.findUnique({ where: { userId } }) as never,
+            prisma.financialDocument.findMany({ where: { userId, isDeleted: false }, orderBy: { createdAt: 'desc' } }),
+            prisma.loanFeatures.findUnique({ where: { userId } }) as never,
+            prisma.loanAccount.findMany({ where: { userId, isActive: true } }),
+          ]);
+        } else throw e;
+      }
 
       return {
         employment,
@@ -290,9 +451,10 @@ export const portfolioVerificationService = {
     }
   },
 
-  async generateVerificationReport(userId: string) {
+  async generateVerificationReport(userId: string, tenantId?: number) {
     try {
-      const summary = await this.getPortfolioSummary(userId);
+      const tid = resolveTid(tenantId);
+      const summary = await this.getPortfolioSummary(userId, tid);
 
       const report = {
         generatedAt: new Date().toISOString(),
@@ -349,37 +511,54 @@ export const portfolioVerificationService = {
     }
   },
 
-  async listPendingVerifications(page: number = 1, limit: number = 10) {
+  async listPendingVerifications(page: number = 1, limit: number = 10, tenantId?: number) {
     try {
       const skip = (page - 1) * limit;
+      const tid = tenantId !== undefined ? tenantId : undefined;
+      if (tid === undefined) logger.warn("portfolioVerificationService.listPendingVerifications: tenantId not provided, querying across tenants");
+      const where: Prisma.PortfolioVerificationWhereInput = {
+        verificationStatus: { in: ['INCOMPLETE', 'PENDING_REVIEW'] },
+        ...(tid !== undefined ? { tenantId: tid } : {}),
+      };
 
-      const [items, total] = await Promise.all([
-        prisma.portfolioVerification.findMany({
-          where: {
-            verificationStatus: { in: ['INCOMPLETE', 'PENDING_REVIEW'] },
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                profile: { select: { fullName: true } },
-                employmentInfo: { select: { employmentStatus: true, annualIncome: true } },
+      try {
+        const [items, total] = await Promise.all([
+          prisma.portfolioVerification.findMany({
+            where,
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  profile: { select: { fullName: true } },
+                  employmentInfo: { select: { employmentStatus: true, annualIncome: true } },
+                },
               },
             },
-          },
-          orderBy: { lastUpdated: 'asc' },
-          take: limit,
-          skip,
-        }),
-        prisma.portfolioVerification.count({
-          where: {
-            verificationStatus: { in: ['INCOMPLETE', 'PENDING_REVIEW'] },
-          },
-        }),
-      ]);
-
-      return { items, total, page, limit };
+            orderBy: { lastUpdated: 'asc' },
+            take: limit,
+            skip,
+          }),
+          prisma.portfolioVerification.count({ where }),
+        ]);
+        return { items, total, page, limit };
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          const fallbackWhere: Prisma.PortfolioVerificationWhereInput = { verificationStatus: { in: ['INCOMPLETE', 'PENDING_REVIEW'] } };
+          const [items, total] = await Promise.all([
+            prisma.portfolioVerification.findMany({
+              where: fallbackWhere,
+              include: { user: { select: { id: true, email: true, profile: { select: { fullName: true } }, employmentInfo: { select: { employmentStatus: true, annualIncome: true } } } } },
+              orderBy: { lastUpdated: 'asc' },
+              take: limit,
+              skip,
+            }),
+            prisma.portfolioVerification.count({ where: fallbackWhere }),
+          ]);
+          return { items, total, page, limit };
+        }
+        throw e;
+      }
     } catch (error) {
       if (error instanceof AppError) throw error;
       const cause = error instanceof Error ? error.message : 'Unknown error';
@@ -388,4 +567,27 @@ export const portfolioVerificationService = {
       throw new AppError(detail, 500, { cause });
     }
   },
+
+  async getVerificationStatus(userId: string, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    try {
+      const v = await prisma.portfolioVerification.findFirst({ where: { userId, tenantId: tid } });
+      return v;
+    } catch (e) {
+      if (isTenantSchemaError(e)) return prisma.portfolioVerification.findUnique({ where: { userId } });
+      throw e;
+    }
+  },
+
+  async upsert(userId: string, data: Prisma.PortfolioVerificationCreateInput, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    const existing = await prisma.portfolioVerification.findFirst({ where: { userId, tenantId: tid } }).catch(() => null);
+    if (existing) return prisma.portfolioVerification.update({ where: { id: existing.id }, data });
+    try {
+      return await prisma.portfolioVerification.create({ data: { ...data, tenantId: tid, user: { connect: { id: userId } } } as never });
+    } catch (e) {
+      if (isTenantSchemaError(e)) return prisma.portfolioVerification.upsert({ where: { userId }, create: data, update: data });
+      throw e;
+    }
+  }
 };

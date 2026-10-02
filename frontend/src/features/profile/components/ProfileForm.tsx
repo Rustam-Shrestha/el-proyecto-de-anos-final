@@ -104,11 +104,12 @@ export const ProfileForm = () => {
           value={(userData?.email as string) || ""}
           className="md:col-span-2"
           disabled
+          readOnly
         />
 
         <Input
-          label="First Name"
-          placeholder="Your first name"
+          label="Full Name"
+          placeholder="Your full name"
           error={errors.fullName?.message}
           {...register("fullName")}
         />

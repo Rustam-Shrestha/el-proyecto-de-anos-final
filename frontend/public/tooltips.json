@@ -1,0 +1,16 @@
+{
+  "amt_income_total": "Your gross annual income in local currency",
+  "amt_credit": "Total loan amount requested",
+  "amt_annuity": "Monthly payment amount",
+  "amt_goods_price": "Price of goods purchased with loan",
+  "ext_source_1": "External credit score source 1 (normalized 0-1)",
+  "ext_source_2": "External credit score source 2 (normalized 0-1)",
+  "ext_source_3": "External credit score source 3 (normalized 0-1)",
+  "default_rate": "% of loans predicted to default in next 12 months",
+  "high_risk": "Predicted default probability >50%. Recommend manual review.",
+  "medium_risk": "Predicted default probability 20-50%. Review recommended.",
+  "low_risk": "Predicted default probability <20%. Approve confidently.",
+  "credit_score": "Score calculated as 300 + 550\u00d7(1 \u2212 default_probability)",
+  "days_employed_anom": "Flag for pensioner/unemployed with sentinel employment date",
+  "credit_income_ratio": "Loan amount divided by annual income"
+}

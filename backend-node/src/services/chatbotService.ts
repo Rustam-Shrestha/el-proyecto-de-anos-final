@@ -69,7 +69,260 @@ class LoanEligibilityCalculator {
   }
 }
 
+type ConversationMessage = {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  senderId?: string;
+  senderRole?: string;
+};
+
+const normalizeMessages = (raw: unknown): ConversationMessage[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is ConversationMessage => Boolean(item && typeof item === 'object' && 'content' in item));
+};
+
+const resolveParticipants = (context: unknown): string[] => {
+  if (typeof context !== 'object' || context === null) return [];
+  const value = context as { participants?: unknown };
+  if (Array.isArray(value.participants)) {
+    return value.participants.filter((entry): entry is string => typeof entry === 'string');
+  }
+  return [];
+};
+
 export const chatbotService = {
+  /**
+   * Who can chat with whom (same company only):
+   * - customers (USER) see their company's ADMIN + REVIEWER staff
+   * - staff (ADMIN/REVIEWER) see fellow staff AND their own company's customers
+   * - platform SUPERADMIN sees staff across companies
+   */
+  async listParticipants(userId: string) {
+    const { normalizeRoleName } = await import('@/utils/roles');
+    const requester = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantId: true, role: { select: { name: true } } },
+    });
+    const requesterRole = normalizeRoleName((requester as any)?.role?.name);
+    const requesterTenant = (requester as any)?.tenantId as number | null;
+
+    let roleFilter: { name: { in: string[] } };
+    if (requesterRole === 'SUPERADMIN') {
+      roleFilter = { name: { in: ['ADMIN', 'REVIEWER'] } };
+    } else if (requesterRole === 'USER') {
+      roleFilter = { name: { in: ['ADMIN', 'REVIEWER'] } };
+    } else {
+      // staff: fellow staff plus the customers of their own company
+      roleFilter = { name: { in: ['ADMIN', 'REVIEWER', 'USER'] } };
+    }
+
+    const where: any = {
+      isDeleted: false,
+      role: roleFilter,
+      // Platform owner is not tenant-scoped; everyone else stays inside their company.
+      ...(requesterRole === 'SUPERADMIN' ? {} : { tenantId: requesterTenant ?? undefined }),
+    };
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        tenantId: true,
+        role: { select: { name: true } },
+        profile: { select: { fullName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const tenantIds = [...new Set(users.map((u) => (u as any).tenantId).filter(Boolean))];
+    const tenants = tenantIds.length
+      ? await (prisma as any).tenant.findMany({ where: { id: { in: tenantIds } }, select: { id: true, name: true, slug: true } })
+      : [];
+    const tenantById = new Map(tenants.map((t: any) => [t.id, t]));
+
+    return users
+      .filter((user) => user.id !== userId)
+      .map((user) => ({
+        id: user.id,
+        email: user.email,
+        fullName: (user as any).profile?.fullName || user.email.split('@')[0],
+        role: normalizeRoleName((user as any).role.name),
+        tenant: tenantById.get((user as any).tenantId) ?? null,
+      }));
+  },
+
+  async createOrOpenConversation(userId: string, participantId: string) {
+    if (userId === participantId) {
+      throw new AppError('You cannot start a chat with yourself.', 400);
+    }
+
+    const participant = await prisma.user.findUnique({
+      where: { id: participantId },
+      select: { id: true, email: true, role: { select: { name: true } }, profile: { select: { fullName: true } } },
+    });
+
+    if (!participant) {
+      throw new AppError('Participant not found.', 404);
+    }
+
+    const existing = await prisma.chatConversation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const found = existing.find((entry) => {
+      const participants = resolveParticipants(entry.context);
+      return participants.includes(participantId);
+    });
+
+    if (found && found.sessionId) {
+      return {
+        conversationId: found.sessionId,
+        participant: { id: participant.id, email: participant.email, fullName: participant.profile?.fullName || participant.email.split('@')[0], role: participant.role.name },
+        created: false,
+      };
+    }
+
+    const conversationId = `conv_${Date.now()}_${userId.slice(-6)}_${participantId.slice(-6)}`;
+    const context = { participants: [userId, participantId], type: 'loan_review' };
+
+    await prisma.$transaction([
+      prisma.chatConversation.create({
+        data: {
+          userId,
+          sessionId: conversationId,
+          messages: [],
+          context,
+        },
+      }),
+      prisma.chatConversation.create({
+        data: {
+          userId: participantId,
+          sessionId: conversationId,
+          messages: [],
+          context,
+        },
+      }),
+    ]);
+
+    return {
+      conversationId,
+      participant: { id: participant.id, email: participant.email, fullName: participant.profile?.fullName || participant.email.split('@')[0], role: participant.role.name },
+      created: true,
+    };
+  },
+
+  async listConversations(userId: string) {
+    const rows = await prisma.chatConversation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const conversations = await Promise.all(
+      rows.map(async (row) => {
+        const participants = resolveParticipants(row.context);
+        const otherUserId = participants.find((id) => id !== userId) || row.sessionId?.split('_').slice(-1)[0] || null;
+        const otherUser = otherUserId
+          ? await prisma.user.findUnique({
+              where: { id: otherUserId },
+              select: {
+                id: true,
+                email: true,
+                role: { select: { name: true } },
+                profile: { select: { fullName: true } },
+              },
+            })
+          : null;
+
+        const messages = normalizeMessages(row.messages);
+        const lastMessage = [...messages].reverse().find(Boolean);
+
+        return {
+          conversationId: row.sessionId || row.id,
+          participant: otherUser
+            ? {
+                id: otherUser.id,
+                email: otherUser.email,
+                fullName: otherUser.profile?.fullName || otherUser.email.split('@')[0],
+                role: otherUser.role.name,
+              }
+            : null,
+          lastMessage: lastMessage?.content || 'No messages yet',
+          updatedAt: row.updatedAt,
+        };
+      })
+    );
+
+    return conversations.filter((conversation) => conversation.participant !== null);
+  },
+
+  async getMessagesForConversation(userId: string, conversationId: string) {
+    const row = await prisma.chatConversation.findFirst({
+      where: { userId, sessionId: conversationId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!row) {
+      throw new AppError('Conversation not found.', 404);
+    }
+
+    return {
+      conversationId,
+      messages: normalizeMessages(row.messages),
+    };
+  },
+
+  async sendMessage(userId: string, conversationId: string, content: string) {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      throw new AppError('Message is required.', 400);
+    }
+
+    const rows = await prisma.chatConversation.findMany({
+      where: { sessionId: conversationId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!rows.length) {
+      throw new AppError('Conversation not found.', 404);
+    }
+
+    const isParticipant = rows.some((row) => row.userId === userId);
+    if (!isParticipant) {
+      throw new AppError('You are not part of this conversation.', 403);
+    }
+
+    const timestamp = new Date().toISOString();
+    const message: ConversationMessage = {
+      role: 'user',
+      content: trimmed,
+      timestamp,
+      senderId: userId,
+    };
+
+    await prisma.$transaction(
+      rows.map((row) => {
+        const messages = normalizeMessages(row.messages);
+        return prisma.chatConversation.update({
+          where: { id: row.id },
+          data: {
+            messages: [...messages, message],
+            updatedAt: new Date(),
+          },
+        });
+      })
+    );
+
+    const participants = [...new Set(rows.flatMap((r) => resolveParticipants(r.context)).concat(rows.map((r) => r.userId)))];
+    return {
+      conversationId,
+      message,
+      participants,
+      messages: rows.flatMap((row) => normalizeMessages(row.messages)).concat(message),
+    };
+  },
+
   async processQuery(userId: string, message: string, sessionId: string): Promise<{
     intent: string;
     extractedEntities: Record<string, unknown>;
@@ -81,12 +334,24 @@ export const chatbotService = {
     const entities = this.extractEntities(message);
     const intent = this.classifyIntent(q);
 
+    // Per-upload chat scope: if this session is tied to one BankStatement,
+    // answer from that statement's transactions instead of the tenant-wide aggregate.
+    const conversation = await prisma.chatConversation.findFirst({ where: { userId, sessionId } });
+    const scopedStatementId = (conversation?.context as { bankStatementId?: string } | null | undefined)?.bankStatementId;
+    const getProfile = scopedStatementId
+      ? () => this.getFinancialProfileForStatement(userId, scopedStatementId)
+      : () => this.getFinancialProfile(userId);
+
     let answer = '';
 
     try {
       switch (intent) {
         case 'LOAN_ELIGIBILITY': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
+          if (!profile.hasData) {
+            answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
+            break;
+          }
           const amount = (entities.amount as number) || 500000;
           const tenure = (entities.tenureMonths as number) || 24;
           const calc = new LoanEligibilityCalculator(profile, amount);
@@ -104,7 +369,11 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'INCOME_ANALYSIS': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
+          if (!profile.hasData) {
+            answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
+            break;
+          }
           answer = `Income Analysis:
 • Average Monthly Income: ₹${Number(profile.avgMonthlyIncome).toLocaleString('en-IN')}
 • Average Monthly Expense: ₹${Number(profile.avgMonthlyExpense).toLocaleString('en-IN')}
@@ -136,7 +405,11 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'SAVINGS_ANALYSIS': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
+          if (!profile.hasData) {
+            answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
+            break;
+          }
           answer = `Savings Analysis:
 • Total Savings: ₹${Number(profile.totalSavings).toLocaleString('en-IN')}
 • Savings Rate: ${(Number(profile.savingsRate) * 100).toFixed(1)}% of income
@@ -163,7 +436,11 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'FINANCIAL_HEALTH': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
+          if (!profile.hasData) {
+            answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
+            break;
+          }
           let health = 'Poor';
           if (Number(profile.creditScoreEstimate) >= 750) health = 'Excellent';
           else if (Number(profile.creditScoreEstimate) >= 650) health = 'Good';
@@ -179,7 +456,11 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'DEBT_ANALYSIS': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
+          if (!profile.hasData) {
+            answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
+            break;
+          }
           const dti = Number(profile.debtToIncomeRatio);
           let assessment = dti <= 0.20 ? 'Low debt burden — healthy financial position.'
             : dti <= 0.40 ? 'Moderate debt — manageable but monitor closely.'
@@ -194,7 +475,11 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
         }
 
         case 'COMPARISON': {
-          const profile = await this.getFinancialProfile(userId);
+          const profile = await getProfile();
+          if (!profile.hasData) {
+            answer = 'I don\'t have your financial data yet. Upload a bank statement from Documents → Upload, then ask me again.';
+            break;
+          }
           const income = Number(profile.avgMonthlyIncome);
           const expense = Number(profile.avgMonthlyExpense);
           const diff = income - expense;
@@ -240,22 +525,30 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
 • Debt analysis: "What's my debt-to-income ratio?"
 • Transactions: "Show my recent transactions"
 • Trends: "Show my income trend"
-• Comparison: "Compare my income vs expenses"`;
+• Comparison: "Compare my income vs expenses"
+Try asking about income, spending, or loan eligibility — or upload a statement for a personal analysis.`;
         }
       }
 
       const processingTime = Date.now() - startTime;
 
-      await prisma.nluQuery.create({
-        data: {
-          userId,
-          rawQuestion: message,
-          intent,
-          extractedEntities: entities,
-          response: answer,
-          processingTimeMs: processingTime,
-        },
-      });
+      // Best-effort analytics: non-customer identities (e.g. superadmin token
+      // sub "sc-1") have no auth.User row, so a strict write would FK-fail
+      // and mask the real answer. Never let logging break the reply.
+      try {
+        await prisma.nluQuery.create({
+          data: {
+            userId,
+            rawQuestion: message,
+            intent,
+            extractedEntities: entities,
+            response: answer,
+            processingTimeMs: processingTime,
+          },
+        });
+      } catch {
+        logger.warn({ userId, intent }, 'chatbot: skipping nluQuery log (unknown user)');
+      }
 
       await this.updateConversation(userId, sessionId, message, answer);
 
@@ -263,15 +556,19 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
     } catch (error) {
       const processingTime = Date.now() - startTime;
 
-      await prisma.nluQuery.create({
-        data: {
-          userId,
-          rawQuestion: message,
-          intent: 'ERROR',
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          processingTimeMs: processingTime,
-        },
-      });
+      try {
+        await prisma.nluQuery.create({
+          data: {
+            userId,
+            rawQuestion: message,
+            intent: 'ERROR',
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            processingTimeMs: processingTime,
+          },
+        });
+      } catch {
+        logger.warn({ userId }, 'chatbot: skipping error nluQuery log (unknown user)');
+      }
 
       logger.error({ err: error, userId, message }, 'Chatbot query failed');
       throw new AppError('Failed to process query. Please try again.', 500);
@@ -305,6 +602,11 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
     }
     if (/(?:trend|growth|decline|change|over time|month|weekly)/.test(q)) {
       return 'TREND_ANALYSIS';
+    }
+    // Generic finance-ish fallback before giving up — route to FINANCIAL_HEALTH
+    // (the broadest, most informative single answer) instead of the static menu.
+    if (/(?:loan|money|finance|financial|amount|budget|afford|emi|interest)/.test(q)) {
+      return 'FINANCIAL_HEALTH';
     }
     return 'UNRECOGNIZED';
   },
@@ -355,7 +657,20 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
     }
 
     if (!profile) {
-      throw new AppError('No financial data found. Please upload a bank statement first.', 404);
+      // Graceful empty: the chatbot must answer with guidance, never 404.
+      return {
+        avgMonthlyIncome: 0,
+        avgMonthlyExpense: 0,
+        savingsRate: 0,
+        debtToIncomeRatio: 0,
+        incomeStabilityScore: 0,
+        creditScoreEstimate: 600,
+        totalStatements: 0,
+        totalIncome: 0,
+        totalExpense: 0,
+        totalSavings: 0,
+        hasData: false,
+      };
     }
 
     return {
@@ -369,6 +684,47 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
       totalIncome: Number(profile.totalIncome || 0),
       totalExpense: Number(profile.totalExpense || 0),
       totalSavings: Number(profile.totalSavings || 0),
+      hasData: (profile.totalStatements ?? 0) > 0,
+    };
+  },
+
+  async getFinancialProfileForStatement(userId: string, bankStatementId: string) {
+    const transactions = await prisma.transaction.findMany({ where: { userId, bankStatementId } });
+    if (transactions.length === 0) {
+      return {
+        avgMonthlyIncome: 0,
+        avgMonthlyExpense: 0,
+        savingsRate: 0,
+        debtToIncomeRatio: 0,
+        incomeStabilityScore: 50,
+        creditScoreEstimate: 600,
+        totalStatements: 1,
+        totalIncome: 0,
+        totalExpense: 0,
+        totalSavings: 0,
+        hasData: false,
+      };
+    }
+
+    const incomeTx = transactions.filter((t) => t.category === 'INCOME');
+    const expenseTx = transactions.filter((t) => t.category === 'EXPENSE');
+    const totalIncome = incomeTx.reduce((s, t) => s + Number(t.credit || 0), 0);
+    const totalExpense = expenseTx.reduce((s, t) => s + Number(t.debit || 0), 0);
+    const totalSavings = totalIncome - totalExpense;
+    const savingsRate = totalIncome > 0 ? totalSavings / totalIncome : 0;
+
+    return {
+      avgMonthlyIncome: totalIncome, // single-statement scope: treat period total as the "monthly" figure
+      avgMonthlyExpense: totalExpense,
+      totalIncome,
+      totalExpense,
+      totalSavings,
+      savingsRate,
+      debtToIncomeRatio: 0,
+      incomeStabilityScore: 50,
+      creditScoreEstimate: 600,
+      totalStatements: 1,
+      hasData: true,
     };
   },
 
@@ -382,23 +738,30 @@ ${result.riskLevel === 'REJECTED' ? 'Unfortunately, you are not eligible for thi
     const userMsg: ChatMessage = { role: 'user', content: userMessage, timestamp: msgTimestamp };
     const botMsg: ChatMessage = { role: 'assistant', content: botResponse, timestamp: new Date().toISOString() };
 
-    if (existing) {
-      const messages = (existing.messages as ChatMessage[]) || [];
-      messages.push(userMsg, botMsg);
-      if (messages.length > 100) messages.splice(0, messages.length - 100);
+    // Best-effort history: non-customer identities (e.g. superadmin token sub
+    // "sc-1") have no auth.User row, so persisting would FK-fail. History is
+    // auxiliary — never let it break the reply.
+    try {
+      if (existing) {
+        const messages = (existing.messages as ChatMessage[]) || [];
+        messages.push(userMsg, botMsg);
+        if (messages.length > 100) messages.splice(0, messages.length - 100);
 
-      await prisma.chatConversation.update({
-        where: { id: existing.id },
-        data: { messages, updatedAt: new Date() },
-      });
-    } else {
-      await prisma.chatConversation.create({
-        data: {
-          userId,
-          sessionId,
-          messages: [userMsg, botMsg],
-        },
-      });
+        await prisma.chatConversation.update({
+          where: { id: existing.id },
+          data: { messages, updatedAt: new Date() },
+        });
+      } else {
+        await prisma.chatConversation.create({
+          data: {
+            userId,
+            sessionId,
+            messages: [userMsg, botMsg],
+          },
+        });
+      }
+    } catch {
+      logger.warn({ userId, sessionId }, 'chatbot: skipping conversation persist (unknown user)');
     }
   },
 

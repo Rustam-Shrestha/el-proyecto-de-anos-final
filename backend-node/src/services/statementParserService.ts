@@ -1,6 +1,7 @@
+/* eslint-disable no-useless-escape */
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
-import { AppError } from '@/utils/AppError';
+import { AppError as _AppError } from '@/utils/AppError';
 
 export interface ParsedTransaction {
   transactionDate: Date;
@@ -136,20 +137,42 @@ export const statementParserService = {
     return statement;
   },
 
-  async saveParsedStatement(userId: string, parsed: ParsedStatement): Promise<string> {
-    const statement = await prisma.bankStatement.create({
-      data: {
-        userId,
-        bankName: parsed.bankName,
-        accountNumber: parsed.accountNumber,
-        accountHolderName: parsed.accountHolderName,
-        statementFromDate: parsed.statementFromDate,
-        statementToDate: parsed.statementToDate,
-        openingBalance: parsed.openingBalance,
-        closingBalance: parsed.closingBalance,
-        parsingStatus: 'SUCCESS',
-      },
-    });
+  /**
+   * Persist a parsed statement plus its transactions.
+   *
+   * `existingStatementId` lets the upload endpoint hand over the row it already
+   * created (it owns filePath/fileChecksum for de-duplication) so a single
+   * statement row is written instead of two.
+   */
+  async saveParsedStatement(userId: string, parsed: ParsedStatement, existingStatementId?: string): Promise<string> {
+    const statement = existingStatementId
+      ? await prisma.bankStatement.update({
+          where: { id: existingStatementId },
+          data: {
+            bankName: parsed.bankName,
+            accountNumber: parsed.accountNumber,
+            accountHolderName: parsed.accountHolderName,
+            statementFromDate: parsed.statementFromDate,
+            statementToDate: parsed.statementToDate,
+            openingBalance: parsed.openingBalance,
+            closingBalance: parsed.closingBalance,
+            parsingStatus: 'SUCCESS',
+            errorMessage: null,
+          },
+        })
+      : await prisma.bankStatement.create({
+          data: {
+            userId,
+            bankName: parsed.bankName,
+            accountNumber: parsed.accountNumber,
+            accountHolderName: parsed.accountHolderName,
+            statementFromDate: parsed.statementFromDate,
+            statementToDate: parsed.statementToDate,
+            openingBalance: parsed.openingBalance,
+            closingBalance: parsed.closingBalance,
+            parsingStatus: 'SUCCESS',
+          },
+        });
 
     const txData = parsed.transactions.map(tx => {
       const { category, transactionType } = classifyTransaction(tx.description);

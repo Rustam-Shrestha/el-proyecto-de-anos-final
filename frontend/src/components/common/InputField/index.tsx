@@ -35,9 +35,9 @@ const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
     const resolvedType = type === "password" && showPassword ? "text" : type;
     const showPasswordToggle = type === "password";
     const inputClasses = [
-      "w-full rounded-lg border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500",
-      error ? "border-red-500 focus:ring-red-500" : "",
-      disabled ? "cursor-not-allowed" : "",
+      "w-full h-10 rounded-[6px] border px-3 text-sm transition-colors focus:outline-none focus:ring-2",
+      error ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-[rgba(220,38,38,0.12)]" : "focus:border-[#15803D] focus:ring-[rgba(21,128,61,0.12)]",
+      disabled ? "cursor-not-allowed bg-[#F1F5F9] text-[#94A3B8]" : "bg-white",
     ]
       .filter(Boolean)
       .join(" ");
@@ -45,7 +45,7 @@ const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
     return (
       <div className={`flex w-full flex-col ${className}`.trim()}>
         {label ? (
-          <label htmlFor={inputId} className="mb-1 text-sm font-medium" style={{ color: 'var(--text-color)' }}>
+          <label htmlFor={inputId} className="mb-2 text-sm font-medium text-[#0F172A]">
             {label}
           </label>
         ) : null}
@@ -60,9 +60,8 @@ const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `${inputId}-error` : undefined}
             style={{
-              backgroundColor: 'var(--surface-color)',
-              borderColor: error ? 'var(--red)' : 'var(--border-color)',
-              color: 'var(--text-color)'
+              borderColor: error ? '#DC2626' : '#CBD5E1',
+              color: '#0F172A'
             }}
             className={inputClasses}
           />
@@ -83,7 +82,7 @@ const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
           ) : null}
         </div>
         {error ? (
-          <p id={`${inputId}-error`} className="mt-1 text-sm" style={{ color: 'var(--red)' }} role="alert">
+          <p id={`${inputId}-error`} className="mt-1 text-sm text-[#DC2626]" role="alert">
             {error}
           </p>
         ) : null}

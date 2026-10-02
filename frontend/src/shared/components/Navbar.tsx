@@ -1,9 +1,13 @@
 import { useMemo, useState } from "react";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, MessageSquare } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@store/hooks";
 import { Button } from "@components/common/Button";
 import { resolveAvatarUrl } from "@shared/lib/avatar";
 import { NotificationBell } from "@features/notifications/components/NotificationBell";
+import { roleKind, roleLabel } from "@shared/utils/roleUtils";
+import { companyApi } from "@features/company/api/companyApi";
 
 type NavbarProps = {
   onToggleSidebar: () => void;
@@ -13,9 +17,16 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
   const [openMenu, setOpenMenu] = useState(false);
   const { userData, logout } = useAuth();
 
-const displayName: string = useMemo(() => {
-  return userData?.name || 'User';
-}, [userData]);
+  const displayName: string = useMemo(() => {
+    const rawName =
+      userData?.fullName ||
+      userData?.name ||
+      userData?.firstName ||
+      userData?.email?.split('@')[0] ||
+      'User';
+
+    return rawName.trim() || 'User';
+  }, [userData]);
 
   const handleLogout = async () => {
     await logout();
@@ -40,56 +51,88 @@ const displayName: string = useMemo(() => {
     return colors[index];
   }, [displayName]);
 
-  const roleLabel = useMemo(() => {
-    const role = userData?.role;
-    if (!role) return "Account";
-    return role.charAt(0) + role.slice(1).toLowerCase();
-  }, [userData?.role]);
+  // Explicit role badge: Super Admin / Company Admin / Reviewer / Customer
+  const badge = useMemo(() => (userData?.role ? roleLabel(userData.role) : "Account"), [userData?.role]);
+
+  const kind = useMemo(() => roleKind(userData?.role), [userData?.role]);
+  const isPrivileged = kind === "admin" || kind === "reviewer" || kind === "superadmin";
+  // Company emblem: always fresh from /company/me so members see slug+logo,
+  // never a stale "No Company" label after joining.
+  const tenantQuery = useQuery({
+    queryKey: ["company", "me"],
+    queryFn: () => companyApi.meTenant(),
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+  const tenant = (tenantQuery.data as any) || (userData as any)?.tenant || null;
+  const inCompany = Boolean(tenant && tenant.slug && tenant.slug !== "default");
+  const tenantName = inCompany ? tenant.name : null;
+  const tenantSlug = inCompany ? tenant.slug : null;
+  const tenantLogo = inCompany ? tenant.logoUrl || null : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
-      <div className="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center border-b border-[#E2E8F0] bg-white/90 backdrop-blur">
+      <div className="flex w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-700 transition-colors hover:bg-gray-100 lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border border-[#E2E8F0] text-[#334155] transition-colors hover:bg-[#F1F5F9] lg:hidden"
             aria-label="Toggle sidebar"
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green-icon)]">Finguard</p>
-            <h1 className="text-base font-semibold text-gray-900">Dashboard</h1>
-          </div>
+          <Link to="/dashboard" className="flex items-center gap-3">
+  <img
+    src="/images/logo512.png"
+    alt="FinGuard logo"
+    className="h-10 w-10 rounded-[6px] object-cover p-0"
+    onError={(e) => {
+      (e.currentTarget as HTMLImageElement).src = "/logo512.png";
+    }}
+  />
+  <div className="hidden sm:block"></div>
+  <span className="sm:hidden text-sm font-semibold text-[#0F172A]">FinGuard</span>
+</Link>
+
         </div>
 
-        <div className="relative flex items-center gap-3">
+        <div className="relative flex items-center gap-2">
+          {tenantName ? <Link to="/company" title={`Company slug: ${tenantSlug}`} className="hidden md:inline-flex items-center gap-1 rounded-full border bg-green-50 px-2 py-1 text-xs font-medium text-green-700">{tenantLogo ? <img src={tenantLogo} alt={tenantName} className="h-5 w-5 rounded object-cover" onError={(e)=>{(e.currentTarget as HTMLImageElement).style.display='none'}}/> : null}{tenantName}<span className="text-green-500">@{tenantSlug}</span></Link> : <Link to="/company" className="hidden md:inline-flex rounded-full border bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">No Company – Setup</Link>}
+          <Link
+            to="/dashboard/chat"
+            aria-label="Messages"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9] transition-colors"
+          >
+            <MessageSquare className="h-4 w-4" />
+          </Link>
           <NotificationBell />
           <button
             type="button"
             onClick={() => setOpenMenu((value) => !value)}
-            className="flex items-center gap-3 rounded-full border border-gray-200 bg-white px-2 py-1 pr-3 text-left text-gray-900 shadow-sm transition-colors hover:bg-gray-50"
+            className="flex items-center gap-3 rounded-full border border-[#E2E8F0] bg-white px-2 py-1 pr-3 text-left text-[#0F172A] shadow-subtle transition-colors hover:bg-[#F8FAFC]"
           >
-            <span className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarBg}`}>
+            <span className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full text-sm font-semibold text-white ${isPrivileged && !userData?.avatarUrl ? "bg-white border border-[#E2E8F0]" : avatarBg}`}>
               {userData?.avatarUrl ? (
                 <img
                   src={typeof userData.avatarUrl === "string" ? resolveAvatarUrl(userData.avatarUrl) || undefined : undefined}
                   alt="User avatar"
                   className="h-full w-full rounded-full object-cover"
                 />
+              ) : isPrivileged ? (
+                <img src="/images/client.webp" alt="Admin avatar" className="h-full w-full object-cover" />
               ) : (
                 initials
               )}
             </span>
             <span className="hidden sm:block">
               <span className="block text-sm font-semibold leading-4">{displayName}</span>
-              <span className="block text-xs text-gray-500">{roleLabel}</span>
+              <span className="block text-xs text-gray-500">{badge}</span>
             </span>
           </button>
 
           {openMenu ? (
-            <div className="absolute right-0 top-12 w-56 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+            <div className="absolute right-0 top-12 w-56 rounded-[8px] border border-[#E2E8F0] bg-white p-2 shadow-modal">
               <div className="px-3 py-2">
                 <p className="text-sm font-semibold text-gray-900">{displayName}</p>
                 <p className="text-xs text-gray-500">{userData?.email || "Signed in user"}</p>

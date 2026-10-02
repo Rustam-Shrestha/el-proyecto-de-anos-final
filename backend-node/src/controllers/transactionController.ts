@@ -2,7 +2,6 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '@/config/database';
 import { apiResponse } from '@/utils/apiResponse';
 import { AppError } from '@/utils/AppError';
-import { paginate } from '@/utils/pagination';
 
 export const listTransactions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

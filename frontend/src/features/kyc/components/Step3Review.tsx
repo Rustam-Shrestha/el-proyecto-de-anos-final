@@ -48,8 +48,9 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
       });
       toast("Data saved successfully", "success");
       onComplete(form);
-    } catch {
-      toast("Failed to save data. Please try again.", "error");
+    } catch (error) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      toast(apiError.response?.data?.message || "Failed to save data. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -59,7 +60,7 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
     <div>
       <h2 className="text-lg font-semibold mb-4">Step 3: Review & Confirm Data</h2>
       <p className="text-sm text-gray-600 mb-4">
-        Please review the extracted data and correct any errors. Your confirmed data is the source of truth.
+        Please review your submitted details and correct any errors before continuing. Your entered values are the source of truth.
       </p>
 
       <div className="space-y-4 mb-6">
@@ -85,7 +86,7 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
               )}
             </div>
             {ocrData?.[ocrKey] && (
-              <p className="text-xs text-gray-400 mt-1">OCR detected: {ocrData[ocrKey]}</p>
+              <p className="text-xs text-gray-400 mt-1">Current submitted value: {ocrData[ocrKey]}</p>
             )}
           </div>
         ))}

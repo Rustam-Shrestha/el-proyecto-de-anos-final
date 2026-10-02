@@ -3,7 +3,7 @@
  * CustomFileUpload — Memoized
  */
 import React, { memo, useRef, useState } from "react";
-import { CloudArrow } from "../../../assets/data/icons";
+import { CloudUpload } from "lucide-react";
 
 const CustomFileUpload = memo(({ onFileUpload }) => {
   const fileInputRef = useRef();
@@ -94,7 +94,7 @@ const CustomFileUpload = memo(({ onFileUpload }) => {
       ) : (
         <div onClick={handleUploadClick} role="button" tabIndex={0} aria-label="Upload file">
           <div className="flex items-center  justify-center rounded-full mb-2">
-            <CloudArrow />
+            <CloudUpload />
           </div>
           <p className="text-primary text-sm">
             Click to upload{" "}

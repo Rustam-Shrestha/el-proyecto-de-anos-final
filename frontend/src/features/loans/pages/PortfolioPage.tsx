@@ -14,7 +14,7 @@ import { FileUploadField } from "@shared/components/FileUploadField";
 import InputField from "@components/common/InputField";
 import CustomDatePicker from "@components/common/CutomDatePicker";
 import CustomSelectField from "@components/common/SelectField";
-import { CheckMarkIcon } from "@assets/data/icons";
+import { Check } from "lucide-react";
 import { DocumentType } from "@shared/types/common";
 import { useToast } from "@shared/hooks/useToast";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
@@ -29,24 +29,12 @@ const INCOME_TYPES: { value: IncomeType; label: string; description: string }[] 
   { value: "RETIRED", label: "Retired", description: "I am retired and may have pension income" },
 ];
 
-const EMPLOYMENT_STATUS_OPTIONS = [
-  "EMPLOYED", "SELF_EMPLOYED", "BUSINESS", "STUDENT", "UNEMPLOYED", "RETIRED", "OTHER",
-];
-
 const BUSINESS_TYPE_OPTIONS = [
   "Retail", "Service", "Manufacturing", "Technology", "Agriculture", "Construction", "Transportation", "Freelance", "Other",
 ];
 
 const EDUCATION_LEVEL_OPTIONS = [
   "HighSchool", "Bachelor", "Master", "PhD", "Diploma",
-];
-
-const INCOME_SOURCE_OPTIONS = [
-  { value: "SALARY", label: "Salary" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "PENSION", label: "Pension" },
-  { value: "STIPEND", label: "Stipend" },
-  { value: "OTHER", label: "Other" },
 ];
 
 interface FormData {
@@ -222,9 +210,8 @@ const PortfolioPage = () => {
 
       const needsDocs = formData.employmentStatus === "EMPLOYED" || formData.employmentStatus === "SELF_EMPLOYED";
       setStep(needsDocs ? "documents" : "review");
-    } catch (error) {
-      const apiError = error as { response?: { data?: { message?: string } } };
-      toast.error(apiError.response?.data?.message || "Failed to save employment information");
+    } catch {
+      toast.error("Failed to save employment information");
     }
   };
 
@@ -246,7 +233,7 @@ const PortfolioPage = () => {
       try {
         await deleteMutation.mutateAsync(documentId);
         toast.success("Document removed");
-      } catch (error) {
+      } catch (_error) {
         toast.error("Failed to delete document");
       }
     },
@@ -262,11 +249,6 @@ const PortfolioPage = () => {
       const apiError = error as { response?: { data?: { message?: string } } };
       toast.error(apiError.response?.data?.message || "Failed to submit portfolio");
     }
-  };
-
-  const mapDocType = (dt: string): DocumentType => {
-    const known = Object.values(DocumentType);
-    return known.includes(dt as DocumentType) ? (dt as DocumentType) : DocumentType.OTHER;
   };
 
   const getDocForType = (docType: string): DocEntry | undefined =>
@@ -308,7 +290,7 @@ const PortfolioPage = () => {
                       : "bg-gray-200 text-gray-500"
                 }`}
               >
-                {isDone ? <CheckMarkIcon /> : i + 1}
+                {isDone ? <Check className="h-4 w-4" /> : i + 1}
               </div>
               <span
                 className={`text-sm ${
