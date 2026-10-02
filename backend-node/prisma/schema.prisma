@@ -35,6 +35,7 @@ enum DocumentVerificationStatus {
   VERIFIED
   REJECTED
   MANUAL_REVIEW
+  FLAGGED_REVIEW
 
   @@schema("auth")
 }
@@ -378,6 +379,25 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+  @@schema("auth")
+}
+
+// Transactional email delivery log (best-effort; never blocks sending)
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  type      String
+  subject   String
+  status    String   @default("SENT") // SENT, FAILED
+  error     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([to])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
   @@schema("auth")
 }
 

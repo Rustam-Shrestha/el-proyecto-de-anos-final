@@ -37,7 +37,12 @@ const corsOrigin = (origin: string | undefined, callback: (_error: Error | null,
 };
 
 // Security and request-parsing defaults suitable for API-first backends.
-app.use(helmet());
+// crossOriginResourcePolicy is OFF: this server hosts static uploads
+// (avatars, KYC docs) that pages on other origins (Vite dev, deployed
+// frontend domain) must be allowed to render as <img>. With helmet's
+// default "same-origin", browsers refuse cross-origin images and every
+// avatar shows broken. COOP/COEP defaults stay on.
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger }));

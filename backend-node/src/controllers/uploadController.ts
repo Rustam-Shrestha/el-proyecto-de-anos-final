@@ -35,20 +35,26 @@ const readStatementTextFast = async (filePath: string, mimeType: string): Promis
     }
   }
 
-  // PDF text layer extraction (pdf-parse v2, pure JS, fast, no OCR engine needed)
+  // PDF text layer extraction (pdf-parse v1, pure JS, no native deps).
+  // NOTE: pdf-parse v2 requires DOMMatrix/@napi-rs/canvas and cannot even be
+  // imported on Windows Node, which made EVERY pdf upload 400 here. v1's
+  // package entry runs a self-test on ESM import (module.parent undefined),
+  // so import the inner lib directly — same function, no side effects.
   if (ext === 'pdf' || mimeType === 'application/pdf') {
     try {
-      const { PDFParse } = await import('pdf-parse');
-      const parser = new PDFParse({ data: new Uint8Array(buffer) });
-      try {
-        const result = await parser.getText();
-        if (result.text && result.text.trim().length >= 50) {
-          return result.text;
-        }
-        // Text layer empty/too short => scanned PDF, fall through to FastAPI OCR below
-      } finally {
-        await parser.destroy().catch(() => {});
+      const mod = await import('pdf-parse/lib/pdf-parse.js');
+      const parsePdf: (data: Uint8Array) => Promise<{ text?: string }> = mod.default ?? mod;
+      // pdf.js v1.10 (bundled in pdf-parse@1.x) builds sub-streams from
+      // `bytes.buffer` IGNORING `byteOffset`, so pooled Node Buffers
+      // (non-zero byteOffset — fs reads and small multer uploads) parse at
+      // wrong offsets and throw "bad XRef entry". A fresh exact-size copy
+      // (byteOffset 0) parses fine — proven live.
+      const bytes = new Uint8Array(buffer);
+      const result = await parsePdf(bytes);
+      if (result.text && result.text.trim().length >= 50) {
+        return result.text;
       }
+      // Text layer empty/too short => scanned PDF, fall through to FastAPI OCR below
     } catch (error) {
       logger.warn({ filePath, error: error instanceof Error ? error.message : String(error) }, 'pdf-parse failed, trying FastAPI OCR fallback');
     }

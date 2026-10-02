@@ -1,5 +1,6 @@
 import axios, { type AxiosResponse } from 'axios';
 import { logger } from '@/config/logger';
+import type { FastApiExtractionResponse } from '@/shared/payloads';
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 const OCR_ENABLED = process.env.OCR_ENABLED === 'true';
@@ -180,7 +181,7 @@ export async function callFinancialDocumentExtraction(
       document_type: documentType,
     }, { timeout: OCR_TIMEOUT_MS });
 
-    return response.data as ExtractionResult;
+    return normalizeExtractionResult(response.data);
   } catch (error: unknown) {
     const apiError = error as { response?: { status?: number }; message?: string };
     if (apiError.response?.status === 404) {
@@ -188,4 +189,60 @@ export async function callFinancialDocumentExtraction(
     }
     throw error;
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asNumber(value: unknown): number | null {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Coerce any FastAPI extraction payload into the full ExtractionResult shape.
+ * Tolerates `{ data: {...} }` envelopes, partial payloads, and stringified
+ * numbers, so a FastAPI-side change degrades to defaults instead of
+ * `undefined` crashes downstream (ocrProcessingJob reads every field).
+ */
+export function normalizeExtractionResult(input: unknown): ExtractionResult {
+  const root = asRecord(input);
+  // Tolerate a wrapped `{ data: {...} }` envelope without breaking the flat
+  // shape FastAPI sends today; fall back to the root payload when `data`
+  // is absent or not an object.
+  const inner = 'data' in root ? root.data : undefined;
+  const body = inner !== null && typeof inner === 'object' && !Array.isArray(inner)
+    ? (inner as Record<string, unknown>)
+    : root;
+  const wire = body as FastApiExtractionResponse;
+
+  const rawTransactions = Array.isArray(wire.transactions) ? wire.transactions : [];
+  const transactions = rawTransactions.map((t) => {
+    const row = asRecord(t);
+    return {
+      date: typeof row.date === 'string' ? row.date : null,
+      description: typeof row.description === 'string' ? row.description : '',
+      type: row.type === 'credit' ? 'credit' as const : 'debit' as const,
+      amount: asNumber(row.amount),
+      balance: asNumber(row.balance),
+      balanceMismatch: row.balanceMismatch === true,
+    };
+  });
+
+  const rawTableData = Array.isArray(wire.rawTableData) ? wire.rawTableData : [];
+
+  return {
+    ...body,
+    sourceType: typeof wire.sourceType === 'string' ? wire.sourceType : 'unknown',
+    extractionMethod: typeof wire.extractionMethod === 'string' ? wire.extractionMethod : 'unknown',
+    bankMeta: asRecord(wire.bankMeta) as ExtractionResult['bankMeta'],
+    transactions,
+    parsingConfidence: asNumber(wire.parsingConfidence) ?? 0,
+    needsManualMapping: wire.needsManualMapping === true,
+    rawExtractedText: typeof wire.rawExtractedText === 'string' ? wire.rawExtractedText : '',
+    rawTableData,
+  };
 }

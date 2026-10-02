@@ -1,6 +1,8 @@
 import { env } from '@/config/env';
 import { logger } from '@/config/logger';
+import { prisma } from '@/config/database';
 import nodemailer, { type Transporter } from 'nodemailer';
+import { buildEmail, type EmailParams, type EmailType } from '@/templates';
 
 const isSmtpConfigured = Boolean(env.SMTP_HOST && env.SMTP_PORT);
 
@@ -19,37 +21,55 @@ const transporter: Transporter = isSmtpConfigured
 // authenticated account, otherwise sends are rejected.
 const defaultFrom = env.SMTP_USER || 'noreply@finguard.local';
 
-function sendInBackground(
-  to: string,
-  subject: string,
-  html: string,
-  text: string,
-  failureMessage: string
-): void {
+/**
+ * Best-effort delivery log. Never throws — email auditing must not break
+ * the request that triggered the send (or the send itself).
+ */
+async function logEmail(to: string, type: string, subject: string, status: 'SENT' | 'FAILED', error?: string): Promise<void> {
+  try {
+    await prisma.emailLog.create({ data: { to, type, subject, status, error: error ?? null } });
+  } catch (err) {
+    logger.warn({ err, email: to, subject }, 'EmailLog write failed (non-fatal)');
+  }
+}
+
+function sendInBackground(to: string, params: EmailParams, failureMessage: string): void {
+  const { type, content } = buildEmail(params);
   const sendPromise = transporter
-    .sendMail({ from: defaultFrom, to, subject, html, text })
+    .sendMail({ from: defaultFrom, to, subject: content.subject, html: content.html, text: content.text })
     .then((info) => {
       if (isSmtpConfigured) {
-        logger.info({ email: to, subject, messageId: info.messageId }, 'Email sent');
+        logger.info({ email: to, subject: content.subject, messageId: info.messageId }, 'Email sent');
       } else {
         logger.info(
-          { email: to, subject, payload: JSON.parse(info.message as string) },
+          { email: to, subject: content.subject, payload: JSON.parse(info.message as string) },
           'Email captured (dev mode, no SMTP configured)'
         );
       }
+      void logEmail(to, type, content.subject, 'SENT');
     })
     .catch((error) => {
-      logger.warn({ err: error, email: to, subject }, failureMessage);
+      logger.warn({ err: error, email: to, subject: content.subject }, failureMessage);
+      void logEmail(to, type, content.subject, 'FAILED', error instanceof Error ? error.message : String(error));
     });
 
   void sendPromise;
 }
 
+const frontendBase = env.FRONTEND_URL || 'http://localhost:5173';
+
 export const mailService = {
   sendMail(email: string, subject: string, text: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      transporter.sendMail({ from: defaultFrom, to: email, subject, text, html: `<p>${text}</p>` }, (err, info) => {
-        if (err) { logger.warn({ err }, "sendMail failed"); reject(err); } else resolve();
+      transporter.sendMail({ from: defaultFrom, to: email, subject, text, html: `<p>${text}</p>` }, (err) => {
+        if (err) {
+          logger.warn({ err }, 'sendMail failed');
+          void logEmail(email, 'generic', subject, 'FAILED', err instanceof Error ? err.message : String(err));
+          reject(err);
+        } else {
+          void logEmail(email, 'generic', subject, 'SENT');
+          resolve();
+        }
       });
     });
   },
@@ -59,195 +79,82 @@ export const mailService = {
    * is included as a shortcut.
    */
   sendInviteMail(email: string, companyName: string, link: string, code?: string): void {
-    const subject = `Invitation code for ${companyName} — FinGuard`;
-    const codeBlock = code
-      ? `<p style="font-size:14px;color:#374151;">Your invitation code for <strong>${companyName}</strong>:</p>
-         <p style="font-size:32px;font-weight:800;letter-spacing:8px;color:#166534;">${code}</p>
-         <p style="font-size:13px;color:#6b7280;">Open FinGuard → Company Setup → enter this code to join ${companyName}. Code expires in 7 days.</p>`
-      : ``;
-    const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;">
-      <h2 style="color:#111827;margin:0 0 8px;">You are invited to join ${companyName}</h2>
-      ${codeBlock}
-      <p style="margin:20px 0;"><a href="${link}" style="background-color:#15803d;color:#fff;padding:12px 20px;text-decoration:none;border-radius:8px;font-weight:600;">Accept invite online</a></p>
-      <p style="color:#6b7280;font-size:13px;">Or paste this link: ${link}</p>
-    </div>`;
-    const text = [`You are invited to join ${companyName}.`,
-      code ? `Invitation code for ${companyName}: ${code} (enter it in FinGuard → Company Setup)` : null,
-      `Accept online: ${link}`, 'Code/link expires in 7 days.'].filter(Boolean).join('\n');
-    sendInBackground(email, subject, html, text, "Failed to send invite");
+    sendInBackground(email, { type: 'invite', companyName, link, code }, 'Failed to send invite');
   },
   sendVerificationMail(email: string, token: string): void {
-    const verificationUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
-    const subject = 'Verify Your FinGuard Email';
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff;">
-        <h2 style="color: #111827; margin: 0 0 16px;">Verify Your Email Address</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Thank you for signing up. Please verify your email address by clicking the button below.</p>
-        <p style="margin: 28px 0;">
-          <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">Verify Email</a>
-        </p>
-        <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">If the button does not work, paste this link into your browser:<br />${verificationUrl}</p>
-        <p style="color: #6b7280; font-size: 13px;">This link expires in 24 hours.</p>
-      </div>
-    `;
-
-    const textContent = [
-      'Verify your email address.',
-      `Open this link: ${verificationUrl}`,
-      'This link expires in 24 hours.',
-    ].join('\n');
-
-    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send verification email');
+    sendInBackground(
+      email,
+      { type: 'verification', verificationUrl: `${frontendBase}/verify-email?token=${token}` },
+      'Failed to send verification email'
+    );
   },
 
   sendPasswordResetMail(email: string, token: string): void {
-    const resetUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
-    const subject = 'Reset Your FinGuard Password';
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff;">
-        <h2 style="color: #111827; margin: 0 0 16px;">Reset Your Password</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">We received a request to reset your password. Use the button below to continue.</p>
-        <p style="margin: 28px 0;">
-          <a href="${resetUrl}" style="background-color: #16a34a; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">Reset Password</a>
-        </p>
-        <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">If the button does not work, paste this link into your browser:<br />${resetUrl}</p>
-        <p style="color: #6b7280; font-size: 13px;">This link expires in 1 hour. If you did not request this, ignore this email.</p>
-      </div>
-    `;
-
-    const textContent = [
-      'Reset your password.',
-      `Open this link: ${resetUrl}`,
-      'This link expires in 1 hour.',
-      'If you did not request this, ignore this email.',
-    ].join('\n');
-
-    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send password reset email');
+    sendInBackground(
+      email,
+      { type: 'password-reset', resetUrl: `${frontendBase}/reset-password?token=${token}` },
+      'Failed to send password reset email'
+    );
   },
 
   sendKycApprovedMail(email: string, fullName?: string): void {
-    const lendersUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/dashboard/lenders`;
-    const subject = 'KYC Verification Approved';
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #f0fdf4;">
-        <h2 style="color: #15803d; margin: 0 0 16px;">KYC Verification Approved</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Your identity verification is approved. It is valid for every lender on FinGuard, so you never submit your documents again.</p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Pick a lender and apply in a couple of minutes &mdash; we reuse your verified profile.</p>
-        <p style="margin-top: 28px;">
-          <a href="${lendersUrl}" style="background-color: #15803d; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">Browse lenders</a>
-        </p>
-      </div>
-    `;
-
-    const textContent = [
-      `Hi ${fullName || 'there'},`,
-      'Your identity verification is approved and works with every FinGuard lender.',
-      `Choose a lender and apply: ${lendersUrl}`,
-    ].join('\n');
-
-    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC approval email');
+    sendInBackground(
+      email,
+      {
+        type: 'kyc-approved',
+        fullName,
+        lendersUrl: `${frontendBase}/dashboard/lenders`,
+      },
+      'Failed to send KYC approval email'
+    );
   },
 
   sendKycRejectedMail(email: string, fullName?: string, reason?: string): void {
-    const resubmitUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/dashboard/kyc-submit`;
-    const subject = 'KYC Verification Rejected';
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fef2f2;">
-        <h2 style="color: #dc2626; margin: 0 0 16px;">KYC Verification Rejected</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Your KYC application has been rejected.</p>
-        ${reason ? `<p style="color: #374151; background-color: #fee2e2; padding: 12px; border-radius: 8px;"><strong>Reason:</strong> ${reason}</p>` : ''}
-        <p style="margin-top: 28px;">
-          <a href="${resubmitUrl}" style="background-color: #dc2626; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">Resubmit Application</a>
-        </p>
-      </div>
-    `;
-
-    const textContent = [
-      `Hi ${fullName || 'there'},`,
-      'Your KYC application has been rejected.',
-      reason ? `Reason: ${reason}` : null,
-      `Resubmit here: ${resubmitUrl}`,
-    ].filter(Boolean).join('\n');
-
-    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC rejection email');
+    sendInBackground(
+      email,
+      {
+        type: 'kyc-rejected',
+        fullName,
+        reason,
+        resubmitUrl: `${frontendBase}/dashboard/kyc-submit`,
+      },
+      'Failed to send KYC rejection email'
+    );
   },
 
   sendLoanApprovedMail(email: string, amount?: number | string, fullName?: string): void {
-    const portfolioUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/portfolio`;
-    const subject = 'Loan Application Approved - FinGuard';
-    const amountText = amount !== undefined && amount !== null && `${amount}` !== ''
-      ? ` for ₹${Number(amount).toLocaleString('en-IN')}` : '';
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #f0fdf4;">
-        <h2 style="color: #15803d; margin: 0 0 16px;">Loan Approved</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Congratulations! Your loan application${amountText} has been approved. Funds will be disbursed within 2-3 business days.</p>
-        <p style="margin-top: 28px;">
-          <a href="${portfolioUrl}" style="background-color: #15803d; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">View Loan Details</a>
-        </p>
-      </div>
-    `;
-
-    const textContent = [
-      `Hi ${fullName || 'there'},`,
-      `Your loan application${amountText} has been approved. Funds will be disbursed within 2-3 business days.`,
-      `View details: ${portfolioUrl}`,
-    ].join('\n');
-
-    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send loan approval email');
+    sendInBackground(
+      email,
+      {
+        type: 'loan-approved',
+        fullName,
+        amount,
+        portfolioUrl: `${frontendBase}/portfolio`,
+      },
+      'Failed to send loan approval email'
+    );
   },
 
   sendLoanRejectedMail(email: string, fullName?: string, reason?: string): void {
-    const loansUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/loans`;
-    const subject = 'Loan Application Update - FinGuard';
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fef2f2;">
-        <h2 style="color: #dc2626; margin: 0 0 16px;">Loan Application Update</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">We regret to inform you that your loan application has been reviewed and we cannot proceed at this time.</p>
-        ${reason ? `<p style="color: #374151; background-color: #fee2e2; padding: 12px; border-radius: 8px;"><strong>Reason:</strong> ${reason}</p>` : ''}
-        <p style="color: #6b7280; font-size: 13px;">You may reapply after 30 days. For assistance, please contact support.</p>
-        <p style="margin-top: 28px;">
-          <a href="${loansUrl}" style="background-color: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">View Applications</a>
-        </p>
-      </div>
-    `;
-
-    const textContent = [
-      `Hi ${fullName || 'there'},`,
-      'Your loan application has been reviewed and we cannot proceed at this time.',
-      reason ? `Reason: ${reason}` : null,
-      `View applications: ${loansUrl}`,
-    ].filter(Boolean).join('\n');
-
-    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send loan rejection email');
+    sendInBackground(
+      email,
+      { type: 'loan-rejected', fullName, reason, loansUrl: `${frontendBase}/loans` },
+      'Failed to send loan rejection email'
+    );
   },
 
   sendKycResubmitMail(email: string, fullName?: string, note?: string): void {
-    const resubmitUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/kyc/resubmit`;
-    const subject = 'Action Required: Resubmit KYC Application';
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fffbeb;">
-        <h2 style="color: #b45309; margin: 0 0 16px;">Action Required: Resubmit KYC</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi ${fullName || 'there'},</p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Your KYC application requires resubmission. Please address the feedback below and submit again.</p>
-        ${note ? `<p style="color: #374151; background-color: #fef3c7; padding: 12px; border-radius: 8px;"><strong>Note:</strong> ${note}</p>` : ''}
-        <p style="margin-top: 28px;">
-          <a href="${resubmitUrl}" style="background-color: #b45309; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: 600;">Resubmit KYC</a>
-        </p>
-      </div>
-    `;
-
-    const textContent = [
-      `Hi ${fullName || 'there'},`,
-      'Your KYC application requires resubmission.',
-      note ? `Note: ${note}` : null,
-      `Resubmit here: ${resubmitUrl}`,
-    ].filter(Boolean).join('\n');
-
-    sendInBackground(email, subject, htmlContent, textContent, 'Failed to send KYC resubmit email');
+    sendInBackground(
+      email,
+      {
+        type: 'kyc-resubmit',
+        fullName,
+        note,
+        resubmitUrl: `${frontendBase}/kyc/resubmit`,
+      },
+      'Failed to send KYC resubmit email'
+    );
   },
 };
 
+export type { EmailType };
