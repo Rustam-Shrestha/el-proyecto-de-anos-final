@@ -49,6 +49,13 @@ const AppRouter: React.FC = () => (
         />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+        <Route path="/portfolio/documents/upload" element={<ProtectedRoute><Pages.FinancialDocumentUpload /></ProtectedRoute>} />
+        <Route path="/portfolio/documents" element={<ProtectedRoute><Pages.DocumentStatusList /></ProtectedRoute>} />
+        <Route
+          path="/admin/portfolio/documents"
+          element={<ProtectedRoute requiredRoles={["ADMIN", "REVIEWER"]}><Pages.AdminDocumentVerification /></ProtectedRoute>}
+        />
+
         <Route path="*" element={<div>Not Found</div>} />
       </Routes>
     </div>

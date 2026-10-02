@@ -3,6 +3,7 @@ import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { riskService } from '@/services/riskService';
 import { LoanPurpose, LoanStatus, Prisma } from '@prisma/client';
+import { notificationService } from '@/services/notificationService';
 
 export interface ApplyLoanInput {
   requestedAmount: number;
@@ -23,6 +24,17 @@ export const loanService = {
 
       if (!kyc) {
         throw new AppError('You must have an approved KYC before applying for a loan', 400);
+      }
+
+      const portfolio = await prisma.portfolioVerification.findUnique({
+        where: { userId },
+      });
+
+      if (!portfolio || portfolio.verificationStatus !== 'VERIFIED') {
+        throw new AppError(
+          'Your financial portfolio must be verified before applying for a loan. Complete your employment info and document upload, then wait for admin verification.',
+          400
+        );
       }
 
       const emi = riskService.calculateEmi(data.requestedAmount, data.tenureMonths);
@@ -204,6 +216,21 @@ export const loanService = {
         { loanId, reviewerId, action },
         `Loan application ${action.toLowerCase()}`
       );
+
+      await notificationService.create({
+        userId: updated.userId,
+        type: action === 'APPROVED' ? 'LOAN_APPROVED' : 'LOAN_REJECTED',
+        title: action === 'APPROVED' ? 'Loan Application Approved' : 'Loan Application Rejected',
+        message:
+          action === 'APPROVED'
+            ? `Your loan application has been approved. Disbursement will occur within 2-3 business days.`
+            : `Your loan application was not approved.${notes ? ` Reason: ${notes}` : ''}`,
+        relatedEntityType: 'LoanApplication',
+        relatedEntityId: loanId,
+        actionUrl: `/loans/${loanId}`,
+        priority: 'CRITICAL',
+        metadata: { status: action, notes: notes ?? null, requestedAmount: loan.requestedAmount },
+      });
 
       return updated;
     } catch (error) {

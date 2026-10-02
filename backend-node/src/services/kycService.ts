@@ -3,6 +3,7 @@ import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { mailService } from '@/services/mailService';
+import { notificationService } from '@/services/notificationService';
 
 export interface SubmitKycInput {
   userId: string;
@@ -456,6 +457,22 @@ export const kycService = {
         kyc.user.profile?.fullName
       );
 
+      await notificationService.create({
+        userId: kyc.userId,
+        type: 'KYC_APPROVED',
+        title: 'KYC Application Approved',
+        message:
+          'Congratulations! Your KYC verification has been approved. You can now proceed to portfolio verification.',
+        relatedEntityType: 'KycApplication',
+        relatedEntityId: kycId,
+        actionUrl: '/portfolio',
+        priority: 'HIGH',
+        metadata: {
+          approvedAt: new Date().toISOString(),
+          nextStep: 'Portfolio Verification',
+        },
+      });
+
       logger.info(
         { kycId, userId: kyc.userId, reviewerId },
         'KYC application approved'
@@ -546,6 +563,18 @@ export const kycService = {
         kyc.user.profile?.fullName,
         rejectionReason
       );
+
+      await notificationService.create({
+        userId: kyc.userId,
+        type: 'KYC_REJECTED',
+        title: 'KYC Application Rejected',
+        message: `Your KYC application has been rejected. Reason: ${rejectionReason}. You can resubmit after correcting the issues.`,
+        relatedEntityType: 'KycApplication',
+        relatedEntityId: kycId,
+        actionUrl: '/kyc/resubmit',
+        priority: 'CRITICAL',
+        metadata: { rejectionReason, resubmissionDeadline: '30 days' },
+      });
 
       logger.info(
         { kycId, userId: kyc.userId, reviewerId, rejectionReason },
