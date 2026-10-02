@@ -8,6 +8,10 @@ import { prisma } from '@/config/database';
 import { auditService } from '@/services/auditService';
 import { chatbotService } from '@/services/chatbotService';
 import { setIO } from '@/config/socket';
+// Static import, not await import(): the build emits CommonJS, where a dynamic
+// import resolves through ESM rules and would need an explicit .js extension
+// that tsc-alias does not add — which crashed OCR job reset at boot.
+import { resetStaleOcrJobs } from '@/jobs/ocrProcessingJob';
 
 const PORT = env.PORT;
 const httpServer = http.createServer(app);
@@ -101,7 +105,6 @@ const server = httpServer.listen(PORT, async () => {
   // OCR hygiene: recover jobs stuck in PROCESSING by a previous crashed run.
   // Best-effort — never blocks startup.
   try {
-    const { resetStaleOcrJobs } = await import('@/jobs/ocrProcessingJob');
     await resetStaleOcrJobs();
   } catch (error) {
     logger.warn({ err: error }, 'Skipping stale OCR job reset');

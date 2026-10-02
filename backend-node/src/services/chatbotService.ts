@@ -2,6 +2,9 @@ import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { statementParserService } from './statementParserService';
+// Static import: dist is CommonJS, where await import() resolves via ESM rules
+// and needs an explicit .js extension that tsc-alias does not add.
+import { normalizeRoleName } from '@/utils/roles';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -99,7 +102,6 @@ export const chatbotService = {
    * - platform SUPERADMIN sees staff across companies
    */
   async listParticipants(userId: string) {
-    const { normalizeRoleName } = await import('@/utils/roles');
     const requester = await prisma.user.findUnique({
       where: { id: userId },
       select: { tenantId: true, role: { select: { name: true } } },

@@ -4,6 +4,9 @@ import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
 import { AppError } from '@/utils/AppError';
 import { normalizeRoleName } from '@/utils/roles';
+// Static import: the build emits CommonJS, where await import() resolves via
+// ESM rules and needs an explicit .js extension tsc-alias never adds.
+import { callFinancialDocumentExtraction } from '@/services/ocrService';
 import { statementParserService } from '@/services/statementParserService';
 import { logger } from '@/config/logger';
 import fs from 'fs/promises';
@@ -65,7 +68,6 @@ const readStatementTextFast = async (filePath: string, mimeType: string): Promis
     // without FastAPI's OCR deps installed don't hard-fail.
     if (process.env.FINANCIAL_OCR_ENABLED === 'true') {
       try {
-        const { callFinancialDocumentExtraction } = await import('@/services/ocrService');
         const extraction = await callFinancialDocumentExtraction(filePath, 'BANK_STATEMENT');
         if (extraction.rawExtractedText && extraction.rawExtractedText.trim().length >= 50) {
           return extraction.rawExtractedText;
@@ -84,7 +86,6 @@ const readStatementTextFast = async (filePath: string, mimeType: string): Promis
   // Images (jpg/png/webp) accepted by multer filter: same FastAPI OCR fallback.
   if (['jpg', 'jpeg', 'png', 'webp'].includes(ext) && process.env.FINANCIAL_OCR_ENABLED === 'true') {
     try {
-      const { callFinancialDocumentExtraction } = await import('@/services/ocrService');
       const extraction = await callFinancialDocumentExtraction(filePath, 'BANK_STATEMENT');
       return extraction.rawExtractedText || '';
     } catch {
