@@ -24,8 +24,11 @@
     "balanced-match": "3.0.1"
   },
   "devDependencies": {
+    "balanced-match": "3.0.1",
     "concurrently": "^9.0.1",
-    "ts-api-utils": "2.4.0",
-    "balanced-match": "3.0.1"
+    "ts-api-utils": "2.4.0"
+  },
+  "dependencies": {
+    "tsc-alias": "1.9.7"
   }
 }
