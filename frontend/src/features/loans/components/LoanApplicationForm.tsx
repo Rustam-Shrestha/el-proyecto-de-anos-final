@@ -1,14 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApplyLoanMutation, useCalculateRiskMutation } from "@features/loans/api/loansApi";
-import type { HomeCreditFeatures, DeriveFeatures } from "@features/loans/api/loansApi";
+import { useApplyLoanMutation } from "@features/loans/api/loansApi";
 import { Button } from "@shared/components/Button";
 import { useToast } from "@shared/hooks/useToast";
 import { Tooltip } from "@components/common/Tooltip";
 import { z } from "zod";
 import { loanApplicationSchema } from "@shared/utils/validators";
 import type { LoanPurpose } from "@shared/types/common";
-import RiskScoreDisplay from "@features/loans/components/RiskScoreDisplay";
 import InputField from "@components/common/InputField";
 import CustomSelectField from "@components/common/SelectField";
 import Card from "@shared/components/Card";
@@ -52,18 +50,11 @@ const LoanApplicationForm = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const applyMutation = useApplyLoanMutation();
-  const riskMutation = useCalculateRiskMutation();
 
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState<LoanPurpose>("PERSONAL");
   const [tenureMonths, setTenureMonths] = useState(12);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [riskResult, setRiskResult] = useState<{
-    riskScore: number;
-    riskLevel: string;
-    homeCredtFeatures: HomeCreditFeatures;
-    derivedFeatures: DeriveFeatures;
-  } | null>(null);
 
   const numericAmount = useMemo(() => {
     const parsed = Number(amount.replace(/,/g, ""));
@@ -97,26 +88,6 @@ const LoanApplicationForm = () => {
     return true;
   }, [numericAmount, purpose, tenureMonths]);
 
-  const handleCalculateRisk = async () => {
-    if (!validate()) return;
-
-    try {
-      const result = await riskMutation.mutateAsync({
-        requestedLoanAmount: numericAmount,
-        loanTenureMonths: tenureMonths,
-      });
-      setRiskResult({
-        riskScore: result.riskScore,
-        riskLevel: result.riskLevel,
-        homeCredtFeatures: result.homeCredtFeatures,
-        derivedFeatures: result.derivedFeatures,
-      });
-    } catch (error) {
-      const apiError = error as { response?: { data?: { message?: string } } };
-      toast.error(apiError.response?.data?.message || "Failed to calculate risk");
-    }
-  };
-
   const handleSubmit = async () => {
     if (!validate()) return;
 
@@ -141,16 +112,37 @@ const LoanApplicationForm = () => {
           <Tooltip content="Total loan amount requested">
             <span className="text-sm font-medium">Loan Amount (NPR)</span>
           </Tooltip>
-          <InputField label="Loan Amount (NPR)" type="text" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="e.g. 500,000" error={errors.amount} />
-          <p className="text-xs text-[#64748B]">Min: NPR 10,000 · Max: NPR 2,000,000</p>
-          <Tooltip content="Purpose affects risk assessment">
+          <InputField
+            label="Loan Amount (NPR)"
+            type="text"
+            inputMode="numeric"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))}
+            placeholder="e.g. 500,000"
+            error={errors.amount}
+          />
+          <p className="text-xs text-[#64748B]">Min: NPR 10,000 - Max: NPR 2,000,000</p>
+          <Tooltip content="Purpose of your loan request">
             <span className="text-sm font-medium">Loan Purpose</span>
           </Tooltip>
-          <CustomSelectField label="Loan Purpose" value={purpose} onChange={(e) => setPurpose(e.target.value as LoanPurpose)} options={purposeOptions} />
-          <Tooltip content="Credit score uses 300 + 550×(1 − default_probability)">
+          <CustomSelectField
+            label="Loan Purpose"
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value as LoanPurpose)}
+            options={purposeOptions}
+          />
+          <Tooltip content="Repayment duration in months">
             <span className="text-sm font-medium">Repayment Tenure</span>
           </Tooltip>
-          <CustomSelectField label="Repayment Tenure" value={String(tenureMonths)} onChange={(e) => setTenureMonths(Number(e.target.value))} options={tenureOptions.map((m) => ({ value: String(m), label: `${m} months ${m >= 12 ? `(${m / 12} yr)` : ""}` }))} />
+          <CustomSelectField
+            label="Repayment Tenure"
+            value={String(tenureMonths)}
+            onChange={(e) => setTenureMonths(Number(e.target.value))}
+            options={tenureOptions.map((m) => ({
+              value: String(m),
+              label: `${m} months ${m >= 12 ? `(${m / 12} yr)` : ""}`,
+            }))}
+          />
         </div>
 
         <div className="rounded-[8px] border border-[#E2E8F0] bg-[#F8FAFC] p-5">
@@ -159,41 +151,41 @@ const LoanApplicationForm = () => {
           </h3>
 
           <dl className="mt-4 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-200 pb-2 ">
-              <dt className="text-sm text-gray-600 ">Principal</dt>
-              <dd className="text-sm font-semibold text-gray-900 ">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+              <dt className="text-sm text-gray-600">Principal</dt>
+              <dd className="text-sm font-semibold text-gray-900">
                 {formatNPR(numericAmount)}
               </dd>
             </div>
-            <div className="flex items-center justify-between border-b border-gray-200 pb-2 ">
-              <dt className="text-sm text-gray-600 ">Interest Rate</dt>
-              <dd className="text-sm font-semibold text-gray-900 ">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+              <dt className="text-sm text-gray-600">Interest Rate</dt>
+              <dd className="text-sm font-semibold text-gray-900">
                 {ANNUAL_INTEREST_RATE}% p.a.
               </dd>
             </div>
-            <div className="flex items-center justify-between border-b border-gray-200 pb-2 ">
-              <dt className="text-sm text-gray-600 ">Tenure</dt>
-              <dd className="text-sm font-semibold text-gray-900 ">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+              <dt className="text-sm text-gray-600">Tenure</dt>
+              <dd className="text-sm font-semibold text-gray-900">
                 {tenureMonths} months
               </dd>
             </div>
-            <div className="flex items-center justify-between border-b border-gray-200 pb-2 ">
-              <dt className="text-sm text-gray-600 ">Monthly EMI</dt>
+            <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+              <dt className="text-sm text-gray-600">Monthly EMI</dt>
               <dd className="text-base font-bold text-[#15803D]">
                 {formatNPR(emiBreakdown.emi)}
               </dd>
             </div>
-            <div className="flex items-center justify-between border-b border-gray-200 pb-2 ">
-              <dt className="text-sm text-gray-600 ">Total Interest</dt>
-              <dd className="text-sm font-semibold text-gray-900 ">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+              <dt className="text-sm text-gray-600">Total Interest</dt>
+              <dd className="text-sm font-semibold text-gray-900">
                 {formatNPR(emiBreakdown.totalInterest)}
               </dd>
             </div>
             <div className="flex items-center justify-between pt-1">
-              <dt className="text-sm font-semibold text-gray-900 ">
+              <dt className="text-sm font-semibold text-gray-900">
                 Total Repayment
               </dt>
-              <dd className="text-base font-bold text-gray-900 ">
+              <dd className="text-base font-bold text-gray-900">
                 {formatNPR(emiBreakdown.totalRepayment)}
               </dd>
             </div>
@@ -201,40 +193,18 @@ const LoanApplicationForm = () => {
         </div>
       </div>
 
-      {riskResult ? (
-        <div className="mt-6">
-          <RiskScoreDisplay
-            riskScore={riskResult.riskScore}
-            riskLevel={riskResult.riskLevel}
-            homeCredtFeatures={riskResult.homeCredtFeatures}
-            derivedFeatures={riskResult.derivedFeatures}
-          />
-        </div>
-      ) : null}
-
       <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-[#E2E8F0] pt-5">
         <Button variant="ghost" type="button" onClick={() => navigate("/dashboard")}>
           Cancel
         </Button>
         <Button
           type="button"
-          variant="secondary"
-          onClick={handleCalculateRisk}
-          isLoading={riskMutation.isPending}
+          onClick={handleSubmit}
+          isLoading={applyMutation.isPending}
           disabled={!numericAmount || numericAmount < 10000}
         >
-          {riskResult ? "Recalculate Risk" : "Calculate Risk"}
+          Submit Loan Application
         </Button>
-        {riskResult ? (
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            isLoading={applyMutation.isPending}
-            disabled={riskResult.riskLevel === "HIGH"}
-          >
-            Submit Application
-          </Button>
-        ) : null}
       </div>
     </Card>
   );

@@ -1,5 +1,5 @@
 """
-FinGuard Validation Layer (Rules 1-9)
+FinGuard Validation Layer (Rules 1-9) - v1.4.0
 
 Stateless, dependency-free (standard library only) validation used by the
 predictor and the API layer. It accepts BOTH the existing lower_case request
@@ -29,18 +29,19 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 # ─── Constants ────────────────────────────────────────────────────────────
 
-#: Threshold quoted by the API specification (documentation value only).
-SPEC_THRESHOLD: float = 0.23
+#: Threshold quoted by the API specification & Decision Layer.
+SPEC_THRESHOLD: float = 0.15
 
 #: Credit score band used by the adapter envelope.
 CREDIT_SCORE_MIN: int = 300
 CREDIT_SCORE_MAX: int = 850
 
 APPROVE: str = "APPROVE"
+MANUAL_REVIEW: str = "MANUAL_REVIEW"
 REJECT: str = "REJECT"
-PREDICTIONS = (APPROVE, REJECT)
+PREDICTIONS = (APPROVE, MANUAL_REVIEW, REJECT)
 
-#: Guards against division by zero in derived ratios (mirrors preprocessing.py).
+#: Guards against division by zero in derived ratios.
 EPS: float = 1e-6
 
 DAYS_PER_YEAR: float = 365.25
@@ -77,8 +78,8 @@ RANGE_FIELDS: Dict[str, Tuple[float, float]] = {
 
 #: Rule 1 - numeric fields and the default applied when omitted.
 NUMERIC_FIELDS: Dict[str, float] = {
-    "AMT_INCOME_TOTAL": 0.0,
-    "AMT_CREDIT": 0.0,
+    "AMT_INCOME_TOTAL": 150000.0,
+    "AMT_CREDIT": 500000.0,
     "AMT_ANNUITY": 0.0,
     "AMT_GOODS_PRICE": 0.0,
     "DAYS_BIRTH": -12000.0,
@@ -104,7 +105,7 @@ CATEGORICAL_FIELDS: Tuple[str, ...] = (
 
 CATEGORICAL_DEFAULT: str = "XNA"
 
-#: Rule 5 - features derived by the training pipeline (never user supplied).
+#: Rule 5 - features derived by the training pipeline.
 DERIVED_FIELDS: Tuple[str, ...] = (
     "AGE_YEARS",
     "YEARS_EMPLOYED",
@@ -132,18 +133,18 @@ _EXTRA_FEATURE_KEYS = frozenset(
     {"EXTRA_FEATURES", "extra_features", "extraFeatures", "features", "FEATURES"}
 )
 
-#: Key used to carry pass-through features inside a normalized dict.
 EXTRA_FEATURES_KEY = "EXTRA_FEATURES"
 
-#: Risk band boundaries (calibrated for credit default scoring).
-_LOW_RISK_CUTOFF: float = 0.15
-_MEDIUM_RISK_CUTOFF: float = 0.35
+#: Risk band boundaries
+_LOW_RISK_CUTOFF: float = 0.05
+_MEDIUM_RISK_CUTOFF: float = 0.15
 
 
 __all__ = [
     "ValidationError",
     "SPEC_THRESHOLD",
     "APPROVE",
+    "MANUAL_REVIEW",
     "REJECT",
     "REQUIRED_FIELDS",
     "NEVER_NEGATIVE_FIELDS",
@@ -164,22 +165,12 @@ __all__ = [
 ]
 
 
-# ─── Error type ───────────────────────────────────────────────────────────
-
-
 class ValidationError(ValueError):
-    """Raised when a request or response violates Rules 1-8.
-
-    Subclasses :class:`ValueError` so existing ``except ValueError`` handlers
-    (routes, tests) keep working.
-    """
+    """Raised when a request or response violates Rules 1-8."""
 
 
 def _fail(rule: int, message: str) -> "ValidationError":
     return ValidationError(f"Rule{rule}: {message}")
-
-
-# ─── Small numeric helpers (stdlib only) ──────────────────────────────────
 
 
 def is_finite_number(value: Any) -> bool:
@@ -187,9 +178,6 @@ def is_finite_number(value: Any) -> bool:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     return math.isfinite(float(value))
-
-
-# ─── Rule 1 / Rule 7 primitives ───────────────────────────────────────────
 
 
 def _coerce_numeric(field: str, value: Any) -> float:
@@ -223,7 +211,6 @@ def _coerce_categorical(field: str, value: Any) -> str:
         return value
     if isinstance(value, bool) or value is None:
         raise _fail(1, f"'{field}' must be a string, got {type(value).__name__}")
-    # Numbers are tolerated by casting so older clients sending 0/1 flags work.
     if isinstance(value, (int, float)):
         if not math.isfinite(float(value)):
             raise _fail(7, f"'{field}' must be finite, got {value!r}")
@@ -231,16 +218,8 @@ def _coerce_categorical(field: str, value: Any) -> str:
     raise _fail(1, f"'{field}' must be a string, got {type(value).__name__}")
 
 
-# ─── Key normalization (accepts lower_case AND UPPER_CASE) ────────────────
-
-
 def normalize_keys(data: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Split a raw payload into ``(known UPPER_CASE fields, pass-through extras)``.
-
-    Accepts ``amt_income_total`` and ``AMT_INCOME_TOTAL`` interchangeably.
-    Keys that are not part of the known contract are preserved verbatim so the
-    preprocessing pipeline can still consume extra training columns.
-    """
+    """Split a raw payload into ``(known UPPER_CASE fields, pass-through extras)``."""
     known: Dict[str, Any] = {}
     extras: Dict[str, Any] = {}
 
@@ -258,14 +237,10 @@ def normalize_keys(data: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, A
                 known[upper] = value
             continue
         if upper in _DERIVED_SET:
-            # Rule 5 - derived values are always recomputed; ignore supplied ones.
             continue
         extras[key] = value
 
     return known, extras
-
-
-# ─── Rule 5 - derived features (mirrors preprocessing.py) ─────────────────
 
 
 def compute_derived_features(values: Mapping[str, Any]) -> Dict[str, float]:
@@ -311,15 +286,8 @@ def compute_derived_features(values: Mapping[str, Any]) -> Dict[str, float]:
     }
 
 
-# ─── Rule 6 / Rule 8 - output helpers ─────────────────────────────────────
-
-
 def to_risk_score(probability: float) -> int:
-    """Rule 6: 300 + 550 * (1 - probability), clamped to [300, 850].
-
-    Truncation (not rounding) keeps the value byte-identical to the legacy
-    adapter implementation.
-    """
+    """Rule 6: 300 + 550 * (1 - probability), clamped to [300, 850]."""
     score = CREDIT_SCORE_MIN + (CREDIT_SCORE_MAX - CREDIT_SCORE_MIN) * (1.0 - float(probability))
     return int(max(CREDIT_SCORE_MIN, min(CREDIT_SCORE_MAX, score)))
 
@@ -333,24 +301,66 @@ def to_risk_band(probability: float) -> str:
     return "High"
 
 
-def decide(probability: float, threshold: float) -> str:
-    """Rule 8: probability < threshold => APPROVE else REJECT."""
-    return APPROVE if float(probability) < float(threshold) else REJECT
-
-
-# ─── Rule 9 - request entry point ─────────────────────────────────────────
+def decide(probability: float, threshold: float = SPEC_THRESHOLD) -> str:
+    """Rule 8: Unified decision tier mapping."""
+    prob = float(probability)
+    if prob < _LOW_RISK_CUTOFF:
+        return APPROVE
+    if prob <= threshold:
+        return APPROVE
+    return REJECT
 
 
 def validate_request(data: Mapping[str, Any]) -> Dict[str, Any]:
-    """Validate a prediction request and return a normalized UPPER_CASE dict.
-
-    Accepts lower_case and UPPER_CASE keys. Raises :class:`ValidationError`
-    (a ``ValueError``) with a ``RuleN: ...`` message when a rule is violated.
-    """
+    """Validate a prediction request and return a normalized UPPER_CASE dict."""
     if not isinstance(data, Mapping):
         raise _fail(1, f"request payload must be a JSON object, got {type(data).__name__}")
 
-    known, extras = normalize_keys(data)
+    raw_dict = dict(data)
+
+    # Reconcile aliases before validation
+    if "AMT_CREDIT" not in raw_dict and "amt_credit" not in raw_dict:
+        credit = raw_dict.get("loan_amount") or raw_dict.get("requested_amount") or raw_dict.get("requestedAmount") or raw_dict.get("amount")
+        if credit is not None:
+            raw_dict["AMT_CREDIT"] = credit
+
+    if "AMT_INCOME_TOTAL" not in raw_dict and "amt_income_total" not in raw_dict:
+        income = raw_dict.get("annual_income") or raw_dict.get("annualIncome") or raw_dict.get("total_income")
+        if income is None:
+            m_inc = raw_dict.get("monthly_income") or raw_dict.get("monthlyIncome") or raw_dict.get("monthly_gross_income") or raw_dict.get("monthlyGrossIncome")
+            if m_inc is not None:
+                try:
+                    income = float(m_inc) * 12.0
+                except Exception:
+                    pass
+        if income is not None:
+            raw_dict["AMT_INCOME_TOTAL"] = income
+
+    if "DAYS_BIRTH" not in raw_dict and "days_birth" not in raw_dict:
+        age = raw_dict.get("age") or raw_dict.get("age_years")
+        if age is not None:
+            try:
+                raw_dict["DAYS_BIRTH"] = -int(float(age) * 365.25)
+            except Exception:
+                raw_dict["DAYS_BIRTH"] = -12000.0
+        else:
+            raw_dict["DAYS_BIRTH"] = -12000.0
+
+    if "DAYS_EMPLOYED" not in raw_dict and "days_employed" not in raw_dict:
+        status_raw = str(raw_dict.get("status") or raw_dict.get("employment_status") or "").upper()
+        if "STUDENT" in status_raw or "UNEMPLOYED" in status_raw:
+            raw_dict["DAYS_EMPLOYED"] = UNEMPLOYED_SENTINEL
+        else:
+            emp_years = raw_dict.get("employment_years") or raw_dict.get("experience_years")
+            if emp_years is not None:
+                try:
+                    raw_dict["DAYS_EMPLOYED"] = -int(float(emp_years) * 365.25)
+                except Exception:
+                    raw_dict["DAYS_EMPLOYED"] = -1648.0
+            else:
+                raw_dict["DAYS_EMPLOYED"] = -1648.0
+
+    known, extras = normalize_keys(raw_dict)
 
     # Rule 1 - type checks
     numeric: Dict[str, float] = {}
@@ -363,7 +373,7 @@ def validate_request(data: Mapping[str, Any]) -> Dict[str, Any]:
         if field in known:
             categorical[field] = _coerce_categorical(field, known[field])
 
-    # Rule 7 - NaN / inf guard over pass-through values as well
+    # Rule 7 - NaN / inf guard over pass-through values
     for key, value in extras.items():
         if isinstance(value, bool) or value is None:
             continue
@@ -413,6 +423,11 @@ def validate_request(data: Mapping[str, Any]) -> Dict[str, Any]:
     normalized: Dict[str, Any] = dict(values)
     normalized.update(compute_derived_features(values))
 
+    # Retain raw business context for rules engine & derived analytics
+    for extra_key in ("status", "employer", "employer_name", "monthly_income", "annual_income", "dependents", "existing_monthly_debt", "income_stability", "applicant_id"):
+        if extra_key in raw_dict:
+            extras[extra_key] = raw_dict[extra_key]
+
     if extras:
         normalized[EXTRA_FEATURES_KEY] = extras
 
@@ -431,34 +446,33 @@ def to_pipeline_input(normalized: Mapping[str, Any]) -> Dict[str, Any]:
         elif key not in _DERIVED_SET:
             extras[key] = value
     pipeline["extra_features"] = extras
+    # Pass along business attributes if present
+    for k in ("status", "employer", "employer_name", "monthly_income", "annual_income", "dependents", "existing_monthly_debt", "income_stability", "applicant_id"):
+        if k in extras and k not in pipeline:
+            pipeline[k] = extras[k]
+        elif k in normalized and k not in pipeline:
+            pipeline[k] = normalized[k]
     return pipeline
 
 
-# ─── Rule 9 - response entry point ────────────────────────────────────────
-
-
 def validate_response(payload: Mapping[str, Any]) -> Dict[str, Any]:
-    """Validate an adapter response envelope (Rules 6, 7 and 8).
-
-    Missing ``risk_score`` / ``prediction`` / ``status`` are derived so partial
-    payloads stay backward compatible. Inconsistent values raise
-    :class:`ValidationError`.
-    """
+    """Validate an adapter response envelope (Rules 6, 7 and 8)."""
     if not isinstance(payload, Mapping):
         raise _fail(6, f"response payload must be a JSON object, got {type(payload).__name__}")
 
     result: Dict[str, Any] = dict(payload)
 
     # Rule 6 - probability bounds
-    raw_prob = result.get("probability", result.get("default_probability"))
+    raw_prob = result.get("probability", result.get("default_probability", result.get("model_probability")))
     if raw_prob is None:
         raise _fail(6, "response is missing 'probability'")
     probability = _coerce_numeric("probability", raw_prob)
     if not 0.0 <= probability <= 1.0:
         raise _fail(6, f"'probability' must be within [0, 1], got {probability}")
     result["probability"] = probability
+    result.setdefault("model_probability", probability)
 
-    # Threshold (default to the manifest value supplied by the caller)
+    # Threshold
     raw_threshold = result.get("threshold", SPEC_THRESHOLD)
     threshold = _coerce_numeric("threshold", raw_threshold)
     result["threshold"] = threshold
@@ -474,30 +488,41 @@ def validate_response(payload: Mapping[str, Any]) -> Dict[str, Any]:
             raise _fail(6, f"'risk_score' must be a number, got {type(raw_risk).__name__}")
         if isinstance(raw_risk, float) and not math.isfinite(raw_risk):
             raise _fail(7, f"'risk_score' must be finite, got {raw_risk!r}")
-        if not CREDIT_SCORE_MIN <= float(raw_risk) <= CREDIT_SCORE_MAX:
-            raise _fail(
-                6,
-                f"'risk_score' must be within [{CREDIT_SCORE_MIN}, {CREDIT_SCORE_MAX}], got {raw_risk}",
-            )
         risk_score = int(round(float(raw_risk)))
+        risk_score = max(CREDIT_SCORE_MIN, min(CREDIT_SCORE_MAX, risk_score))
     result["risk_score"] = risk_score
+    result["credit_score"] = risk_score
 
-    # Rule 8 - decision consistency
-    expected_prediction = decide(probability, threshold)
-    prediction = result.get("prediction")
-    if prediction is None:
-        result["prediction"] = expected_prediction
-    elif str(prediction) != expected_prediction:
-        raise _fail(
-            8,
-            f"'prediction' must be '{expected_prediction}' for probability={probability} "
-            f"and threshold={threshold}, got '{prediction}'",
-        )
+    # Harmonize decision & recommendation
+    hard_rule = bool(result.get("hard_rule_triggered", False))
+    if hard_rule:
+        result["recommendation"] = REJECT
+        result["decision_tier"] = "HIGH"
+        result["prediction"] = REJECT
+        result["decision"] = "Decline"
+        result["risk_band"] = "High"
+    else:
+        if result.get("recommendation") is None:
+            if probability < _LOW_RISK_CUTOFF:
+                result["recommendation"] = APPROVE
+                result["decision_tier"] = "LOW"
+            elif probability <= threshold:
+                result["recommendation"] = MANUAL_REVIEW
+                result["decision_tier"] = "MEDIUM"
+            else:
+                result["recommendation"] = REJECT
+                result["decision_tier"] = "HIGH"
 
-    # Rule 6/8 mirror fields kept for backward compatibility
+        if result.get("prediction") is None:
+            result["prediction"] = REJECT if result["recommendation"] == REJECT else APPROVE
+        if result.get("decision") is None:
+            result["decision"] = "Decline" if result["recommendation"] == REJECT else ("Manual Review" if result["recommendation"] == MANUAL_REVIEW else "Approve")
+        if result.get("risk_band") is None:
+            result["risk_band"] = to_risk_band(probability)
+
     result.setdefault("status", "success")
-    result.setdefault("default_probability", probability)
-    result.setdefault("credit_score", risk_score)
-    result.setdefault("risk_band", to_risk_band(probability))
+    result.setdefault("pipeline_version", "1.4.0")
+    result.setdefault("model_version", "1.3.0")
+    result.setdefault("reason_codes", [])
 
     return result

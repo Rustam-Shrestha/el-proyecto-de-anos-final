@@ -350,10 +350,10 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                         <tr key={field.label} className={`border-b border-gray-100 ${hasDiff ? "bg-danger-50/50" : ""}`}>
                           <td className="py-2 pr-4 text-gray-700 font-medium">{field.label}</td>
                           <td className={`py-2 pr-4 ${ocrVal ? "text-gray-900" : "text-gray-400 italic"}`}>
-                            {ocrVal || "—"}
+                            {ocrVal || "-"}
                           </td>
                           <td className={`py-2 pl-4 ${confirmedVal ? "text-gray-900" : "text-gray-400 italic"}`}>
-                            {confirmedVal || "—"}
+                            {confirmedVal || "-"}
                           </td>
                           <td className="py-2 pl-4">
                             {hasDiff ? (

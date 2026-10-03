@@ -20,21 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class FaceEngineUnavailableError(RuntimeError):
-    """Raised when the DeepFace engine could not be imported (e.g. Keras 3 incompatibility)."""
+    """Raised when the DeepFace engine could not be imported."""
 
 
 try:
-    # deepface 0.0.75 eagerly imports LocallyConnected2D from
-    # tensorflow.keras.layers at module scope (basemodels/FbDeepFace.py),
-    # which was removed in Keras 3. This service only ever uses the
-    # Facenet / VGG-Face models — FbDeepFace is never instantiated — so
-    # injecting a placeholder attribute before the import is safe.
-    # NOTE: patch sys.modules['tensorflow.keras.layers'] directly: under
-    # TF 2.21 `from tensorflow.keras import layers` returns a *different*
-    # module object than the one deepface's import statement resolves, so
-    # patching the former is a no-op.
     import sys as _sys
-    import tensorflow.keras.layers  # noqa: F401  (ensure the sys.modules entry exists)
+    import tensorflow.keras.layers  # noqa: F401
     _keras_layers = _sys.modules["tensorflow.keras.layers"]
     if not hasattr(_keras_layers, "LocallyConnected2D"):
         class _LocallyConnected2DPlaceholder:
@@ -68,16 +59,16 @@ def _get_haar_cascade():
 
 class FaceVerificationService:
     """
-    Manages face detection, cropping, and matching for identity verification.
+    Manages strict face detection, cropping, and matching for identity verification.
     """
 
-    MATCH_THRESHOLD = 0.4  # Facenet model threshold
+    MATCH_THRESHOLD = 0.40  # Facenet model distance threshold (<0.40 = match)
     MODEL = "Facenet"
     FALLBACK_MODEL = "VGG-Face"
     DETECTOR = "opencv"
-    QUALITY_THRESHOLD = 0.3
+    QUALITY_THRESHOLD = 0.25
 
-    def __init__(self, match_threshold: float = 0.4):
+    def __init__(self, match_threshold: float = 0.40):
         logger.info("Initializing FaceVerificationService with threshold=%.2f", match_threshold)
         self.match_threshold = match_threshold
 
@@ -127,61 +118,88 @@ class FaceVerificationService:
             logger.info("Image quality - selfie: %.2f, id: %.2f", selfie_quality, id_quality)
 
             if selfie_quality < self.QUALITY_THRESHOLD or id_quality < self.QUALITY_THRESHOLD:
-                logger.warning("Image quality below threshold, cannot match reliably")
-                return (0.0, False)
+                logger.warning("Image quality below minimum threshold (0.25), cannot verify face match")
+                return (1.0, False)
 
             try:
+                # 1. Strict face detection: must detect an actual face in BOTH images
                 id_face_crop = self._detect_and_crop_face(id_document_path, label="ID document")
                 selfie_face_crop = self._detect_and_crop_face(selfie_path, label="Selfie")
 
-                # Attempt DeepFace verification if available without network blocking
+                # 2. Attempt DeepFace verification with face detection enforced
                 if DeepFace is not None:
                     try:
                         result = DeepFace.verify(
-                            img1_path=selfie_path,
+                            img1_path=selfie_face_crop,
                             img2_path=id_face_crop,
                             model_name=self.MODEL,
-                            detector_backend=self.DETECTOR,
+                            detector_backend="skip",  # Already strictly detected & cropped by Haar
                             enforce_detection=False,
                         )
-                        distance = float(result.get("distance", 0.35))
+                        distance = float(result.get("distance", 0.65))
                         is_match = distance < self.match_threshold
                         logger.info("DeepFace comparison complete. Distance: %.4f, is_match: %s", distance, is_match)
                         return distance, is_match
                     except Exception as df_err:
-                        logger.warning("DeepFace failed (%s), using local visual feature comparison", df_err)
+                        logger.warning("DeepFace failed (%s), using structural feature comparison", df_err)
 
-                # Robust Local Feature Matcher Fallback (zero network, instant, deterministic)
+                # 3. Structural feature matcher fallback (ORB / edge gradients)
                 distance, is_match = self._local_feature_compare(selfie_face_crop, id_face_crop)
-                logger.info("Local face comparison complete. Distance: %.4f, is_match: %s", distance, is_match)
+                logger.info("Structural face comparison complete. Distance: %.4f, is_match: %s", distance, is_match)
                 return distance, is_match
 
+            except ValueError as ve:
+                logger.warning("Face detection failed: %s", ve)
+                return (1.0, False)
             except Exception as e:
-                logger.error("Face verification failed: %s", str(e), exc_info=True)
-                # Return graceful non-match instead of unhandled 500 error
-                return (0.45, False)
+                logger.error("Face verification error: %s", str(e), exc_info=True)
+                return (1.0, False)
 
     def _local_feature_compare(self, img1: np.ndarray, img2: np.ndarray) -> Tuple[float, bool]:
-        """Fast offline histogram and structural comparison for face crops."""
+        """
+        Structural feature matching using ORB keypoint descriptors and grayscale edge correlation.
+        Rejects non-faces, screenshots, and dissimilar individuals.
+        """
         try:
-            r1 = cv2.resize(img1, (128, 128))
-            r2 = cv2.resize(img2, (128, 128))
+            gray1 = cv2.cvtColor(cv2.resize(img1, (160, 160)), cv2.COLOR_BGR2GRAY)
+            gray2 = cv2.cvtColor(cv2.resize(img2, (160, 160)), cv2.COLOR_BGR2GRAY)
 
-            hsv1 = cv2.cvtColor(r1, cv2.COLOR_BGR2HSV)
-            hsv2 = cv2.cvtColor(r2, cv2.COLOR_BGR2HSV)
+            # Standardize lighting
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            gray1 = clahe.apply(gray1)
+            gray2 = clahe.apply(gray2)
 
-            hist1 = cv2.calcHist([hsv1], [0, 1], None, [32, 32], [0, 180, 0, 256])
-            hist2 = cv2.calcHist([hsv2], [0, 1], None, [32, 32], [0, 180, 0, 256])
-            cv2.normalize(hist1, hist1, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-            cv2.normalize(hist2, hist2, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+            # ORB Feature detector
+            orb = cv2.ORB_create(nfeatures=500)
+            kp1, des1 = orb.detectAndCompute(gray1, None)
+            kp2, des2 = orb.detectAndCompute(gray2, None)
 
-            corr = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
-            distance = round(max(0.0, min(1.0, 1.0 - max(0.0, float(corr)))), 4)
-            is_match = distance < self.match_threshold or corr > 0.6
+            if des1 is None or des2 is None or len(kp1) < 8 or len(kp2) < 8:
+                logger.warning("Insufficient facial feature keypoints detected (kp1=%d, kp2=%d)", len(kp1) if kp1 else 0, len(kp2) if kp2 else 0)
+                return 0.95, False
+
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+            matches = bf.match(des1, des2)
+            matches = sorted(matches, key=lambda x: x.distance)
+
+            # Good matches with tight Hamming distance
+            good_matches = [m for m in matches if m.distance < 45.0]
+            match_ratio = len(good_matches) / max(len(kp1), len(kp2), 1)
+
+            # Edge structural correlation
+            edges1 = cv2.Canny(gray1, 50, 150)
+            edges2 = cv2.Canny(gray2, 50, 150)
+            edge_sim = cv2.matchTemplate(edges1, edges2, cv2.TM_CCOEFF_NORMED)[0][0]
+            edge_sim = max(0.0, float(edge_sim))
+
+            combined_sim = (match_ratio * 0.6) + (edge_sim * 0.4)
+            distance = round(max(0.0, min(1.0, 1.0 - combined_sim)), 4)
+            is_match = distance < self.match_threshold and len(good_matches) >= 15
+
             return distance, is_match
         except Exception as e:
-            logger.warning("Local feature compare error: %s", e)
-            return 0.35, True
+            logger.warning("Structural feature compare error: %s", e)
+            return 0.95, False
 
     def _estimate_image_quality(self, image_path: str) -> float:
         image = cv2.imread(image_path)
@@ -189,11 +207,11 @@ class FaceVerificationService:
             return 0.0
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-        blur_score = min(laplacian_var / 500.0, 1.0)
+        blur_score = min(laplacian_var / 300.0, 1.0)
         brightness = gray.mean() / 255.0
         brightness_score = 1.0 - abs(brightness - 0.5) * 2
         h, w = gray.shape
-        size_score = min((w * h) / (400 * 400), 1.0)
+        size_score = min((w * h) / (200 * 200), 1.0)
         quality = blur_score * 0.5 + brightness_score * 0.3 + size_score * 0.2
         return max(0.0, min(quality, 1.0))
 
@@ -204,24 +222,26 @@ class FaceVerificationService:
 
         cascade = _get_haar_cascade()
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+        faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
 
-        if len(faces) > 0:
-            x, y, w, h = faces[0]
-            # Add small margin
-            pad_x, pad_y = int(w * 0.1), int(h * 0.1)
-            y1 = max(0, y - pad_y)
-            y2 = min(image.shape[0], y + h + pad_y)
-            x1 = max(0, x - pad_x)
-            x2 = min(image.shape[1], x + w + pad_x)
-            face_crop = image[y1:y2, x1:x2]
-            return face_crop
+        if len(faces) == 0:
+            # Stricter: never accept screenshots or non-face documents
+            raise ValueError(f"No human face detected in {label}. Please provide a clear portrait photo.")
 
-        # Fallback: center crop if no frontal face cascade triggered
-        h, w = image.shape[:2]
-        crop = image[int(h * 0.1):int(h * 0.9), int(w * 0.1):int(w * 0.9)]
-        return crop
+        # Pick largest detected face
+        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+        x, y, w, h = faces[0]
+
+        # Add 15% margin
+        pad_x, pad_y = int(w * 0.15), int(h * 0.15)
+        y1 = max(0, y - pad_y)
+        y2 = min(image.shape[0], y + h + pad_y)
+        x1 = max(0, x - pad_x)
+        x2 = min(image.shape[1], x + w + pad_x)
+        face_crop = image[y1:y2, x1:x2]
+
+        return face_crop
 
 
 # Global face verification service instance
-face_service = FaceVerificationService(match_threshold=0.4)
+face_service = FaceVerificationService(match_threshold=0.40)

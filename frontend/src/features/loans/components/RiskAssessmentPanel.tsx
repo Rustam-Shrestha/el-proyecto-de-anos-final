@@ -427,24 +427,45 @@ const RiskAssessmentPanel = ({ defaultValues }: RiskAssessmentPanelProps) => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748B]">
-                  Model Decision
+                  Decision & Risk Tier
                 </p>
                 <p
-                  className={`mt-1 text-xs ${
-                    approved ? "text-[#15803D]" : "text-[#B91C1C]"
+                  className={`mt-1 text-sm font-bold ${
+                    result.recommendation === "APPROVE"
+                      ? "text-[#15803D]"
+                      : result.recommendation === "MANUAL_REVIEW"
+                        ? "text-[#D97706]"
+                        : "text-[#B91C1C]"
                   }`}
                 >
-                  {result.risk_band ? `Risk band: ${result.risk_band}` : "Risk band: n/a"}
+                  Tier: {result.decision_tier || (approved ? "LOW" : "HIGH")} ({result.risk_band || "Risk Band"})
                 </p>
               </div>
               <span
-                className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold ${
-                  approved ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEE2E2] text-[#B91C1C]"
+                className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-bold tracking-wide ${
+                  result.recommendation === "APPROVE"
+                    ? "bg-[#DCFCE7] text-[#15803D]"
+                    : result.recommendation === "MANUAL_REVIEW"
+                      ? "bg-[#FEF3C7] text-[#D97706]"
+                      : "bg-[#FEE2E2] text-[#B91C1C]"
                 }`}
               >
-                {approved ? "APPROVE" : "REJECT"}
+                {result.recommendation || (approved ? "APPROVE" : "REJECT")}
               </span>
             </div>
+
+            {result.reason_codes && result.reason_codes.length > 0 ? (
+              <div className="rounded-[8px] border border-red-200 bg-[#FEF2F2] p-3 text-xs text-[#B91C1C]">
+                <p className="font-semibold uppercase tracking-wider">
+                  {result.hard_rule_triggered ? "Pre-Model Hard Rule Triggered" : "Decision Reason Codes"}
+                </p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5 font-medium">
+                  {result.reason_codes.map((code, idx) => (
+                    <li key={idx}>{code.replace(/_/g, " ")}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div>
               <div className="flex items-baseline justify-between">
@@ -471,7 +492,7 @@ const RiskAssessmentPanel = ({ defaultValues }: RiskAssessmentPanelProps) => {
               <p className="mt-1 text-xs text-[#64748B]">
                 Decision threshold:{" "}
                 <span className="tabular-nums">
-                  {typeof result.threshold === "number" ? formatPercent(result.threshold) : "n/a"}
+                  {typeof result.threshold === "number" ? formatPercent(result.threshold) : "15.00%"}
                 </span>
               </p>
             </div>
@@ -514,21 +535,25 @@ const RiskAssessmentPanel = ({ defaultValues }: RiskAssessmentPanelProps) => {
               <div>
                 <dt className="text-xs uppercase tracking-wide text-[#64748B]">Threshold</dt>
                 <dd className="mt-0.5 font-semibold tabular-nums text-[#0F172A]">
-                  {typeof result.threshold === "number" ? formatNumber(result.threshold, 4) : "n/a"}
+                  {typeof result.threshold === "number" ? formatNumber(result.threshold, 4) : "0.1500"}
                 </dd>
               </div>
               {result.recommendation ? (
                 <div className="col-span-2">
                   <dt className="text-xs uppercase tracking-wide text-[#64748B]">Recommendation</dt>
-                  <dd className="mt-0.5 text-[#0F172A]">{result.recommendation}</dd>
+                  <dd className="mt-0.5 font-medium text-[#0F172A]">{result.recommendation}</dd>
                 </div>
               ) : null}
               {result.model_version ? (
-                <div className="col-span-2">
+                <div>
                   <dt className="text-xs uppercase tracking-wide text-[#64748B]">Model version</dt>
                   <dd className="mt-0.5 text-[#0F172A]">{result.model_version}</dd>
                 </div>
               ) : null}
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-[#64748B]">Pipeline version</dt>
+                <dd className="mt-0.5 text-[#0F172A]">{result.pipeline_version || "1.4.0"}</dd>
+              </div>
             </dl>
 
             <div>

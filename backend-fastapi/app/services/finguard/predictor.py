@@ -2,11 +2,12 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from .preprocessing import PreprocessingPipeline
+from .rules import evaluate_business_rules
 from .validators import (
     SPEC_THRESHOLD,
     ValidationError,
@@ -22,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 #: Number of features the trained model expects (manifest / feature-schema.json).
 EXPECTED_TOTAL_FEATURES = 243
+PIPELINE_VERSION = "1.4.0"
+DEFAULT_DECISION_THRESHOLD = 0.15
 
 
 class CreditDefaultPredictor:
@@ -35,7 +38,7 @@ class CreditDefaultPredictor:
         self.model_path = model_path
         self.manifest_path = manifest_path
         self.preprocessing = preprocessing
-        self.threshold = 0.5
+        self.threshold = DEFAULT_DECISION_THRESHOLD
         self.model = None
         self.manifest: Dict[str, Any] = {}
         self.explainer = None
@@ -54,7 +57,6 @@ class CreditDefaultPredictor:
                 artifact = joblib.load(model_path)
                 if isinstance(artifact, dict) and "model" in artifact:
                     self.model = artifact["model"]
-                    self.threshold = float(artifact.get("threshold", 0.5))
                 else:
                     self.model = artifact
         except ModuleNotFoundError as e:
@@ -67,15 +69,12 @@ class CreditDefaultPredictor:
             logger.error(f"Failed to load model.pkl: {e}")
             raise
 
-        # Load manifest (authoritative threshold lives there too)
+        # Load manifest
         with open(manifest_path, "r") as f:
             self.manifest = json.load(f)
-        # Prefer manifest decision_threshold if present
-        if "decision_threshold" in self.manifest:
-            try:
-                self.threshold = float(self.manifest["decision_threshold"])
-            except Exception:
-                pass
+
+        # In v1.4.0 pipeline, default decision threshold is 0.15 (single source of truth)
+        self.threshold = DEFAULT_DECISION_THRESHOLD
 
         # Load the published feature schema (optional, metadata only)
         self._load_feature_schema(schema_path)
@@ -85,7 +84,6 @@ class CreditDefaultPredictor:
             import shap
             import shap.explainers._tree as shap_tree
 
-            # Safe UBJSON decoder wrapper to handle bracketed base_score string formats like '[2.5244E-1]'
             if hasattr(shap_tree, "decode_ubjson_buffer"):
                 orig_decode = shap_tree.decode_ubjson_buffer
 
@@ -105,7 +103,6 @@ class CreditDefaultPredictor:
 
                 shap_tree.decode_ubjson_buffer = safe_decode
 
-            # get booster for TreeExplainer
             booster = self.model.get_booster() if hasattr(self.model, "get_booster") else self.model
             self.explainer = shap.TreeExplainer(booster)
             self.base_value = _scalar(getattr(self.explainer, "expected_value", None))
@@ -124,7 +121,6 @@ class CreditDefaultPredictor:
             candidate = Path(schema_path)
 
         if candidate is None or not candidate.exists():
-            # Default location: ../finguard_artifacts/feature-schema.json
             for base in (
                 Path(self.manifest_path).parent,
                 Path(__file__).resolve().parents[3],
@@ -158,7 +154,7 @@ class CreditDefaultPredictor:
     def _expose_feature_schema_info(
         self, schema: Optional[Dict[str, Any]], loaded: bool
     ) -> None:
-        """Expose schema metadata (and the total_features check) in the manifest."""
+        """Expose schema metadata in the manifest."""
         order = list(self.manifest.get("features", {}).get("order") or self.preprocessing.feature_order)
         self.total_features = len(order)
         self.manifest["features"] = {**self.manifest.get("features", {}), "order": order}
@@ -170,13 +166,6 @@ class CreditDefaultPredictor:
             version = schema.get("version")
 
         matches = declared is not None and int(declared) == self.total_features
-        if loaded and declared is not None and not matches:
-            logger.warning(
-                "feature-schema total_features=%s does not match pipeline order length=%s",
-                declared,
-                self.total_features,
-            )
-
         self.manifest["feature_schema"] = {
             "loaded": loaded,
             "path": self.feature_schema_path,
@@ -190,7 +179,6 @@ class CreditDefaultPredictor:
 
     @property
     def spec_threshold(self) -> float:
-        """Threshold quoted by the API specification (0.23)."""
         return SPEC_THRESHOLD
 
     def feature_schema_payload(self) -> Dict[str, Any]:
@@ -198,7 +186,8 @@ class CreditDefaultPredictor:
         order = list(self.manifest.get("features", {}).get("order") or [])
         return {
             "status": "success",
-            "model_version": self.manifest.get("modelVersion", "1.0.0"),
+            "model_version": self.manifest.get("modelVersion", "1.3.0"),
+            "pipeline_version": PIPELINE_VERSION,
             "total_features": self.feature_schema.get("total_features", self.total_features),
             "order_length": len(order) or self.total_features,
             "threshold": float(self.threshold),
@@ -241,9 +230,7 @@ class CreditDefaultPredictor:
             return None
 
     def warmup(self) -> None:
-        """Warm-start: one dummy predict_proba + SHAP pass on a zeros frame
-        so the first real request doesn't pay native/JIT cold-start cost.
-        Best-effort — never raises."""
+        """Warm-start dummy pass."""
         try:
             n = len(self._features_used()) or self.total_features
             if n > 0:
@@ -255,40 +242,100 @@ class CreditDefaultPredictor:
         except Exception as e:
             logger.warning(f"Predictor warmup skipped: {e}")
 
-    def _build_envelope(self, prob: float, shap_summary: Dict[str, float]) -> Dict[str, Any]:
-        """Adapter envelope carrying both internal and spec naming sets."""
-        threshold = float(self.threshold)
-        risk_score = to_risk_score(prob)
-        prediction = decide(prob, threshold)
+    def _evaluate_decision(
+        self,
+        prob: float,
+        hard_rule_triggered: bool,
+        reason_codes: List[str],
+        out_of_distribution: bool = False,
+    ) -> Tuple[str, str, str, str, str, int]:
+        """
+        Decision Layer (Single Source of Truth):
+        - p < 0.05 -> LOW / APPROVE
+        - 0.05 - 0.15 -> MEDIUM / MANUAL_REVIEW
+        - > 0.15 -> HIGH / REJECT
+        - Hard business rules override with REJECT / HIGH tier.
+        - Out of distribution profiles force MANUAL_REVIEW / MEDIUM tier.
 
-        envelope: Dict[str, Any] = {
-            # --- spec naming set ---
-            "status": "success",
-            "prediction": prediction,
-            "probability": round(prob, 6),
-            "risk_score": risk_score,
-            "spec_threshold": SPEC_THRESHOLD,
-            # --- pre-existing internal naming set ---
-            "model_version": self.manifest.get("modelVersion", "1.0.0"),
-            "default_probability": round(prob, 4),
-            "credit_score": risk_score,
-            "risk_band": to_risk_band(prob),
-            "decision": "Approve" if prediction == "APPROVE" else "Decline",
-            "threshold": round(threshold, 4),
-            "shap_summary": shap_summary,
-            "features_used": self._features_used(),
-        }
-        return validate_response(envelope)
+        Returns:
+            (decision_tier, recommendation, prediction, decision, risk_band, credit_score)
+        """
+        threshold = float(self.threshold)
+
+        if hard_rule_triggered:
+            decision_tier = "HIGH"
+            recommendation = "REJECT"
+            prediction = "REJECT"
+            decision = "Decline"
+            risk_band = "High"
+            # High risk score penalty for hard rule violations
+            credit_score = min(to_risk_score(max(prob, 0.70)), 450)
+            return decision_tier, recommendation, prediction, decision, risk_band, credit_score
+
+        if out_of_distribution:
+            decision_tier = "MEDIUM"
+            recommendation = "MANUAL_REVIEW"
+            prediction = "REJECT" if prob > threshold else "APPROVE"
+            decision = "Manual Review"
+            risk_band = "Medium"
+            credit_score = to_risk_score(prob)
+            return decision_tier, recommendation, prediction, decision, risk_band, credit_score
+
+        # Normal scoring bounds
+        if prob < 0.05:
+            decision_tier = "LOW"
+            recommendation = "APPROVE"
+            prediction = "APPROVE"
+            decision = "Approve"
+            risk_band = "Low"
+        elif prob <= threshold:
+            decision_tier = "MEDIUM"
+            recommendation = "MANUAL_REVIEW"
+            prediction = "APPROVE"
+            decision = "Manual Review"
+            risk_band = "Medium"
+        else:
+            decision_tier = "HIGH"
+            recommendation = "REJECT"
+            prediction = "REJECT"
+            decision = "Decline"
+            risk_band = "High"
+
+        credit_score = to_risk_score(prob)
+        return decision_tier, recommendation, prediction, decision, risk_band, credit_score
 
     def predict(self, data_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate (Rules 1-5, 7), predict, and return the adapter envelope."""
-        normalized = validate_request(data_dict)
-        X = self.preprocessing.transform(to_pipeline_input(normalized))
+        """
+        1. Pre-model business rules (hard gates).
+        2. Feature transformation & derived analytics.
+        3. Model scoring (XGBoost).
+        4. Unified decision layer (Single Source of Truth).
+        5. Output Contract response envelope.
+        """
+        # 1. Evaluate Pre-Model Business Rules
+        hard_rule_triggered, reason_codes = evaluate_business_rules(data_dict)
 
-        # Predict probability
+        # 2. Normalize and Transform Features
+        normalized = validate_request(data_dict)
+        pipeline_input = to_pipeline_input(normalized)
+        X, derived_meta = self.preprocessing.transform(pipeline_input)
+
+        out_of_distribution = bool(derived_meta.get("out_of_distribution", False))
+        if out_of_distribution and not hard_rule_triggered:
+            reason_codes.append("OUT_OF_DISTRIBUTION_PROFILE")
+
+        # 3. Model Probability
         prob = float(self.model.predict_proba(X)[:, 1][0])
 
-        # SHAP top5
+        # 4. Decision Layer
+        decision_tier, recommendation, prediction, decision, risk_band, credit_score = self._evaluate_decision(
+            prob=prob,
+            hard_rule_triggered=hard_rule_triggered,
+            reason_codes=reason_codes,
+            out_of_distribution=out_of_distribution,
+        )
+
+        # 5. SHAP top-5 feature contributions
         shap_summary: Dict[str, float] = {}
         arr = self._shap_values(X)
         if arr is not None and arr.size:
@@ -298,9 +345,36 @@ class CreditDefaultPredictor:
                 col = order[int(idx)] if int(idx) < len(order) else f"f{idx}"
                 shap_summary[col] = float(abs(float(arr[int(idx)])))
 
-        envelope = self._build_envelope(prob, shap_summary)
-        envelope["timestamp"] = datetime.now(timezone.utc).isoformat()
-        return envelope
+        applicant_id = str(data_dict.get("applicant_id") or data_dict.get("userId") or "anon")
+
+        envelope: Dict[str, Any] = {
+            # --- v1.4.0 Output Contract ---
+            "applicant_id": applicant_id,
+            "model_probability": round(prob, 6),
+            "decision_tier": decision_tier,
+            "recommendation": recommendation,
+            "hard_rule_triggered": hard_rule_triggered,
+            "reason_codes": reason_codes,
+            "model_version": self.manifest.get("modelVersion", "1.3.0"),
+            "pipeline_version": PIPELINE_VERSION,
+            "out_of_distribution": out_of_distribution,
+            # --- Spec & Legacy adapter fields ---
+            "status": "success",
+            "prediction": prediction,
+            "probability": round(prob, 6),
+            "risk_score": credit_score,
+            "credit_score": credit_score,
+            "risk_band": risk_band,
+            "decision": decision,
+            "threshold": round(float(self.threshold), 4),
+            "spec_threshold": SPEC_THRESHOLD,
+            "shap_summary": shap_summary,
+            "features_used": self._features_used(),
+            "derived_features": derived_meta,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        return validate_response(envelope)
 
     def predict_batch(self, items: List[Dict[str, Any]], stop_on_error: bool = False) -> Dict[str, Any]:
         """Predict a list of requests; per-item failures are reported inline."""
@@ -313,7 +387,7 @@ class CreditDefaultPredictor:
                 errors.append({"index": index, "error": str(e), "status": "error"})
                 if stop_on_error:
                     break
-            except Exception as e:  # pragma: no cover - model/runtime failure
+            except Exception as e:
                 logger.error(f"batch predict failed at index {index}: {e}", exc_info=True)
                 errors.append({"index": index, "error": str(e), "status": "error"})
                 if stop_on_error:
@@ -323,14 +397,28 @@ class CreditDefaultPredictor:
             "count": len(results),
             "results": results,
             "errors": errors,
+            "pipeline_version": PIPELINE_VERSION,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def explain(self, data_dict: Dict[str, Any], top_n: int = 5) -> Dict[str, Any]:
         """Return the envelope plus the top-N signed SHAP contributions."""
+        hard_rule_triggered, reason_codes = evaluate_business_rules(data_dict)
         normalized = validate_request(data_dict)
-        X = self.preprocessing.transform(to_pipeline_input(normalized))
+        pipeline_input = to_pipeline_input(normalized)
+        X, derived_meta = self.preprocessing.transform(pipeline_input)
+
+        out_of_distribution = bool(derived_meta.get("out_of_distribution", False))
+        if out_of_distribution and not hard_rule_triggered:
+            reason_codes.append("OUT_OF_DISTRIBUTION_PROFILE")
+
         prob = float(self.model.predict_proba(X)[:, 1][0])
+        decision_tier, recommendation, prediction, decision, risk_band, credit_score = self._evaluate_decision(
+            prob=prob,
+            hard_rule_triggered=hard_rule_triggered,
+            reason_codes=reason_codes,
+            out_of_distribution=out_of_distribution,
+        )
 
         order = self._features_used()
         contributions: List[Dict[str, Any]] = []
@@ -343,21 +431,38 @@ class CreditDefaultPredictor:
                     {"feature": name, "shap_value": round(float(arr[int(idx)]), 6)}
                 )
 
-        envelope = self._build_envelope(
-            prob, {c["feature"]: abs(c["shap_value"]) for c in contributions}
-        )
-        envelope.update(
-            {
-                "base_value": self.base_value,
-                "shap_values": contributions,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-        )
-        return envelope
+        applicant_id = str(data_dict.get("applicant_id") or data_dict.get("userId") or "anon")
+
+        envelope: Dict[str, Any] = {
+            "applicant_id": applicant_id,
+            "model_probability": round(prob, 6),
+            "decision_tier": decision_tier,
+            "recommendation": recommendation,
+            "hard_rule_triggered": hard_rule_triggered,
+            "reason_codes": reason_codes,
+            "model_version": self.manifest.get("modelVersion", "1.3.0"),
+            "pipeline_version": PIPELINE_VERSION,
+            "out_of_distribution": out_of_distribution,
+            "status": "success",
+            "prediction": prediction,
+            "probability": round(prob, 6),
+            "risk_score": credit_score,
+            "credit_score": credit_score,
+            "risk_band": risk_band,
+            "decision": decision,
+            "threshold": round(float(self.threshold), 4),
+            "spec_threshold": SPEC_THRESHOLD,
+            "base_value": self.base_value,
+            "shap_values": contributions,
+            "shap_summary": {c["feature"]: abs(c["shap_value"]) for c in contributions},
+            "features_used": self._features_used(),
+            "derived_features": derived_meta,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        return validate_response(envelope)
 
 
 def _scalar(value: Any) -> Optional[float]:
-    """Best-effort conversion of a SHAP base value to a float."""
     if value is None:
         return None
     try:

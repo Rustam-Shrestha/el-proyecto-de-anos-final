@@ -78,6 +78,11 @@ export type FinguardResult = {
   credit_score?: number;
   risk_band?: string;
   decision?: FinguardDecision;
+  decision_tier?: string;
+  recommendation?: string;
+  hard_rule_triggered?: boolean;
+  reason_codes?: string[];
+  pipeline_version?: string;
   threshold?: number;
   shap_summary?: Record<string, number>;
   model_version?: string;
@@ -91,7 +96,6 @@ export type FinguardResult = {
   monthlyEmi?: number;
   maxMonthlyEmi?: number;
   recommendedTenure?: number;
-  recommendation?: string;
   topFactors?: FinguardFactor[];
 };
 
@@ -311,6 +315,15 @@ export const normalizeFinguardResult = (input: unknown): FinguardResult => {
     credit_score: creditScore,
     risk_band: toStr(record.risk_band) ?? toStr(record.riskBand) ?? toStr(raw.risk_band) ?? toStr(raw.riskBand) ?? toStr(record.riskLevel),
     decision: normalizeDecision(record.decision ?? raw.decision, probability, threshold),
+    decision_tier: toStr(record.decision_tier) ?? toStr(raw.decision_tier),
+    recommendation: toStr(record.recommendation) ?? toStr(raw.recommendation),
+    hard_rule_triggered: Boolean(record.hard_rule_triggered ?? raw.hard_rule_triggered),
+    reason_codes: Array.isArray(record.reason_codes)
+      ? record.reason_codes.map(String)
+      : Array.isArray(raw.reason_codes)
+        ? (raw.reason_codes as unknown[]).map(String)
+        : [],
+    pipeline_version: toStr(record.pipeline_version) ?? toStr(raw.pipeline_version) ?? "1.4.0",
     threshold,
     shap_summary: shapSummary,
     model_version: toStr(record.model_version) ?? toStr(record.modelVersion) ?? toStr(raw.model_version),
@@ -323,7 +336,6 @@ export const normalizeFinguardResult = (input: unknown): FinguardResult => {
     monthlyEmi: toNumber(record.monthlyEmi),
     maxMonthlyEmi: toNumber(record.maxMonthlyEmi),
     recommendedTenure: toNumber(record.recommendedTenure),
-    recommendation: toStr(record.recommendation),
     topFactors: topFactors.length > 0 ? topFactors : undefined,
   };
 };

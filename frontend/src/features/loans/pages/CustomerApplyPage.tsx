@@ -5,7 +5,7 @@ import { ArrowLeft, CheckCircle2, Landmark } from "lucide-react";
 import { env } from "@shared/lib/env";
 
 /**
- * Customer loan application — `/:slug/apply`.
+ * Customer loan application - `/:slug/apply`.
  *
  * Stage-2 of the two-stage flow: identity is already verified once by the
  * platform, so this form only picks the loan terms. PAN/KYC documents are never
@@ -94,7 +94,7 @@ const CustomerApplyPage = () => {
           <div className="mb-1 flex items-center gap-2">
             <Landmark className="h-5 w-5 text-[#15803D]" />
             <h1 className="text-lg font-bold text-slate-800">
-              Apply — {slug.toUpperCase()}
+              Apply to {slug.toUpperCase()}
             </h1>
           </div>
           <p className="mb-5 text-xs text-slate-500">
@@ -111,7 +111,7 @@ const CustomerApplyPage = () => {
               <dl className="mt-3 space-y-1 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <dt>Application ID</dt>
-                  <dd className="font-mono">{result.id || "—"}</dd>
+                  <dd className="font-mono">{result.id || "N/A"}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt>Status</dt>
@@ -129,7 +129,7 @@ const CustomerApplyPage = () => {
                 your dashboard.
               </p>
               <Link
-                to="/dashboard/loans"
+                to="/dashboard/loans/status"
                 className="mt-4 inline-block rounded-lg bg-[#15803D] px-4 py-2 text-xs font-medium text-white hover:bg-[#166534]"
               >
                 View my loans
@@ -196,7 +196,7 @@ const CustomerApplyPage = () => {
                 disabled={loading}
                 className="w-full rounded-lg bg-[#15803D] py-2.5 text-sm font-medium text-white hover:bg-[#166534] disabled:opacity-50"
               >
-                {loading ? "Submitting…" : "Submit application"}
+                {loading ? "Submitting..." : "Submit application"}
               </button>
             </form>
           )}
