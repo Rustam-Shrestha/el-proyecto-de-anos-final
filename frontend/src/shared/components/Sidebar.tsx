@@ -34,6 +34,7 @@ const userItems: MenuItem[] = [
 const adminItems: MenuItem[] = [
   { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
   { label: "Users Management", path: "/dashboard/users", icon: Users },
+  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
   { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
   { label: "Reports", path: "/dashboard/reports", icon: FileBarChart2 },
@@ -43,6 +44,7 @@ const adminItems: MenuItem[] = [
 
 // Reviewer: the review queue + staff chat + profile. Nothing else.
 const reviewerItems: MenuItem[] = [
+  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
   { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
   { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },

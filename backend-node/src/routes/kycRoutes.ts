@@ -217,8 +217,7 @@ kycRouter.get('/status/:kycId', authenticate, async (req: Request, res: Response
 kycRouter.get(
   '/',
   authenticate,
-  // Two-stage KYC: identity documents are reviewed by the platform owner only.
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(listKycApplicationsSchema),
   listKycApplications
 );
@@ -251,8 +250,7 @@ kycRouter.get(
 kycRouter.get(
   '/:id',
   authenticate,
-  // Two-stage KYC: identity documents are reviewed by the platform owner only.
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(getKycByIdSchema),
   getKycById
 );

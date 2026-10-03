@@ -10,12 +10,12 @@ type PageHeaderProps = {
 
 export default function PageHeader({ label, title, description, actions, breadcrumb }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
       <div className="min-w-0">
-        {breadcrumb ? <div className="mb-2">{breadcrumb}</div> : null}
-        {label ? <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#15803D]">{label}</p> : null}
-        <h1 className="mt-1 text-[24px] font-semibold leading-tight text-[#0F172A] sm:text-[30px]">{title}</h1>
-        {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">{description}</p> : null}
+        {breadcrumb ? <div className="mb-1">{breadcrumb}</div> : null}
+        {label ? <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">{label}</p> : null}
+        <h1 className="text-lg font-bold leading-tight text-gray-900 sm:text-xl">{title}</h1>
+        {description ? <p className="mt-0.5 text-xs text-gray-500">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-3">{actions}</div> : null}
     </div>

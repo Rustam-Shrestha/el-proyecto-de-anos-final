@@ -73,23 +73,23 @@ const NluChatbot: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow">
-      <div className="px-4 py-3 border-b bg-blue-600 text-white rounded-t-lg">
-        <h2 className="font-semibold">FinGuard Financial Assistant</h2>
-        <p className="text-xs text-blue-100">Ask me anything about your finances</p>
+    <div className="panel flex flex-col h-full p-0 overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-gray-200 bg-[var(--surface-muted)] text-gray-900 rounded-t-2xl">
+        <h2 className="text-sm font-semibold text-gray-900">FinGuard Financial Assistant</h2>
+        <p className="text-xs text-gray-500">Ask about loan eligibility, income, or spending habits</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px] max-h-[500px]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[260px] max-h-[460px]">
         {messages.map((msg, idx) => (
           <div
             key={idx}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[80%] px-3 py-2 rounded-lg ${
+              className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm ${
                 msg.role === "user"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-900"
+                  ? "bg-[var(--primary)] text-white"
+                  : "bg-gray-100 text-gray-900 border border-gray-200"
               }`}
             >
               {formatMessage(msg.content)}
@@ -99,26 +99,8 @@ const NluChatbot: React.FC = () => {
 
         {chatMutation.isPending && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 px-3 py-2 rounded-lg">
-              <span className="text-gray-500 text-sm">Analyzing...</span>
-            </div>
-          </div>
-        )}
-
-        {messages.length === 1 && (
-          <div className="mt-4">
-            <p className="text-xs text-gray-500 mb-2">Try asking:</p>
-            <div className="flex flex-wrap gap-2">
-              {SUGGESTIONS.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSend(s)}
-                  disabled={chatMutation.isPending}
-                  className="text-xs bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"
-                >
-                  {s}
-                </button>
-              ))}
+            <div className="bg-gray-100 px-3.5 py-2.5 rounded-2xl border border-gray-200">
+              <span className="text-gray-500 text-xs">Analyzing financial data...</span>
             </div>
           </div>
         )}
@@ -126,20 +108,37 @@ const NluChatbot: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t p-3 flex gap-2">
+      {/* Persistent horizontal scrollable suggestions chip bar */}
+      <div className="border-t border-gray-100 px-4 py-2 bg-gray-50/70">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden py-1">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 shrink-0 mr-1">Suggestions:</span>
+          {SUGGESTIONS.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => handleSend(s)}
+              disabled={chatMutation.isPending}
+              className="text-xs whitespace-nowrap bg-white border border-gray-200 rounded-full px-3 py-1 text-gray-700 hover:bg-[var(--primary-soft)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors shrink-0 disabled:opacity-50"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-gray-200 p-3 flex gap-2 bg-white">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend(input)}
           placeholder="Ask me about your finances..."
-          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--primary)]"
           disabled={chatMutation.isPending}
         />
         <button
           onClick={() => handleSend(input)}
           disabled={chatMutation.isPending || !input.trim()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="rounded-xl bg-[var(--primary)] text-white px-4 py-2 text-sm font-semibold hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors"
         >
           Send
         </button>

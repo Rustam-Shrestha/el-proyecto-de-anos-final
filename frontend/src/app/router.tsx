@@ -82,10 +82,9 @@ export const router = createBrowserRouter([
             )
           },
           {
-            // Two-stage KYC: identity-document verification queue (superadmin only).
             path: "kyc",
             element: (
-              <RoleProtectedRoute requiredRoles={["superadmin"]}>
+              <RoleProtectedRoute requiredRoles={["superadmin", "admin", "reviewer"]}>
                 <KYCListPage />
               </RoleProtectedRoute>
             )

@@ -9,6 +9,7 @@ import { Button } from "@shared/components/Button";
 import { ExportBar } from "@shared/components/export/ExportBar";
 import { apiErrorMessage } from "@shared/utils/apiError";
 import ErrorState from "@shared/components/ErrorState";
+import Breadcrumb from "@components/seo/Breadcrumb";
 
 const KycPieChart = ({ data }: { data: Array<{ name: string; y: number; color: string }> }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -90,10 +91,11 @@ const AdminDashboardPage = () => {
   const { data, isLoading, isError, error, refetch } = useAdminStats();
   const kycTotal = (data?.stats?.kyc?.approved ?? 0) + (data?.stats?.kyc?.pending ?? 0) + (data?.stats?.kyc?.rejected ?? 0);
   return (
-    <section className="space-y-6">
-      <Card>
-        <PageHeader label="Admin Overview" title="Admin Dashboard" description="Review platform health, user activity, and KYC performance." />
-      </Card>
+    <section className="space-y-4">
+      <PageHeader
+        breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Admin Overview" }]} />}
+        title="Admin Overview"
+      />
 
       {isLoading ? (
         <Skeleton />

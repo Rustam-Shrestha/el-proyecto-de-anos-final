@@ -27,38 +27,55 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: '4rem auto', padding: 24 }}>
-      <h1>Forgot Password</h1>
-      {sent ? (
-        <>
-          <p style={{ color: '#15803d' }}>
-            If an account exists for {email}, a password reset link was sent to it.
-            The link expires in 1 hour.
-          </p>
-          <p>
-            <Link to="/login">Back to login</Link>
-          </p>
-        </>
-      ) : (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <p style={{ color: '#6b7280' }}>Enter your account email and we will send you a reset link.</p>
-          {error && <div style={{ color: 'red' }}>{error}</div>}
-          <label>Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-          <button disabled={loading} type="submit">
-            {loading ? 'Sending…' : 'Send reset link'}
-          </button>
-          <p>
-            <Link to="/login">Back to login</Link>
-          </p>
-        </form>
-      )}
+    <div className="auth-shell">
+      <div className="panel w-full max-w-md p-8">
+        <h1 className="text-2xl font-bold text-gray-900">Forgot Password</h1>
+        {sent ? (
+          <div className="mt-4 space-y-4">
+            <div className="rounded-xl border border-green-200 bg-[var(--primary-soft)] p-4 text-sm text-[var(--primary)]">
+              If an account exists for <span className="font-semibold">{email}</span>, a password reset link was sent to it. The link expires in 1 hour.
+            </div>
+            <p className="text-center text-sm">
+              <Link className="font-medium text-[var(--primary)] hover:underline" to="/login">
+                Back to login
+              </Link>
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            <p className="text-sm text-gray-600">Enter your account email and we will send you a reset link.</p>
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                placeholder="name@example.com"
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-[var(--primary)]"
+              />
+            </div>
+            <button
+              disabled={loading}
+              type="submit"
+              className="w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-50"
+            >
+              {loading ? "Sending..." : "Send reset link"}
+            </button>
+            <p className="text-center text-sm text-gray-600">
+              <Link className="font-medium text-[var(--primary)] hover:underline" to="/login">
+                Back to login
+              </Link>
+            </p>
+          </form>
+        )}
+      </div>
     </div>
   );
 };

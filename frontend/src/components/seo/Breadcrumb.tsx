@@ -15,12 +15,20 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
   };
   return (
     <>
-      <nav aria-label="Breadcrumb">
-        <ol style={{ display: "flex", gap: 8, listStyle: "none", padding: 0, fontSize: 14 }}>
+      <nav aria-label="Breadcrumb" className="mb-1">
+        <ol className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
           {items.map((c, i) => (
-            <li key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {i > 0 && <span aria-hidden>/</span>}
-              {c.href ? <Link to={c.href}>{c.label}</Link> : <span aria-current="page">{c.label}</span>}
+            <li key={i} className="flex items-center gap-1.5">
+              {i > 0 && <span className="text-gray-400" aria-hidden>/</span>}
+              {c.href ? (
+                <Link to={c.href} className="transition-colors hover:text-[var(--primary)] hover:underline">
+                  {c.label}
+                </Link>
+              ) : (
+                <span className="font-medium text-gray-800" aria-current="page">
+                  {c.label}
+                </span>
+              )}
             </li>
           ))}
         </ol>

@@ -123,10 +123,42 @@ export const loanAssessmentService = {
       }
     }
 
-    // Graceful empty: assess a zero profile (score 0, not eligible) with an
-    // upload-guidance recommendation instead of 404. Missing data is an
-    // empty state, not a missing route.
-    const needsData = !profile;
+    // If no financial profile or income is 0, attempt to look up KYC or employment income
+    if (!profile || Number(profile.avgMonthlyIncome || 0) <= 0) {
+      try {
+        const [kyc, emp, prof] = await Promise.all([
+          prisma.kycApplication.findFirst({
+            where: { userId, status: 'APPROVED' },
+            orderBy: { createdAt: 'desc' },
+          }).catch(() => null),
+          prisma.employmentInfo.findUnique({ where: { userId } }).catch(() => null),
+          prisma.profile.findUnique({ where: { userId } }).catch(() => null),
+        ]);
+
+        const monthlyFromKyc = Number((kyc as unknown as { confirmedMonthlyIncome?: number })?.confirmedMonthlyIncome || 0);
+        const annualFromEmp = Number(emp?.annualIncome || 0);
+        const monthlyFromEmp = annualFromEmp > 0 ? annualFromEmp / 12 : 0;
+        const monthlyFromProf = Number((prof as unknown as { monthlyIncome?: number })?.monthlyIncome || 0);
+
+        const bestMonthlyIncome = monthlyFromKyc || monthlyFromEmp || monthlyFromProf;
+
+        if (bestMonthlyIncome > 0) {
+          profile = {
+            totalStatements: 1,
+            avgMonthlyIncome: bestMonthlyIncome,
+            avgMonthlyExpense: bestMonthlyIncome * 0.5,
+            savingsRate: 0.3,
+            debtToIncomeRatio: 0.15,
+            incomeStabilityScore: 65,
+            creditScoreEstimate: 680,
+          } as unknown as NonNullable<typeof profile>;
+        }
+      } catch (err) {
+        logger.warn({ err, userId }, 'Could not look up supplemental profile data for assessment');
+      }
+    }
+
+    const needsData = !profile || Number(profile.avgMonthlyIncome || 0) <= 0;
     if (!profile) {
       profile = {
         totalStatements: 0,
