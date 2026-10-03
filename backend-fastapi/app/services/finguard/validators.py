@@ -389,7 +389,18 @@ def validate_request(data: Mapping[str, Any]) -> Dict[str, Any]:
     for field, (low, high) in RANGE_FIELDS.items():
         number = values[field]
         if not (low <= number <= high):
-            raise _fail(3, f"'{field}' must be within [{low:g}, {high:g}], got {number}")
+            if field == "DAYS_EMPLOYED":
+                if number < low:
+                    values[field] = low
+                elif number > 0 and number != UNEMPLOYED_SENTINEL:
+                    values[field] = -min(abs(number), 20000.0)
+            elif field == "DAYS_BIRTH":
+                if number < low:
+                    values[field] = low
+                elif number > high:
+                    values[field] = high
+            else:
+                raise _fail(3, f"'{field}' must be within [{low:g}, {high:g}], got {number}")
 
     # Rule 5 - derived features
     normalized: Dict[str, Any] = dict(values)

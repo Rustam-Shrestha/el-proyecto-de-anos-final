@@ -233,12 +233,13 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
   const isPending = resolvedApplication?.status === "PENDING" || resolvedApplication?.status === "UNDER_REVIEW";
   const isRejecting = showRejectForm;
   const isMutating = approveMutation.isPending || rejectMutation.isPending;
-  // Two-stage KYC: only the platform owner verifies identity documents.
-  // Tenant staff never see the actions (backend enforces SUPERADMIN-only).
   const viewerData = useAppSelector(selectUserData);
+  const userKind = roleKind(viewerData?.role);
   const canVerifyDocs =
     Boolean((viewerData as { isSuperUser?: boolean } | null)?.isSuperUser) ||
-    roleKind(viewerData?.role) === "superadmin";
+    userKind === "superadmin" ||
+    userKind === "admin" ||
+    userKind === "reviewer";
 
   const docUrl = resolveDocumentUrl;
   const app = resolvedApplication;

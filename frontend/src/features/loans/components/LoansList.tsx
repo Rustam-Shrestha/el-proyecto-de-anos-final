@@ -36,41 +36,49 @@ const LoansList = ({ status }: LoansListProps) => {
     {
       key: "applicant",
       header: "Applicant",
-      render: (loan) =>
-        loan.userId ? (
-          <span className="font-mono text-xs text-[#0F172A]">{loan.userId.slice(0, 8)}...</span>
-        ) : (
-          "--"
-        ),
+      render: (loan) => {
+        const identifier = (loan as any).user?.email || loan.applicantEmail || loan.userId || "--";
+        const short = identifier.length > 20 ? `${identifier.slice(0, 18)}...` : identifier;
+        return (
+          <span className="font-medium text-xs text-[#0F172A]" title={identifier}>
+            {short}
+          </span>
+        );
+      },
     },
     {
       key: "amount",
       header: "Amount",
       className: "whitespace-nowrap font-medium tabular-nums text-[#0F172A]",
-      render: (loan) => formatNPR(loan.amount),
+      render: (loan) => formatNPR(loan.amount || (loan as any).requestedAmount),
     },
     {
       key: "tenure",
       header: "Tenure",
       className: "text-[#334155]",
-      render: (loan) => `${loan.termMonths} mo`,
+      render: (loan) => `${loan.termMonths || (loan as any).tenureMonths || "--"} mo`,
     },
     {
       key: "emi",
       header: "EMI",
       className: "tabular-nums text-[#334155]",
-      render: (loan) => (loan.monthlyPayment ? formatNPR(loan.monthlyPayment) : "--"),
+      render: (loan) => formatNPR(loan.monthlyPayment || (loan as any).calculatedEmi),
     },
     {
       key: "purpose",
       header: "Purpose",
       className: "text-[#334155]",
-      render: (loan) => purposeLabel[loan.purpose] ?? loan.purpose,
+      render: (loan) => purposeLabel[loan.purpose] ?? loan.purpose ?? "General",
     },
     {
       key: "risk",
       header: "Risk",
-      render: (loan) => <RiskScoreBadge score={null} level={(loan.riskLevel as RiskLevel) ?? null} />,
+      render: (loan) => (
+        <RiskScoreBadge
+          score={(loan as any).creditScore || loan.riskScore || null}
+          level={(loan.riskLevel as RiskLevel) ?? null}
+        />
+      ),
     },
     {
       key: "status",
@@ -81,7 +89,7 @@ const LoansList = ({ status }: LoansListProps) => {
       key: "appliedAt",
       header: "Applied",
       className: "whitespace-nowrap text-[#64748B]",
-      render: (loan) => formatDate(loan.appliedAt),
+      render: (loan) => formatDate(loan.appliedAt || (loan as any).createdAt),
     },
     {
       key: "actions",
@@ -101,12 +109,46 @@ const LoansList = ({ status }: LoansListProps) => {
     },
   ];
 
+  const handleExportCsv = () => {
+    if (!loans.length) return;
+    const headers = ["Loan ID", "Applicant", "Amount (NPR)", "Term (Months)", "Monthly EMI (NPR)", "Purpose", "Risk Level", "Status", "Applied Date"];
+    const csvRows = [
+      headers.join(","),
+      ...loans.map((l) =>
+        [
+          `"${l.id}"`,
+          `"${l.userId || ""}"`,
+          l.amount,
+          l.termMonths,
+          l.monthlyPayment || 0,
+          `"${l.purpose || ""}"`,
+          `"${l.riskLevel || "UNASSESSED"}"`,
+          `"${l.status}"`,
+          `"${l.appliedAt || ""}"`,
+        ].join(",")
+      ),
+    ];
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `loans-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loansQuery.isLoading) return <SkeletonLoader count={6} type="table" />;
   if (loansQuery.isError) return <ErrorState message={apiErrorMessage(loansQuery.error, "Failed to load loan applications")} onRetry={() => loansQuery.refetch()} />;
   if (!loans.length) return <EmptyState title="No applications found" description="Try a different filter or refresh later." />;
 
   return (
     <>
+      <div className="flex justify-end mb-2">
+        <Button variant="secondary" size="sm" onClick={handleExportCsv} className="text-xs h-8">
+          Export Table (CSV)
+        </Button>
+      </div>
       <Card padding="none" className="overflow-hidden">
         <DataTable
           caption="Loan applications"

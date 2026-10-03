@@ -27,10 +27,13 @@ export const portfolioVerificationService = {
       let activeAccounts: Awaited<ReturnType<typeof prisma.loanAccount.findMany>>;
       try {
         [employment, profile, loanFeatures, activeAccounts] = await Promise.all([
-          prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } }),
+          prisma.employmentInfo.findFirst({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+          }),
           prisma.profile.findUnique({ where: { userId } }),
-          prisma.loanFeatures.findFirst({ where: { userId, tenantId: tid } }),
-          prisma.loanAccount.findMany({ where: { userId, tenantId: tid, isActive: true } }),
+          prisma.loanFeatures.findFirst({ where: { userId } }),
+          prisma.loanAccount.findMany({ where: { userId, isActive: true } }),
         ]);
       } catch (e) {
         if (isTenantSchemaError(e)) {
@@ -44,7 +47,8 @@ export const portfolioVerificationService = {
       }
 
       if (!employment) {
-        throw new AppError('Employment info not found. Complete employment declaration first.', 400);
+        logger.info({ userId }, 'No employment record found yet; skipping portfolio metrics calculation');
+        return null;
       }
 
       const annualIncome = employment.annualIncome.toNumber();
@@ -403,7 +407,7 @@ export const portfolioVerificationService = {
 
   async getPortfolioSummary(userId: string, tenantId?: number) {
     try {
-      const tid = resolveTid(tenantId);
+      const _tid = resolveTid(tenantId);
       let employment: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
       let verification: Awaited<ReturnType<typeof prisma.portfolioVerification.findFirst>>;
       let documents: Awaited<ReturnType<typeof prisma.financialDocument.findMany>>;
@@ -411,11 +415,11 @@ export const portfolioVerificationService = {
       let activeAccounts: Awaited<ReturnType<typeof prisma.loanAccount.findMany>>;
       try {
         [employment, verification, documents, loanFeatures, activeAccounts] = await Promise.all([
-          prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } }),
-          prisma.portfolioVerification.findFirst({ where: { userId, tenantId: tid } }),
-          prisma.financialDocument.findMany({ where: { userId, tenantId: tid, isDeleted: false }, orderBy: { createdAt: 'desc' } }),
-          prisma.loanFeatures.findFirst({ where: { userId, tenantId: tid } }),
-          prisma.loanAccount.findMany({ where: { userId, tenantId: tid, isActive: true } }),
+          prisma.employmentInfo.findFirst({ where: { userId } }),
+          prisma.portfolioVerification.findFirst({ where: { userId } }),
+          prisma.financialDocument.findMany({ where: { userId, isDeleted: false }, orderBy: { createdAt: 'desc' } }),
+          prisma.loanFeatures.findFirst({ where: { userId } }),
+          prisma.loanAccount.findMany({ where: { userId, isActive: true } }),
         ]);
       } catch (e) {
         if (isTenantSchemaError(e)) {

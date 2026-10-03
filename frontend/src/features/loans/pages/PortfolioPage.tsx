@@ -18,6 +18,8 @@ import { Check } from "lucide-react";
 import { DocumentType } from "@shared/types/common";
 import { useToast } from "@shared/hooks/useToast";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
 
 type IncomeType = "EMPLOYED" | "SELF_EMPLOYED" | "STUDENT" | "UNEMPLOYED" | "RETIRED";
 
@@ -308,39 +310,20 @@ const PortfolioPage = () => {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
-          Financial Portfolio
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold text-gray-900">
-          {isComplete ? "Portfolio Verified" : "Complete Your Financial Profile"}
-        </h1>
-        <p className="mt-2 text-sm text-gray-500">
-          {isComplete
+    <section className="space-y-4">
+      <PageHeader
+        breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Financial Profile" }]} />}
+        title={isComplete ? "Financial Portfolio" : "Complete Financial Profile"}
+        description={
+          isComplete
             ? "Your financial profile is verified. You can now apply for loans."
             : currentStatus === "REJECTED"
-              ? "Your portfolio was rejected. Please review the feedback and resubmit."
+              ? "Your portfolio was rejected. Please review feedback and resubmit."
               : currentStatus === "PENDING_REVIEW"
-                ? "Your portfolio is under review by an admin."
-                : "Provide your employment details and upload supporting documents."}
-        </p>
-        {currentStatus && !isComplete ? (
-          <div className="mt-3">
-            <span
-              className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                currentStatus === "REJECTED"
-                  ? "bg-red-100 text-red-800"
-                  : currentStatus === "PENDING_REVIEW"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-blue-100 text-blue-800"
-              }`}
-            >
-              {currentStatus.replace(/_/g, " ")}
-            </span>
-          </div>
-        ) : null}
-      </div>
+                ? "Your portfolio is under review by staff."
+                : "Provide your employment details and upload supporting documents."
+        }
+      />
 
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
         {renderStepIndicator()}

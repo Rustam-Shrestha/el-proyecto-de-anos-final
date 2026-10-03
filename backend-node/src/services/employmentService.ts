@@ -36,17 +36,52 @@ function isTenantSchemaError(e: unknown): boolean {
   return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
 }
 
+function parseSafeDate(val: string | null | undefined): Date | null {
+  if (!val) return null;
+  const str = String(val).trim();
+  if (!str) return null;
+
+  const ddmmyyyy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (ddmmyyyy) {
+    const day = parseInt(ddmmyyyy[1], 10);
+    const month = parseInt(ddmmyyyy[2], 10) - 1;
+    const year = parseInt(ddmmyyyy[3], 10);
+    const d = new Date(Date.UTC(year, month, day));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const yyyymmdd = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (yyyymmdd) {
+    const year = parseInt(yyyymmdd[1], 10);
+    const month = parseInt(yyyymmdd[2], 10) - 1;
+    const day = parseInt(yyyymmdd[3], 10);
+    const d = new Date(Date.UTC(year, month, day));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const parsed = new Date(str);
+  if (isNaN(parsed.getTime())) return null;
+
+  const fullYear = parsed.getFullYear();
+  if (fullYear < 100) {
+    parsed.setFullYear(2000 + fullYear);
+  } else if (fullYear < 1900) {
+    parsed.setFullYear(2000 + (fullYear % 100));
+  }
+  return parsed;
+}
+
 export const employmentService = {
   async saveEmploymentInfo(userId: string, data: EmploymentInput, tenantId?: number) {
     try {
       const tid = resolveTid(tenantId);
-      const startDate = data.employmentStartDate ? new Date(data.employmentStartDate) : null;
-      if (data.employmentStartDate && startDate && isNaN(startDate.getTime())) {
+      const startDate = parseSafeDate(data.employmentStartDate);
+      if (data.employmentStartDate && !startDate) {
         throw new AppError('Invalid employment start date', 400);
       }
 
-      const graduationDate = data.expectedGraduationDate ? new Date(data.expectedGraduationDate) : null;
-      if (data.expectedGraduationDate && graduationDate && isNaN(graduationDate.getTime())) {
+      const graduationDate = parseSafeDate(data.expectedGraduationDate);
+      if (data.expectedGraduationDate && !graduationDate) {
         throw new AppError('Invalid expected graduation date', 400);
       }
 
@@ -57,70 +92,45 @@ export const employmentService = {
         ? new Prisma.Decimal(data.annualIncome)
         : (monthlyIncome ? monthlyIncome.mul(12) : new Prisma.Decimal(0));
 
-      // tenant-aware upsert: use findFirst + update/create to enforce tenantId
-      let existing: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
+      // Robust upsert keyed by userId (which has a unique constraint in schema)
+      const empData = {
+        employmentStatus: data.employmentStatus,
+        occupationJobTitle: data.occupationJobTitle ?? null,
+        employerName: data.employerName ?? null,
+        employmentStartDate: startDate,
+        monthlyGrossIncome: monthlyIncome ?? new Prisma.Decimal(0),
+        annualIncome,
+        dependentsCount: data.dependentsCount ?? 0,
+        incomeSourceType: data.incomeSourceType ?? 'SALARY',
+        businessName: data.businessName ?? null,
+        businessType: data.businessType ?? null,
+        institutionName: data.institutionName ?? null,
+        educationLevel: data.educationLevel ?? null,
+        expectedGraduationDate: graduationDate,
+      };
+
+      let employment: Awaited<ReturnType<typeof prisma.employmentInfo.upsert>>;
       try {
-        existing = await prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } });
+        employment = await prisma.employmentInfo.upsert({
+          where: { userId },
+          create: {
+            ...empData,
+            userId,
+            tenantId: tid,
+          },
+          update: empData,
+        });
       } catch (e) {
-        if (isTenantSchemaError(e)) existing = await prisma.employmentInfo.findUnique({ where: { userId } }) as never;
-        else throw e;
-      }
-      let employment: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
-      if (existing) {
-        try {
-          employment = await prisma.employmentInfo.update({
-            where: { id: existing.id },
-            data: {
-              employmentStatus: data.employmentStatus,
-              occupationJobTitle: data.occupationJobTitle ?? null,
-              employerName: data.employerName ?? null,
-              employmentStartDate: startDate,
-              monthlyGrossIncome: monthlyIncome ?? new Prisma.Decimal(0),
-              annualIncome,
-              dependentsCount: data.dependentsCount ?? 0,
-              incomeSourceType: data.incomeSourceType ?? 'SALARY',
-              businessName: data.businessName ?? null,
-              businessType: data.businessType ?? null,
-              institutionName: data.institutionName ?? null,
-              educationLevel: data.educationLevel ?? null,
-              expectedGraduationDate: graduationDate,
-            },
-          }) as never;
-        } catch (e) {
-          if (isTenantSchemaError(e)) {
-            employment = await prisma.employmentInfo.update({ where: { userId }, data: { employmentStatus: data.employmentStatus, occupationJobTitle: data.occupationJobTitle ?? null, employerName: data.employerName ?? null, employmentStartDate: startDate, monthlyGrossIncome: monthlyIncome ?? new Prisma.Decimal(0), annualIncome, dependentsCount: data.dependentsCount ?? 0, incomeSourceType: data.incomeSourceType ?? 'SALARY', businessName: data.businessName ?? null, businessType: data.businessType ?? null, institutionName: data.institutionName ?? null, educationLevel: data.educationLevel ?? null, expectedGraduationDate: graduationDate } }) as never;
-          } else throw e;
-        }
-      } else {
-        try {
-          employment = await prisma.employmentInfo.create({
-            data: {
-              tenantId: tid,
+        if (isTenantSchemaError(e)) {
+          employment = await prisma.employmentInfo.upsert({
+            where: { userId },
+            create: {
+              ...empData,
               userId,
-              employmentStatus: data.employmentStatus,
-              occupationJobTitle: data.occupationJobTitle ?? null,
-              employerName: data.employerName ?? null,
-              employmentStartDate: startDate,
-              monthlyGrossIncome: monthlyIncome ?? new Prisma.Decimal(0),
-              annualIncome,
-              dependentsCount: data.dependentsCount ?? 0,
-              incomeSourceType: data.incomeSourceType ?? 'SALARY',
-              businessName: data.businessName ?? null,
-              businessType: data.businessType ?? null,
-              institutionName: data.institutionName ?? null,
-              educationLevel: data.educationLevel ?? null,
-              expectedGraduationDate: graduationDate,
             },
-          }) as never;
-        } catch (e) {
-          if (isTenantSchemaError(e)) {
-            employment = await prisma.employmentInfo.upsert({
-              where: { userId },
-              create: { userId, employmentStatus: data.employmentStatus, occupationJobTitle: data.occupationJobTitle ?? null, employerName: data.employerName ?? null, employmentStartDate: startDate, monthlyGrossIncome: monthlyIncome ?? new Prisma.Decimal(0), annualIncome, dependentsCount: data.dependentsCount ?? 0, incomeSourceType: data.incomeSourceType ?? 'SALARY', businessName: data.businessName ?? null, businessType: data.businessType ?? null, institutionName: data.institutionName ?? null, educationLevel: data.educationLevel ?? null, expectedGraduationDate: graduationDate },
-              update: { employmentStatus: data.employmentStatus, occupationJobTitle: data.occupationJobTitle ?? null, employerName: data.employerName ?? null, employmentStartDate: startDate, monthlyGrossIncome: monthlyIncome ?? new Prisma.Decimal(0), annualIncome, dependentsCount: data.dependentsCount ?? 0, incomeSourceType: data.incomeSourceType ?? 'SALARY', businessName: data.businessName ?? null, businessType: data.businessType ?? null, institutionName: data.institutionName ?? null, educationLevel: data.educationLevel ?? null, expectedGraduationDate: graduationDate },
-            }) as never;
-          } else throw e;
-        }
+            update: empData,
+          });
+        } else throw e;
       }
 
       logger.info({ userId, tenantId: tid, employmentId: employment!.id, status: data.employmentStatus }, 'Employment info saved');
@@ -134,11 +144,10 @@ export const employmentService = {
     }
   },
 
-  async getEmploymentInfo(userId: string, tenantId?: number) {
+  async getEmploymentInfo(userId: string, _tenantId?: number) {
     try {
-      const tid = resolveTid(tenantId);
       try {
-        const employment = await prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } });
+        const employment = await prisma.employmentInfo.findFirst({ where: { userId } });
         return employment;
       } catch (e) {
         if (isTenantSchemaError(e)) return prisma.employmentInfo.findUnique({ where: { userId } });
@@ -152,12 +161,11 @@ export const employmentService = {
     }
   },
 
-  async calculateTenure(userId: string, tenantId?: number) {
+  async calculateTenure(userId: string, _tenantId?: number) {
     try {
-      const tid = resolveTid(tenantId);
       let employment: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
       try {
-        employment = await prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } });
+        employment = await prisma.employmentInfo.findFirst({ where: { userId } });
       } catch (e) {
         if (isTenantSchemaError(e)) employment = await prisma.employmentInfo.findUnique({ where: { userId } }) as never;
         else throw e;

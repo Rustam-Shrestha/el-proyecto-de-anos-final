@@ -56,6 +56,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
 
   const kind = useMemo(() => roleKind(userData?.role), [userData?.role]);
   const isPrivileged = kind === "admin" || kind === "reviewer" || kind === "superadmin";
+  const isSuper = kind === "superadmin";
   // Company emblem: always fresh from /company/me so members see slug+logo,
   // never a stale "No Company" label after joining.
   const tenantQuery = useQuery({
@@ -68,7 +69,13 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
   const inCompany = Boolean(tenant && tenant.slug && tenant.slug !== "default");
   const tenantName = inCompany ? tenant.name : null;
   const tenantSlug = inCompany ? tenant.slug : null;
-  const tenantLogo = inCompany ? tenant.logoUrl || null : null;
+  const tenantLogo = inCompany ? (tenant.logoUrl || tenant.logo) : null;
+  const tenantInitials = useMemo(() => {
+    if (!tenantName) return "CO";
+    const parts = tenantName.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }, [tenantName]);
 
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center border-b border-[#E2E8F0] bg-white/90 backdrop-blur">
@@ -83,28 +90,72 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
             <Menu className="h-5 w-5" />
           </button>
           <Link to="/dashboard" className="flex items-center gap-3">
-  <img
-    src="/images/logo512.png"
-    alt="FinGuard logo"
-    className="h-10 w-10 rounded-[6px] object-cover p-0"
-    onError={(e) => {
-      (e.currentTarget as HTMLImageElement).src = "/logo512.png";
-    }}
-  />
-  <div className="hidden sm:block"></div>
-  <span className="sm:hidden text-sm font-semibold text-[#0F172A]">FinGuard</span>
-</Link>
-
+            <img
+              src="/images/logo512.png"
+              alt="FinGuard logo"
+              className="h-10 w-10 rounded-[6px] object-cover p-0"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "/logo512.png";
+              }}
+            />
+            <div className="hidden sm:block"></div>
+            <span className="sm:hidden text-sm font-semibold text-[#0F172A]">FinGuard</span>
+          </Link>
         </div>
 
         <div className="relative flex items-center gap-2">
-          {tenantName ? <Link to="/company" title={`Company slug: ${tenantSlug}`} className="hidden md:inline-flex items-center gap-1 rounded-full border bg-green-50 px-2 py-1 text-xs font-medium text-green-700">{tenantLogo ? <img src={tenantLogo} alt={tenantName} className="h-5 w-5 rounded object-cover" onError={(e)=>{(e.currentTarget as HTMLImageElement).style.display='none'}}/> : null}{tenantName}<span className="text-green-500">@{tenantSlug}</span></Link> : <Link to="/company" className="hidden md:inline-flex rounded-full border bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">No Company – Setup</Link>}
+          {tenantName ? (
+            <Link
+              to="/company"
+              title={`Company: ${tenantName} (@${tenantSlug})`}
+              className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-[var(--primary-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--primary)] hover:bg-green-100 transition-colors"
+            >
+              {tenantLogo && !tenantLogo.includes("logo512") ? (
+                <img
+                  src={tenantLogo}
+                  alt={tenantName}
+                  className="h-5 w-5 rounded-full object-cover shrink-0"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    if (target.nextElementSibling) {
+                      (target.nextElementSibling as HTMLElement).style.display = "flex";
+                    }
+                  }}
+                />
+              ) : null}
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--primary)] text-[10px] font-bold text-white shrink-0"
+                style={{ display: tenantLogo && !tenantLogo.includes("logo512") ? "none" : "flex" }}
+              >
+                {tenantInitials}
+              </span>
+              <span>{tenantName}</span>
+              <span className="text-green-600 font-mono text-[11px]">@{tenantSlug}</span>
+            </Link>
+          ) : isSuper ? (
+            <Link
+              to="/dashboard/admin/company-requests"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              Platform Super Admin
+            </Link>
+          ) : (
+            <Link to="/company" className="hidden md:inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+              Setup Company
+            </Link>
+          )}
+
           <Link
             to="/dashboard/chat"
             aria-label="Messages"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9] transition-colors"
+            className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9] transition-colors"
           >
             <MessageSquare className="h-4 w-4" />
+            <span
+              className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+              style={{ backgroundColor: "var(--danger, #DC2626)" }}
+            />
           </Link>
           <NotificationBell />
           <button

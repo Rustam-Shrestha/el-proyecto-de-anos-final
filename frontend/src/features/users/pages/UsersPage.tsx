@@ -5,7 +5,6 @@ import { useModal } from "@shared/hooks/useModal";
 import UsersList from "@features/users/components/UsersList";
 import UserFormModal from "@features/users/components/UserFormModal";
 import PageHeader from "@shared/components/PageHeader";
-import Card from "@shared/components/Card";
 
 import Breadcrumb from "@components/seo/Breadcrumb";
 

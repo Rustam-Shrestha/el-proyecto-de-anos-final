@@ -17,6 +17,9 @@ const statusTone: Record<string, string> = {
 
 const tone = (status?: string) => statusTone[status ?? ""] ?? "bg-gray-50 text-gray-600 border-gray-200";
 
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
+
 export const UserDashboard = () => {
   const { userData } = useAuth();
   const name = userData?.name || userData?.email?.split("@")[0] || "User";
@@ -73,12 +76,12 @@ export const UserDashboard = () => {
   ];
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-medium uppercase tracking-[0.22em] text-[var(--green-icon)]">Overview</p>
-        <h2 className="mt-2 text-3xl font-semibold text-gray-900">Welcome back, {name}</h2>
-        <p className="mt-2 text-sm text-gray-500">Track your loan application journey.</p>
-      </div>
+    <section className="space-y-4">
+      <PageHeader
+        breadcrumb={<Breadcrumb items={[{ label: "Dashboard" }]} />}
+        title={`Welcome back, ${name}`}
+        description="Track your KYC, portfolio verification, and loan application status."
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => {

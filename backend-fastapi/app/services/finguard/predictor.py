@@ -46,13 +46,17 @@ class CreditDefaultPredictor:
 
         # Load model (xgboost separated from face; allow degraded mode)
         try:
-            import joblib
-            artifact = joblib.load(model_path)
-            if isinstance(artifact, dict) and "model" in artifact:
-                self.model = artifact["model"]
-                self.threshold = float(artifact.get("threshold", 0.5))
-            else:
-                self.model = artifact
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning)
+                warnings.filterwarnings("ignore", message=".*serialized model.*")
+                import joblib
+                artifact = joblib.load(model_path)
+                if isinstance(artifact, dict) and "model" in artifact:
+                    self.model = artifact["model"]
+                    self.threshold = float(artifact.get("threshold", 0.5))
+                else:
+                    self.model = artifact
         except ModuleNotFoundError as e:
             if "xgboost" in str(e):
                 logger.error(f"xgboost not installed, credit scoring will be degraded: {e}")
@@ -335,12 +339,21 @@ def _scalar(value: Any) -> Optional[float]:
     if value is None:
         return None
     try:
-        arr = np.array(value, dtype=float).ravel()
+        if isinstance(value, str):
+            clean = value.strip("[] \t\n\r")
+            return float(clean)
+        arr = np.array(value).ravel()
         if arr.size == 0:
             return None
-        return float(arr[0])
+        first = arr[0]
+        if isinstance(first, str):
+            first = first.strip("[] \t\n\r")
+        return float(first)
     except Exception:
-        return None
+        try:
+            return float(str(value).strip("[] \t\n\r"))
+        except Exception:
+            return None
 
 
 _predictor: Optional[CreditDefaultPredictor] = None

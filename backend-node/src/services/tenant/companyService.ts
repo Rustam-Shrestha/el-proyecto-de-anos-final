@@ -67,7 +67,7 @@ export const companyService = {
     }
     return prisma.tenant.findMany({
       where,
-      select: { id: true, name: true, slug: true, companyType: true, domain: true, logoUrl: true, joinMode: true },
+      select: { id: true, name: true, slug: true, companyType: true, domain: true, logoUrl: true, joinMode: true, panNumber: true },
       distinct: ["id"],
       take: limit,
       orderBy: { name: "asc" },
@@ -193,7 +193,7 @@ export const companyService = {
       data: { tenantId, email: target, role: wantedRole, token, code, invitedBy, status: "PENDING", expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
     });
     const link = `${process.env.FRONTEND_URL || "http://localhost:5173"}/company?invite=${token}`;
-    try { (mailService as any).sendInviteMail(target, (tenant as any).name, link, code); } catch {}
+    try { (mailService as any).sendInviteMail(target, (tenant as any).name, link, code); } catch (_err) { /* ignore mail error */ }
     const { code: _omit, ...safe } = invite as any;
     return { invite: safe, link, emailSent: true };
   },
@@ -229,7 +229,7 @@ export const companyService = {
       data: { tenantId, email: user.email.toLowerCase(), role: "USER", token, code, invitedBy: user.id, status: "PENDING", expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
     });
     const link = `${process.env.FRONTEND_URL || "http://localhost:5173"}/company?invite=${token}`;
-    try { (mailService as any).sendInviteMail(user.email, (tenant as any).name, link, code); } catch {}
+    try { (mailService as any).sendInviteMail(user.email, (tenant as any).name, link, code); } catch (_err) { /* ignore mail error */ }
     return { codeSent: true, email: user.email, tenant: { id: (tenant as any).id, name: (tenant as any).name, slug: (tenant as any).slug } };
   },
 

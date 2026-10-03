@@ -56,47 +56,73 @@ class LoanEligibilityCalculator {
   ) {}
 
   assess(interestRate = 10.5, tenureMonths = 24) {
-    const { avgMonthlyIncome, savingsRate, debtToIncomeRatio, incomeStabilityScore, totalStatements } = this.profile;
-
-    const stabilityScore = incomeStabilityScore >= 70 ? 30 : incomeStabilityScore >= 50 ? 25 : incomeStabilityScore >= 30 ? 15 : 5;
-    const savingsScore = savingsRate >= 0.30 ? 25 : savingsRate >= 0.20 ? 20 : savingsRate >= 0.10 ? 15 : savingsRate >= 0.05 ? 10 : 0;
-    const dtiScore = debtToIncomeRatio <= 0.20 ? 25 : debtToIncomeRatio <= 0.40 ? 15 : debtToIncomeRatio <= 0.60 ? 5 : 0;
-    const durationScore = totalStatements >= 12 ? 20 : totalStatements >= 6 ? 10 : 0;
+    const { avgMonthlyIncome, savingsRate, debtToIncomeRatio, incomeStabilityScore, creditScoreEstimate } = this.profile;
 
     const monthlyRate = (interestRate / 100) / 12;
-    const numerator = this.requestedAmount * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths);
-    const denominator = Math.pow(1 + monthlyRate, tenureMonths) - 1;
-    const monthlyEmi = denominator !== 0 ? numerator / denominator : this.requestedAmount / tenureMonths;
-    const emiRatio = avgMonthlyIncome > 0 ? monthlyEmi / avgMonthlyIncome : 1;
-    const affordabilityMultiplier = emiRatio <= 0.30 ? 1.0 : emiRatio <= 0.40 ? 0.7 : 0.3;
+    const n = Math.max(6, tenureMonths);
 
-    const totalScore = stabilityScore + savingsScore + dtiScore + durationScore;
-    const finalScore = Math.min(100, totalScore * affordabilityMultiplier);
+    // Standard Fixed Obligation to Income Ratio (FOIR) capacity: 45% of monthly income
+    const maxFoir = 0.45;
+    const existingDti = Math.min(0.8, Math.max(0, debtToIncomeRatio || 0.1));
+    const maxMonthlyEmi = Math.max(0, avgMonthlyIncome * maxFoir * (1 - existingDti));
+
+    // Present Value (PV) calculation for maximum loan borrowing capacity
+    const pvFactor = monthlyRate > 0 && n > 0
+      ? (Math.pow(1 + monthlyRate, n) - 1) / (monthlyRate * Math.pow(1 + monthlyRate, n))
+      : n;
+    const maxLoanCapacity = Math.max(0, maxMonthlyEmi * pvFactor);
+
+    // Actual EMI for requested amount
+    const numerator = this.requestedAmount * monthlyRate * Math.pow(1 + monthlyRate, n);
+    const denominator = Math.pow(1 + monthlyRate, n) - 1;
+    const monthlyEmi = denominator > 0 ? numerator / denominator : (this.requestedAmount / n);
+
+    const capacityRatio = maxLoanCapacity > 0 ? this.requestedAmount / maxLoanCapacity : 2;
+
+    // Dynamic Multi-Factor Scoring (0 to 100)
+    const creditWeight = Math.min(30, Math.max(5, ((creditScoreEstimate || 650) / 850) * 30));
+    const stabilityWeight = Math.min(25, Math.max(5, ((incomeStabilityScore || 60) / 100) * 25));
+    const savingsWeight = Math.min(15, Math.max(0, (Math.min(savingsRate || 0.2, 0.4) / 0.4) * 15));
+
+    // Affordability factor: full 30 points if requested amount is under 60% of capacity, scaling down
+    let affordabilityWeight = 30;
+    if (capacityRatio > 1.2) {
+      affordabilityWeight = Math.max(0, 30 - (capacityRatio - 1.2) * 40);
+    } else if (capacityRatio > 0.7) {
+      affordabilityWeight = 30 - (capacityRatio - 0.7) * 20;
+    }
+
+    const finalScore = Math.min(100, Math.max(10, creditWeight + stabilityWeight + savingsWeight + affordabilityWeight));
 
     let riskLevel: string;
-    let multiplier: number;
-    if (finalScore >= 80) { riskLevel = 'LOW'; multiplier = 1.0; }
-    else if (finalScore >= 60) { riskLevel = 'MEDIUM'; multiplier = 0.8; }
-    else if (finalScore >= 40) { riskLevel = 'HIGH'; multiplier = 0.5; }
-    else { riskLevel = 'REJECTED'; multiplier = 0.0; }
+    if (finalScore >= 75) riskLevel = 'LOW';
+    else if (finalScore >= 55) riskLevel = 'MEDIUM';
+    else if (finalScore >= 35) riskLevel = 'HIGH';
+    else riskLevel = 'REJECTED';
 
-    const eligibleAmount = this.requestedAmount * multiplier;
-    const maxMonthlyEmi = avgMonthlyIncome * 0.30;
+    // Eligible amount: if within capacity, requested amount is fully eligible; if exceeded, capped at capacity
+    let eligibleAmount = 0;
+    if (riskLevel === 'LOW' || riskLevel === 'MEDIUM') {
+      eligibleAmount = Math.min(this.requestedAmount, Math.round(maxLoanCapacity / 1000) * 1000);
+    } else if (riskLevel === 'HIGH') {
+      eligibleAmount = Math.min(this.requestedAmount * 0.7, Math.round(maxLoanCapacity * 0.7 / 1000) * 1000);
+    }
 
     return {
-      eligibilityScore: Math.round(finalScore * 100) / 100,
+      eligibilityScore: Math.round(finalScore * 10) / 10,
       riskLevel,
       requestedAmount: this.requestedAmount,
-      eligibleAmount: Math.round(eligibleAmount * 100) / 100,
-      maxMonthlyEmi: Math.round(maxMonthlyEmi * 100) / 100,
-      recommendedTenure: riskLevel === 'REJECTED' ? null : riskLevel === 'HIGH' ? 60 : riskLevel === 'MEDIUM' ? 36 : 24,
-      monthlyEmi: Math.round(monthlyEmi * 100) / 100,
+      eligibleAmount: Math.round(eligibleAmount),
+      maxMonthlyEmi: Math.round(maxMonthlyEmi),
+      maxLoanCapacity: Math.round(maxLoanCapacity),
+      recommendedTenure: riskLevel === 'REJECTED' ? null : capacityRatio > 0.8 ? Math.min(60, n + 12) : n,
+      monthlyEmi: Math.round(monthlyEmi),
       details: {
-        incomeStability: { score: stabilityScore, maxScore: 30 },
-        savingsRate: { score: savingsScore, maxScore: 25 },
-        debtToIncome: { score: dtiScore, maxScore: 25 },
-        statementHistory: { score: durationScore, maxScore: 20 },
-        emiAffordability: Math.round(affordabilityMultiplier * 100) / 100,
+        creditScore: Math.round(creditWeight),
+        incomeStability: Math.round(stabilityWeight),
+        savingsRate: Math.round(savingsWeight),
+        affordability: Math.round(affordabilityWeight),
+        capacityRatio: Math.round(capacityRatio * 100) / 100,
       },
     };
   }

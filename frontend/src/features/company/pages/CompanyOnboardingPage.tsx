@@ -107,20 +107,66 @@ export default function CompanyOnboardingPage() {
     } catch (e) { setError(apiErrorMessage(e, "Could not leave the company.")); }
   };
 
+  const isSuper = roleKind((userData as any)?.role) === "superadmin";
+
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-semibold">Company Setup</h1>
+      <h1 className="text-2xl font-semibold">
+        {isSuper ? "Platform Company Management" : "Company Setup"}
+      </h1>
       <p className="mt-1 text-sm text-gray-500">
         Signed in as <span className="font-medium text-gray-700">{(userData as any)?.email}</span>
         {" "}(<span className="font-medium text-gray-700">{roleLabel((userData as any)?.role)}</span>).
-        Join a company to access FinGuard.
+        {isSuper
+          ? " You have platform-wide access to manage and approve all companies and review lenders."
+          : " Join a company to access FinGuard."}
       </p>
 
-      {inCompany && (
+      {isSuper && (
+        <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50/50 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-blue-900">Platform Super Administrator</h2>
+              <p className="mt-1 text-xs text-blue-700">
+                You oversee company onboarding, review registration requests, and configure platform lenders.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => { window.location.href = "/dashboard/admin/company-requests"; }}>
+                Review Company Requests
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setMode(mode === "create" ? "choice" : "create")}>
+                {mode === "create" ? "Close Create Form" : "Provision New Company"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isSuper && inCompany && (
         <div className="mt-4 rounded-xl border bg-green-50 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={myTenant.logoUrl || "/images/logo512.png"} alt={myTenant.name} className="h-10 w-10 rounded object-cover border bg-white" />
+              {myTenant.logoUrl && !myTenant.logoUrl.includes("logo512") ? (
+                <img
+                  src={myTenant.logoUrl}
+                  alt={myTenant.name}
+                  className="h-10 w-10 rounded-xl object-contain border bg-white shrink-0"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    if (target.nextElementSibling) {
+                      (target.nextElementSibling as HTMLElement).style.display = "flex";
+                    }
+                  }}
+                />
+              ) : null}
+              <span
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)] text-white font-bold text-sm shrink-0"
+                style={{ display: myTenant.logoUrl && !myTenant.logoUrl.includes("logo512") ? "none" : "flex" }}
+              >
+                {(myTenant.name || "CO").split(/\s+/).map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+              </span>
               <div>
                 <p className="font-semibold text-green-900">{myTenant.name}</p>
                 <p className="text-xs text-green-700">slug: {myTenant.slug} • you are a member ({roleLabel((userData as any)?.role)})</p>
@@ -146,7 +192,7 @@ export default function CompanyOnboardingPage() {
       {error && <div className="mt-3 rounded bg-red-50 p-2 text-sm text-red-600">{error}</div>}
       {success && <div className="mt-3 rounded bg-green-50 p-2 text-sm text-green-600">{success}</div>}
 
-      {!inCompany && mode === "choice" && (
+      {!inCompany && !isSuper && mode === "choice" && (
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border p-5">
             <h3 className="font-semibold">Create Company</h3>
@@ -161,9 +207,11 @@ export default function CompanyOnboardingPage() {
         </div>
       )}
 
-      {!inCompany && mode === "create" && (
+      {mode === "create" && (
         <div className="mt-6 rounded-xl border bg-white p-5">
-          <h3 className="font-semibold">Create Company (PAN required, any format)</h3>
+          <h3 className="font-semibold">
+            {isSuper ? "Provision New Company (Super Admin)" : "Create Company (PAN required, any format)"}
+          </h3>
           <div className="mt-3 grid gap-3">
             <input placeholder="Company Name" value={createForm.companyName} onChange={e => setCreateForm({ ...createForm, companyName: e.target.value })} className="rounded border px-3 py-2 text-sm" />
             <input placeholder="slug (e.g. my-company)" value={createForm.slug} onChange={e => setCreateForm({ ...createForm, slug: e.target.value.toLowerCase() })} className="rounded border px-3 py-2 text-sm" />
@@ -174,13 +222,13 @@ export default function CompanyOnboardingPage() {
             </select>
           </div>
           <div className="mt-4 flex gap-2">
-            <Button onClick={handleCreate}>Submit for Approval</Button>
+            <Button onClick={handleCreate}>{isSuper ? "Create Company" : "Submit for Approval"}</Button>
             <Button variant="ghost" onClick={() => setMode("choice")}>Back</Button>
           </div>
         </div>
       )}
 
-      {!inCompany && mode === "join" && (
+      {!inCompany && !isSuper && mode === "join" && (
         <div className="mt-6 rounded-xl border bg-white p-5">
           <h3 className="font-semibold">Join Company</h3>
           <input placeholder="Search companies..." value={search} onChange={e => setSearch(e.target.value)} className="mt-3 w-full rounded border px-3 py-2 text-sm" />
@@ -189,7 +237,26 @@ export default function CompanyOnboardingPage() {
               <div key={t.id} className="rounded border p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <img src={t.logoUrl || "/images/logo512.png"} alt={t.name} className="h-8 w-8 rounded object-cover border" />
+                    {t.logoUrl && !t.logoUrl.includes("logo512") ? (
+                      <img
+                        src={t.logoUrl}
+                        alt={t.name}
+                        className="h-8 w-8 rounded-lg object-contain border shrink-0 bg-white"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.style.display = "none";
+                          if (target.nextElementSibling) {
+                            (target.nextElementSibling as HTMLElement).style.display = "flex";
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <span
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary)] text-white font-bold text-xs shrink-0"
+                      style={{ display: t.logoUrl && !t.logoUrl.includes("logo512") ? "none" : "flex" }}
+                    >
+                      {(t.name || "CO").split(/\s+/).map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    </span>
                     <div>
                       <p className="text-sm font-medium">{t.name}</p>
                       <p className="text-xs text-gray-500">{t.slug} • {t.companyType} • {t.joinMode === "open" ? "Open join" : "Invitation code"}</p>

@@ -9,12 +9,14 @@ class PreprocessingPipeline:
     def __init__(self, preprocessing_path: str):
         with open(preprocessing_path, "r") as f:
             self.config = json.load(f)
-        self.numeric_and_ohe_cols = self.config["numeric_and_ohe_cols"]
-        self.cat_present = self.config.get("cat_present", [])
+        self.numeric_and_ohe_cols = self.config.get("numeric_and_ohe_cols", [])
+        self.cat_present = self.config.get("cat_present", self.config.get("high_card_cols", []))
         self.target_encoding_maps = self.config.get("target_encoding_maps", {})
-        self.feature_order = self.config["feature_order"]
+        self.feature_order = self.config.get("feature_order") or self.config.get("final_feature_cols") or []
+        self.impute_stats = self.config.get("impute_stats", {})
+        self.numeric_medians = self.impute_stats.get("numeric_median", {})
         # Fallback defaults for numeric cols (0 or median-like)
-        self._defaults: Dict[str, float] = {}
+        self._defaults: Dict[str, float] = dict(self.numeric_medians)
 
     def _safe_get(self, data: Dict[str, Any], key: str, default: float = 0.0) -> float:
         v = data.get(key, default)

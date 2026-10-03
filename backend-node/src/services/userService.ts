@@ -175,7 +175,7 @@ export const userService = {
       }) as any;
       let tenant = null;
       if (user?.tenantId) {
-        try { tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } }); } catch {}
+        try { tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } }); } catch (_err) { /* ignore */ }
       }
 
       if (!user) {

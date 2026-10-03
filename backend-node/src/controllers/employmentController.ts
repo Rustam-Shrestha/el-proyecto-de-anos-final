@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { prisma } from '@/config/database';
 import { employmentService } from '@/services/employmentService';
 import { portfolioVerificationService } from '@/services/portfolioVerificationService';
 import { auditService } from '@/services/auditService';
@@ -88,7 +89,12 @@ export const adminGetUserEmployment = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { userId } = req.params as { userId: string };
+    const { userId: rawId } = req.params as { userId: string };
+    const user = await prisma.user.findFirst({
+      where: { OR: [{ id: rawId }, { email: rawId.toLowerCase() }] },
+      select: { id: true },
+    }).catch(() => null);
+    const userId = user ? user.id : rawId;
 
     const result = await employmentService.getEmploymentInfo(userId);
 

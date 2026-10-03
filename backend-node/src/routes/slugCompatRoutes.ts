@@ -109,7 +109,7 @@ router.post('/login', async (req: Request, res: Response) => {
         ...(company ? { company_slug: company.slug } : {}),
       },
     });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ status: 500, error: 'Login failed' });
   }
 });
@@ -293,7 +293,7 @@ router.post('/:slug/register', async (req: Request, res: Response) => {
       next_step: 'kyc_upload',
       message: 'Registration successful. Complete KYC to proceed.',
     });
-  } catch (e) {
+  } catch (_e) {
     res.status(500).json({ status: 500, error: 'Registration failed' });
   }
 });

@@ -1,10 +1,25 @@
 import type { Request, Response, NextFunction } from 'express';
+import { prisma } from '@/config/database';
 import { portfolioVerificationService } from '@/services/portfolioVerificationService';
-import { employmentService as _employmentService } from '@/services/employmentService';
-import { auditService } from '@/services/auditService';
 import { financialDocumentService } from '@/services/financialDocumentService';
+import { auditService } from '@/services/auditService';
 import { apiResponse } from '@/utils/apiResponse';
 import { paginate } from '@/utils/pagination';
+
+async function resolveUid(input: string): Promise<string> {
+  if (!input) return input;
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id: input }, { email: input.toLowerCase() }],
+      },
+      select: { id: true },
+    });
+    return user ? user.id : input;
+  } catch {
+    return input;
+  }
+}
 
 export const listPendingPortfolios = async (
   req: Request,
@@ -36,7 +51,8 @@ export const getPortfolioDetail = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { userId } = req.params as { userId: string };
+    const { userId: rawId } = req.params as { userId: string };
+    const userId = await resolveUid(rawId);
 
     const summary = await portfolioVerificationService.getPortfolioSummary(userId);
     const report = await portfolioVerificationService.generateVerificationReport(userId);
@@ -62,7 +78,8 @@ export const verifyPortfolio = async (
       return;
     }
 
-    const { userId } = req.params as { userId: string };
+    const { userId: rawId } = req.params as { userId: string };
+    const userId = await resolveUid(rawId);
     const { verificationStatus, adminNotes } = req.body;
 
     const result = await portfolioVerificationService.updateVerificationStatus(
@@ -96,7 +113,8 @@ export const getPortfolioReport = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { userId } = req.params as { userId: string };
+    const { userId: rawId } = req.params as { userId: string };
+    const userId = await resolveUid(rawId);
 
     const report = await portfolioVerificationService.generateVerificationReport(userId);
 
@@ -112,7 +130,8 @@ export const getUserDocuments = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { userId } = req.params as { userId: string };
+    const { userId: rawId } = req.params as { userId: string };
+    const userId = await resolveUid(rawId);
 
     const documents = await financialDocumentService.getDocumentsByUserId(userId);
 

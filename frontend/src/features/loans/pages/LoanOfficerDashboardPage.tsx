@@ -1,7 +1,6 @@
 import { memo, useState } from "react";
 import LoansList from "@features/loans/components/LoansList";
 import PageHeader from "@shared/components/PageHeader";
-import Card from "@shared/components/Card";
 import CustomSelectField from "@components/common/SelectField";
 
 import Breadcrumb from "@components/seo/Breadcrumb";

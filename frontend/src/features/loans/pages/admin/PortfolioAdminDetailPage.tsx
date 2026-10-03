@@ -82,27 +82,25 @@ const PortfolioAdminDetailPage = () => {
         {ver ? (
           <div className="mt-4 flex items-center gap-3">
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                ver.verificationStatus === "VERIFIED"
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${ver.verificationStatus === "VERIFIED"
                   ? "bg-green-100 text-green-800"
                   : ver.verificationStatus === "REJECTED"
                     ? "bg-red-100 text-red-800"
                     : ver.verificationStatus === "PENDING_REVIEW"
                       ? "bg-yellow-100 text-yellow-800"
                       : "bg-blue-100 text-blue-800"
-              }`}
+                }`}
             >
               {ver.verificationStatus?.replace(/_/g, " ") || "PENDING"}
             </span>
             {ver.overallRiskScore != null ? (
               <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  ver.riskLevel === "LOW"
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${ver.riskLevel === "LOW"
                     ? "bg-green-100 text-green-800"
                     : ver.riskLevel === "HIGH"
                       ? "bg-red-100 text-red-800"
                       : "bg-yellow-100 text-yellow-800"
-                }`}
+                  }`}
               >
                 Risk: {ver.riskLevel} ({ver.overallRiskScore})
               </span>
@@ -139,9 +137,9 @@ const PortfolioAdminDetailPage = () => {
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">Calculated Metrics</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <AdminField label="Loan-to-Income Ratio" value={ver.loanToIncomeRatio != null ? `${ver.loanToIncomeRatio.toFixed(2)}%` : "N/A"} />
-            <AdminField label="EMI-to-Income Ratio" value={ver.emiToIncomeRatio != null ? `${ver.emiToIncomeRatio.toFixed(2)}%` : "N/A"} />
-            <AdminField label="Income per Dependent" value={ver.incomePerDependent != null ? `NPR ${ver.incomePerDependent.toFixed(2)}` : "N/A"} />
+            <AdminField label="Loan-to-Income Ratio" value={ver.loanToIncomeRatio != null ? `${Number(ver.loanToIncomeRatio).toFixed(2)}%` : "N/A"} />
+            <AdminField label="EMI-to-Income Ratio" value={ver.emiToIncomeRatio != null ? `${Number(ver.emiToIncomeRatio).toFixed(2)}%` : "N/A"} />
+            <AdminField label="Income per Dependent" value={ver.incomePerDependent != null ? `NPR ${Number(ver.incomePerDependent).toFixed(2)}` : "N/A"} />
             <AdminField label="Employment Stability" value={ver.employmentStabilityScore != null ? `${ver.employmentStabilityScore}/100` : "N/A"} />
             <AdminField label="Flags" value={ver.flagsCount?.toString()} />
           </div>
@@ -153,9 +151,8 @@ const PortfolioAdminDetailPage = () => {
                 {ver.flagDetails.map((flag, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
                     <span
-                      className={`h-2 w-2 rounded-full ${
-                        flag.severity === "HIGH" ? "bg-red-500" : flag.severity === "MEDIUM" ? "bg-yellow-500" : "bg-blue-500"
-                      }`}
+                      className={`h-2 w-2 rounded-full ${flag.severity === "HIGH" ? "bg-red-500" : flag.severity === "MEDIUM" ? "bg-yellow-500" : "bg-blue-500"
+                        }`}
                     />
                     <span className="font-medium">{flag.field}:</span> {flag.issue}
                   </li>
@@ -194,15 +191,14 @@ const PortfolioAdminDetailPage = () => {
                     ) : null}
                   </div>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      doc.verificationStatus === "VERIFIED"
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${doc.verificationStatus === "VERIFIED"
                         ? "bg-green-100 text-green-800"
                         : doc.verificationStatus === "REJECTED"
                           ? "bg-red-100 text-red-800"
                           : doc.verificationStatus === "FLAGGED"
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-blue-100 text-blue-800"
-                    }`}
+                      }`}
                   >
                     {doc.verificationStatus}
                   </span>
@@ -273,7 +269,7 @@ const PortfolioAdminDetailPage = () => {
             type="button"
             onClick={() => handleVerifyPortfolio("REJECTED")}
             disabled={verifyPortfolioMutation.isPending}
-            className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="rounded-xl bg-red px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
           >
             Reject Portfolio
           </button>

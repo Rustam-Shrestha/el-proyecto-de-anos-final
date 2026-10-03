@@ -51,7 +51,6 @@ function resolveForRole(roleName: string): string[] {
 
 export function requirePermission(requiredPerm: string) {
   return (req: Request, _res: Response, next: NextFunction): void => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const perms = (req as any).permissions || (req.user as any)?.permissions || [];
     if (!perms || perms.length === 0) {
       const derived = resolveForRole(req.user?.role || '');
@@ -65,7 +64,6 @@ export function requirePermission(requiredPerm: string) {
 
 export function requireAnyPermission(...perms: string[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const permissions = (req as any).permissions || (req.user as any)?.permissions || [];
     if (!permissions || permissions.length === 0) {
       const derived = resolveForRole(req.user?.role || '');

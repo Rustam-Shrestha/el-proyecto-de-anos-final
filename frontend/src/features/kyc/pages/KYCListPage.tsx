@@ -1,12 +1,11 @@
 import { memo, useState } from "react";
 import KYCList from "@features/kyc/components/KYCList";
 import PageHeader from "@shared/components/PageHeader";
-import Card from "@shared/components/Card";
 import CustomSelectField from "@components/common/SelectField";
 
 import Breadcrumb from "@components/seo/Breadcrumb";
 
-const statusOptions = ["ALL", "PENDING", "APPROVED", "REJECTED"] as const;
+const statusOptions = ["ALL", "PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED", "RESUBMIT_REQUIRED"] as const;
 type StatusOption = (typeof statusOptions)[number];
 
 const KYCListPage = () => {

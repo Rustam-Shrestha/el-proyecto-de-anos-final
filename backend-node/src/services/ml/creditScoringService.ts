@@ -18,7 +18,25 @@ export class CreditScoringService {
       cntFamMembers: number;
     },
   ) {
-    const cacheKey = `ml:${tenantId}:score:${JSON.stringify(loanData)}`;
+    let daysBirth = Number(loanData.daysBirth);
+    if (isNaN(daysBirth) || daysBirth > -6000) daysBirth = -12000;
+    if (daysBirth < -30000) daysBirth = -25000;
+
+    let daysEmployed = Number(loanData.daysEmployed);
+    if (isNaN(daysEmployed)) daysEmployed = 365243;
+    else if (daysEmployed !== 365243) {
+      if (daysEmployed > 0) daysEmployed = -daysEmployed;
+      if (daysEmployed < -20000) daysEmployed = -20000;
+      if (daysEmployed > 0) daysEmployed = 0;
+    }
+
+    const sanitizedLoanData = {
+      ...loanData,
+      daysBirth,
+      daysEmployed,
+    };
+
+    const cacheKey = `ml:${tenantId}:score:${JSON.stringify(sanitizedLoanData)}`;
     const cached = await cacheManager.get(cacheKey);
     if (cached) {
       try {
@@ -26,14 +44,14 @@ export class CreditScoringService {
       } catch { /* ignore */ }
     }
     const prediction = await inferenceClient.predict({
-      amt_income_total: loanData.amtIncomeTotal,
-      amt_credit: loanData.amtCredit,
-      amt_annuity: loanData.amtAnnuity,
-      amt_goods_price: loanData.amtGoodsPrice,
-      days_birth: loanData.daysBirth,
-      days_employed: loanData.daysEmployed,
-      cnt_children: loanData.cntChildren,
-      cnt_fam_members: loanData.cntFamMembers,
+      amt_income_total: sanitizedLoanData.amtIncomeTotal,
+      amt_credit: sanitizedLoanData.amtCredit,
+      amt_annuity: sanitizedLoanData.amtAnnuity,
+      amt_goods_price: sanitizedLoanData.amtGoodsPrice,
+      days_birth: sanitizedLoanData.daysBirth,
+      days_employed: sanitizedLoanData.daysEmployed,
+      cnt_children: sanitizedLoanData.cntChildren,
+      cnt_fam_members: sanitizedLoanData.cntFamMembers,
     });
     await cacheManager.set(cacheKey, JSON.stringify(prediction), 3600);
     return prediction;

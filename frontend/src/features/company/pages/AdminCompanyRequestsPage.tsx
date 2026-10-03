@@ -32,7 +32,7 @@ export default function AdminCompanyRequestsPage(){
               <div className="mt-3 flex gap-2">
                 <Button size="sm" onClick={async()=>{ await companyApi.approve(r.id); load(); }}>Approve (verify PAN)</Button>
                 <input placeholder="Rejection reason" value={reason[r.id]||""} onChange={e=> setReason({...reason,[r.id]:e.target.value})} className="flex-1 rounded border px-2 py-1 text-sm" />
-                <Button size="sm" variant="secondary" onClick={async()=>{ if(!reason[r.id]) return alert("Provide reason"); await companyApi.reject(r.id, reason[r.id]); load(); }}>Reject</Button>
+                <Button size="sm" variant="secondary" onClick={async()=>{ if(!reason[r.id]) return window.alert("Provide reason"); await companyApi.reject(r.id, reason[r.id]); load(); }}>Reject</Button>
               </div>
             )}
           </div>

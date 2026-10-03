@@ -48,6 +48,31 @@ export const loanKeys = {
   prediction: (userId: string) => ["loans", "prediction", userId] as const,
 };
 
+const normalizeLoan = (raw: any): LoanApplication => {
+  if (!raw) return raw;
+  const amount = Number(raw.amount ?? raw.requestedAmount ?? 0);
+  const termMonths = Number(raw.termMonths ?? raw.tenureMonths ?? 0);
+  const monthlyPayment = Number(raw.monthlyPayment ?? raw.calculatedEmi ?? raw.calculatedEMI ?? 0);
+  const totalRepayment = Number(raw.totalRepayment ?? (monthlyPayment && termMonths ? monthlyPayment * termMonths : 0));
+  const appliedAt = raw.appliedAt ?? raw.createdAt ?? raw.submittedAt ?? new Date().toISOString();
+  return {
+    ...raw,
+    amount,
+    termMonths,
+    monthlyPayment,
+    totalRepayment,
+    appliedAt,
+    userId: raw.user?.email || raw.user?.id || raw.userId,
+    applicantEmail: raw.user?.email || raw.applicantEmail,
+    riskLevel: raw.riskLevel,
+    riskScore: raw.riskScore,
+    creditScore: raw.creditScore,
+    defaultProbability: raw.defaultProbability,
+    mlDecision: raw.mlDecision,
+    shapValues: raw.shapValues,
+  };
+};
+
 export const useLoansList = (page: number, limit: number, status?: string) => {
   return useQuery({
     queryKey: loanKeys.list(page, limit, status),
@@ -64,12 +89,15 @@ export const useLoansList = (page: number, limit: number, status?: string) => {
       );
 
       if ("loans" in data) {
-        return data;
+        return {
+          loans: (data.loans || []).map(normalizeLoan),
+          total: data.total,
+        };
       }
 
       return {
-        loans: data.data,
-        total: data.meta.total,
+        loans: ((data as any).data || []).map(normalizeLoan),
+        total: (data as any).meta?.total ?? 0,
       };
     },
     staleTime: 5 * 60 * 1000,
@@ -85,9 +113,9 @@ export const useGetLoan = (id: string) => {
 
       const { data } = await apiClient.get<LoanDetailApiResponse>(`/loan/${id}`);
       if ("success" in data) {
-        return data.data;
+        return normalizeLoan((data as any).data);
       }
-      return data;
+      return normalizeLoan(data);
     },
     enabled: Boolean(id),
     staleTime: 5 * 60 * 1000,

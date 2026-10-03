@@ -100,7 +100,7 @@ export const router = createBrowserRouter([
           {
             path: "loans",
             element: (
-              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer", "superadmin"]}>
                 <LoanOfficerDashboardPage />
               </RoleProtectedRoute>
             )
@@ -132,7 +132,7 @@ export const router = createBrowserRouter([
           {
             path: "portfolio",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer", "superadmin"]}>
                 <PortfolioPage />
               </RoleProtectedRoute>
             )
@@ -140,7 +140,7 @@ export const router = createBrowserRouter([
           {
             path: "portfolio/admin",
             element: (
-              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer", "superadmin"]}>
                 <PortfolioAdminListPage />
               </RoleProtectedRoute>
             )
@@ -148,7 +148,7 @@ export const router = createBrowserRouter([
           {
             path: "portfolio/admin/:userId",
             element: (
-              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer", "superadmin"]}>
                 <PortfolioAdminDetailPage />
               </RoleProtectedRoute>
             )
@@ -201,6 +201,54 @@ export const router = createBrowserRouter([
       { path: "/register", element: <RegisterPage /> },
       { path: "/forgot-password", element: <ForgotPasswordPage /> },
       { path: "/reset-password", element: <ResetPasswordPage /> },
+      {
+        path: "/portfolio/admin/:userId",
+        element: (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer", "superadmin"]}>
+                <PortfolioAdminDetailPage />
+              </RoleProtectedRoute>
+            </DashboardLayout>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/portfolio/admin",
+        element: (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer", "superadmin"]}>
+                <PortfolioAdminListPage />
+              </RoleProtectedRoute>
+            </DashboardLayout>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/portfolio",
+        element: (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer", "superadmin"]}>
+                <PortfolioPage />
+              </RoleProtectedRoute>
+            </DashboardLayout>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/loans",
+        element: (
+          <ProtectedRoute>
+            <DashboardLayout>
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer", "superadmin"]}>
+                <LoanOfficerDashboardPage />
+              </RoleProtectedRoute>
+            </DashboardLayout>
+          </ProtectedRoute>
+        ),
+      },
       // Multi-tenant compat routes (MD Part 12). Static routes rank above
       // these dynamic segments, so /login, /apply, etc. are unaffected.
       { path: "/:slug/login", element: <SlugLoginPage /> },

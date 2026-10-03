@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as PrismaPkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { env } from '@/config/env';

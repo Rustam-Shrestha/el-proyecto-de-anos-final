@@ -46,24 +46,27 @@ async def lifespan(app: FastAPI):
         from app.config import settings
         from app.services.finguard.predictor import init_predictor
         from pathlib import Path
-        mp = Path(settings.ML_MODEL_PATH)
-        # resolve relative to project root if needed
-        if not mp.is_absolute():
-            # main.py is at backend-fastapi/main.py
-            base = Path(__file__).parent
-            mp = (base / settings.ML_MODEL_PATH).resolve()
-            pp = (base / settings.ML_PREPROCESSING_PATH).resolve()
-            man = (base / settings.ML_MANIFEST_PATH).resolve()
-            sch = (base / settings.ML_SCHEMA_PATH).resolve()
-        else:
-            pp = Path(settings.ML_PREPROCESSING_PATH)
-            man = Path(settings.ML_MANIFEST_PATH)
-            sch = Path(settings.ML_SCHEMA_PATH)
-        if mp.exists() and pp.exists() and man.exists():
-            predictor = init_predictor(str(mp), str(man), str(pp), schema_path=str(sch))
+        base = Path(__file__).parent
+        candidate_dirs = [
+            Path(settings.ML_MODEL_PATH).parent if Path(settings.ML_MODEL_PATH).is_absolute() else (base / settings.ML_MODEL_PATH).parent.resolve(),
+            (base.parent / "finguard_model_v1.3.0" / "finguard_artifacts").resolve(),
+            (base.parent / "finguard_artifacts").resolve(),
+            (base / "finguard_artifacts").resolve(),
+        ]
+        chosen_dir = None
+        for cd in candidate_dirs:
+            if (cd / "model.pkl").exists() and (cd / "model_manifest.json").exists() and (cd / "preprocessing.json").exists():
+                chosen_dir = cd
+                break
+
+        if chosen_dir:
+            mp = chosen_dir / "model.pkl"
+            man = chosen_dir / "model_manifest.json"
+            pp = chosen_dir / "preprocessing.json"
+            sch = chosen_dir / "feature-schema.json"
+            predictor = init_predictor(str(mp), str(man), str(pp), schema_path=str(sch) if sch.exists() else None)
             _models_ready["finguard"] = True
-            logger.info(f"FinGuard model loaded: {mp}")
-            # Warm-start: pay JIT/native cold-start now, not on the first request.
+            logger.info(f"FinGuard model loaded from {chosen_dir}")
             try:
                 predictor.warmup()
                 _models_ready["finguard_warm"] = True
@@ -73,7 +76,7 @@ async def lifespan(app: FastAPI):
                 logger.warning(f"FinGuard warmup skipped: {e}")
         else:
             _models_ready["finguard"] = False
-            logger.warning(f"FinGuard artifacts missing: {mp} {pp} {man}")
+            logger.warning("FinGuard artifacts missing in candidate paths")
     except Exception as e:
         _models_ready["finguard"] = False
         logger.warning(f"FinGuard init failed: {e}")

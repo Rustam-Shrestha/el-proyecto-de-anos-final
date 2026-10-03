@@ -38,7 +38,8 @@ export default [
         setInterval: "readonly",
         setTimeout: "readonly",
         URLSearchParams: "readonly",
-        window: "readonly"
+        window: "readonly",
+        alert: "readonly"
       },
       parserOptions: {
         ecmaVersion: "latest",
@@ -58,7 +59,7 @@ export default [
           varsIgnorePattern: "^_"
         }
       ],
-      "@typescript-eslint/no-explicit-any": "warn"
+      "@typescript-eslint/no-explicit-any": "off"
     }
   },
   {

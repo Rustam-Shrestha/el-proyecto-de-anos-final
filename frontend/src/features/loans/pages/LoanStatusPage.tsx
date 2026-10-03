@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLoansList } from "@features/loans/api/loansApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { apiErrorMessage } from "@shared/utils/apiError";
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
 
 
 const statusBadgeClasses: Record<string, string> = {
@@ -217,17 +219,11 @@ const LoanStatusPage = () => {
 };
 
 const HeaderShell = () => (
-  <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
-    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
-      Loan Applications
-    </p>
-    <h1 className="mt-2 text-3xl font-semibold text-gray-900 ">
-      Your Loan Applications
-    </h1>
-    <p className="mt-2 text-sm text-gray-500 ">
-      Track the status of your submitted loan applications.
-    </p>
-  </div>
+  <PageHeader
+    breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "My Loans" }]} />}
+    title="Loan Applications"
+    description="Track the status of your submitted loan applications."
+  />
 );
 
 LoanStatusPage.displayName = "LoanStatusPage";

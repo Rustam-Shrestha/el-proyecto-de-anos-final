@@ -404,7 +404,18 @@ export function normalizeFinguardInput(payload: FinguardPayload): Record<string,
 
     if (DAYS_KEYS.has(key)) {
       // Accept positive magnitudes and normalise to the negative-day convention.
-      if (value > 0 && value < 20000) value = -value;
+      if (key === 'days_birth') {
+        if (value > 0) value = -value;
+        if (value > -6000) value = -12000;
+        if (value < -30000) value = -25000;
+      }
+      if (key === 'days_employed') {
+        if (value !== 365243) {
+          if (value > 0) value = -value;
+          if (value < -20000) value = -20000;
+          if (value > 0) value = 0;
+        }
+      }
       value = Math.trunc(value);
     } else {
       value = round(value, 2);
@@ -584,13 +595,25 @@ export const finguardProxyService = {
   async evaluate(input: FinguardInput): Promise<FinguardResult | null> {
     const url = `${baseUrl()}/api/v1/finguard/predict`;
     try {
+      let daysBirth = Number(input.days_birth);
+      if (isNaN(daysBirth) || daysBirth > -6000) daysBirth = -12000;
+      if (daysBirth < -30000) daysBirth = -25000;
+
+      let daysEmployed = Number(input.days_employed);
+      if (isNaN(daysEmployed)) daysEmployed = 365243;
+      else if (daysEmployed !== 365243) {
+        if (daysEmployed > 0) daysEmployed = -daysEmployed;
+        if (daysEmployed < -20000) daysEmployed = -20000;
+        if (daysEmployed > 0) daysEmployed = 0;
+      }
+
       const { data } = await axios.post<FinguardResult>(url, {
         amt_income_total: input.amt_income_total,
         amt_credit: input.amt_credit,
         amt_annuity: input.amt_annuity ?? 0,
         amt_goods_price: input.amt_goods_price ?? 0,
-        days_birth: input.days_birth,
-        days_employed: input.days_employed,
+        days_birth: daysBirth,
+        days_employed: daysEmployed,
         cnt_children: input.cnt_children ?? 0,
         cnt_fam_members: input.cnt_fam_members ?? 1,
         occupation_type: input.occupation_type,
