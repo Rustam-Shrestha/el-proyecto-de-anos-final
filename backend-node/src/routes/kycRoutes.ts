@@ -212,12 +212,12 @@ kycRouter.get('/status/:kycId', authenticate, async (req: Request, res: Response
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden - Admin/Reviewer access required
+ *         description: Forbidden - Super Admin access required
  */
 kycRouter.get(
   '/',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(listKycApplicationsSchema),
   listKycApplications
 );
@@ -250,7 +250,7 @@ kycRouter.get(
 kycRouter.get(
   '/:id',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(getKycByIdSchema),
   getKycById
 );
@@ -285,7 +285,7 @@ kycRouter.get(
 kycRouter.patch(
   '/:id/approve',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(approveKycSchema),
   approveKyc
 );
@@ -331,7 +331,7 @@ kycRouter.patch(
 kycRouter.patch(
   '/:id/reject',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(rejectKycSchema),
   rejectKyc
 );
@@ -377,7 +377,8 @@ kycRouter.patch(
 kycRouter.patch(
   '/:id/request-resubmit',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: document review cycle is superadmin-only, global across tenants.
+  authorize('SUPERADMIN'),
   validate(requestResubmitSchema),
   requestKycResubmit
 );
@@ -386,7 +387,8 @@ kycRouter.patch(
 kycRouter.get(
   '/:kycId/documents',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: PAN / Aadhaar / selfie review is superadmin-only.
+  authorize('SUPERADMIN'),
   validate(getKycDocumentsSchema),
   getKycDocuments
 );
@@ -600,7 +602,12 @@ kycRouter.post('/submit-confirmed', authenticate, async (req: Request, res: Resp
       return res.status(400).json(apiResponse.error('kycApplicationId and confirmedData are required', 400));
     }
 
-    const kyc = await kycService.submitKycWithConfirmedData(kycApplicationId, confirmedData);
+    const kyc = await kycService.submitKycWithConfirmedData(
+      kycApplicationId,
+      confirmedData,
+      (req as unknown as { tenantId?: number }).tenantId
+        ?? (req.user as unknown as { tenantId?: number })?.tenantId,
+    );
 
     await kycVerificationService.generateVerificationReport(kycApplicationId);
 

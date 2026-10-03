@@ -415,8 +415,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
             </div>
           ) : (
             <p className="text-sm text-gray-500">
-              We are extracting data from your documents using OCR and verifying your face match.
-              This may take a few seconds...
+              We are verifying your face against the submitted ID documents. This may take a few seconds...
             </p>
           )}
           <p className="text-xs text-gray-400">Attempt {pollingAttempts}/{MAX_POLLING_ATTEMPTS}</p>
@@ -481,7 +480,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               {ocrData?.ocrFullName ? (
-                <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrFullName}</p>
+                <p className="mt-1 text-xs text-gray-400">From your submitted data: {ocrData.ocrFullName}</p>
               ) : null}
             </div>
 
@@ -494,7 +493,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               {ocrData?.ocrCitizenshipNumber ? (
-                <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrCitizenshipNumber}</p>
+                <p className="mt-1 text-xs text-gray-400">From your submitted data: {ocrData.ocrCitizenshipNumber}</p>
               ) : null}
             </div>
 
@@ -506,7 +505,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 onChange={(val: string) => handleFieldChange("confirmedDateOfBirth", val)}
               />
               {ocrData?.ocrDateOfBirth ? (
-                <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrDateOfBirth}</p>
+                <p className="mt-1 text-xs text-gray-400">From your submitted data: {ocrData.ocrDateOfBirth}</p>
               ) : null}
             </div>
 
@@ -519,7 +518,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               {ocrData?.ocrGender ? (
-                <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrGender}</p>
+                <p className="mt-1 text-xs text-gray-400">From your submitted data: {ocrData.ocrGender}</p>
               ) : null}
             </div>
 
@@ -532,7 +531,7 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               {ocrData?.ocrAddress ? (
-                <p className="mt-1 text-xs text-gray-400">OCR detected: {ocrData.ocrAddress}</p>
+                <p className="mt-1 text-xs text-gray-400">From your submitted data: {ocrData.ocrAddress}</p>
               ) : null}
             </div>
 

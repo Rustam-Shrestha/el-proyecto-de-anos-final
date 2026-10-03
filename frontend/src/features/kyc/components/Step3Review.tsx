@@ -48,8 +48,9 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
       });
       toast("Data saved successfully", "success");
       onComplete(form);
-    } catch {
-      toast("Failed to save data. Please try again.", "error");
+    } catch (error) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      toast(apiError.response?.data?.message || "Failed to save data. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -59,25 +60,42 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
     <div>
       <h2 className="text-lg font-semibold mb-4">Step 3: Review & Confirm Data</h2>
       <p className="text-sm text-gray-600 mb-4">
-        Please review the extracted data and correct any errors. Your confirmed data is the source of truth.
+        Please review your submitted details and correct any errors before continuing. Your entered values are the source of truth.
       </p>
 
       <div className="space-y-4 mb-6">
         {FIELDS.map(({ key, label, ocrKey }) => (
           <div key={key}>
-            <label className="block text-sm font-medium mb-1">{label}</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">{label}</label>
             <div className="flex gap-2 items-start">
-              <input
-                type="text"
-                value={form[key] || ""}
-                onChange={(e) => handleChange(key, e.target.value)}
-                className={`w-full border rounded p-2 ${ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] ? "border-amber-400 bg-amber-50" : ""}`}
-                placeholder={`OCR: ${ocrData?.[ocrKey] || "not detected"}`}
-              />
+              {key === "confirmedGender" ? (
+                <select
+                  value={form[key] || ""}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  className={`w-full border rounded-lg p-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 ${
+                    ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] ? "border-amber-400 bg-amber-50/40" : "border-gray-200"
+                  }`}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              ) : (
+                <input
+                  type={key === "confirmedDateOfBirth" ? "date" : "text"}
+                  value={form[key] || ""}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 ${
+                    ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] ? "border-amber-400 bg-amber-50/40" : "border-gray-200"
+                  }`}
+                  placeholder={`OCR: ${ocrData?.[ocrKey] || "not detected"}`}
+                />
+              )}
               {ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] && (
                 <button
                   type="button"
-                  className="text-blue-500 text-xs underline mt-2 shrink-0"
+                  className="text-xs text-blue-600 underline mt-2.5 shrink-0 hover:text-blue-800"
                   onClick={() => handleChange(key, ocrData[ocrKey])}
                 >
                   Reset
@@ -85,7 +103,7 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
               )}
             </div>
             {ocrData?.[ocrKey] && (
-              <p className="text-xs text-gray-400 mt-1">OCR detected: {ocrData[ocrKey]}</p>
+              <p className="text-xs text-gray-400 mt-1">Submitted OCR value: {ocrData[ocrKey]}</p>
             )}
           </div>
         ))}

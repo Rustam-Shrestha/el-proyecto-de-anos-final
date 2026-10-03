@@ -10,7 +10,7 @@
  */
 import React, { memo } from "react";
 import { useNavigate } from "react-router-dom";
-import { DownArrow } from "../../../assets/data/icons";
+import { ChevronDown } from "lucide-react";
 import useAuth from "../../../hooks/useAuth";
 import useUI from "../../../hooks/useUI";
 
@@ -69,8 +69,8 @@ const MobileNav = ({
             >
               <span>{item.label}</span>
               {item.hasDropdown && !item.isDisable && (
-                <DownArrow
-                  className={`transition-transform duration-200 ${
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform duration-200 ${
                     openDropdown === item.label ? "rotate-180" : "rotate-0"
                   }`}
                 />

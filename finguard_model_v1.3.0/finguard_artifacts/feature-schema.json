@@ -1,0 +1,986 @@
+{
+  "version": "1.3.0",
+  "total_features": 243,
+  "features": [
+    {
+      "name": "CNT_CHILDREN",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_INCOME_TOTAL",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_CREDIT",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_ANNUITY",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_GOODS_PRICE",
+      "type": "float32"
+    },
+    {
+      "name": "REGION_POPULATION_RELATIVE",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_BIRTH",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_EMPLOYED",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_REGISTRATION",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_ID_PUBLISH",
+      "type": "float32"
+    },
+    {
+      "name": "OWN_CAR_AGE",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_MOBIL",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_EMP_PHONE",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_WORK_PHONE",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_CONT_MOBILE",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_PHONE",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_EMAIL",
+      "type": "float32"
+    },
+    {
+      "name": "CNT_FAM_MEMBERS",
+      "type": "float32"
+    },
+    {
+      "name": "REGION_RATING_CLIENT",
+      "type": "float32"
+    },
+    {
+      "name": "REGION_RATING_CLIENT_W_CITY",
+      "type": "float32"
+    },
+    {
+      "name": "HOUR_APPR_PROCESS_START",
+      "type": "float32"
+    },
+    {
+      "name": "REG_REGION_NOT_LIVE_REGION",
+      "type": "float32"
+    },
+    {
+      "name": "REG_REGION_NOT_WORK_REGION",
+      "type": "float32"
+    },
+    {
+      "name": "LIVE_REGION_NOT_WORK_REGION",
+      "type": "float32"
+    },
+    {
+      "name": "REG_CITY_NOT_LIVE_CITY",
+      "type": "float32"
+    },
+    {
+      "name": "REG_CITY_NOT_WORK_CITY",
+      "type": "float32"
+    },
+    {
+      "name": "LIVE_CITY_NOT_WORK_CITY",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_1",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_2",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_3",
+      "type": "float32"
+    },
+    {
+      "name": "APARTMENTS_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "BASEMENTAREA_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BEGINEXPLUATATION_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BUILD_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "COMMONAREA_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "ELEVATORS_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "ENTRANCES_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMAX_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMIN_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "LANDAREA_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAPARTMENTS_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAREA_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAPARTMENTS_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAREA_AVG",
+      "type": "float32"
+    },
+    {
+      "name": "APARTMENTS_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "BASEMENTAREA_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BEGINEXPLUATATION_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BUILD_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "COMMONAREA_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "ELEVATORS_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "ENTRANCES_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMAX_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMIN_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "LANDAREA_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAPARTMENTS_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAREA_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAPARTMENTS_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAREA_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "APARTMENTS_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "BASEMENTAREA_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BEGINEXPLUATATION_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BUILD_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "COMMONAREA_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "ELEVATORS_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "ENTRANCES_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMAX_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMIN_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "LANDAREA_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAPARTMENTS_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAREA_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAPARTMENTS_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAREA_MEDI",
+      "type": "float32"
+    },
+    {
+      "name": "TOTALAREA_MODE",
+      "type": "float32"
+    },
+    {
+      "name": "OBS_30_CNT_SOCIAL_CIRCLE",
+      "type": "float32"
+    },
+    {
+      "name": "DEF_30_CNT_SOCIAL_CIRCLE",
+      "type": "float32"
+    },
+    {
+      "name": "OBS_60_CNT_SOCIAL_CIRCLE",
+      "type": "float32"
+    },
+    {
+      "name": "DEF_60_CNT_SOCIAL_CIRCLE",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_LAST_PHONE_CHANGE",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_2",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_3",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_4",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_5",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_6",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_7",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_8",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_9",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_10",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_11",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_12",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_13",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_14",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_15",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_16",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_17",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_18",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_19",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_20",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_DOCUMENT_21",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_HOUR",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_DAY",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_WEEK",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_MON",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_QRT",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_YEAR",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_EMPLOYED_ANOM",
+      "type": "float32"
+    },
+    {
+      "name": "AGE_YEARS",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_EMPLOYED",
+      "type": "float32"
+    },
+    {
+      "name": "CREDIT_INCOME_RATIO",
+      "type": "float32"
+    },
+    {
+      "name": "ANNUITY_INCOME_RATIO",
+      "type": "float32"
+    },
+    {
+      "name": "GOODS_CREDIT_RATIO",
+      "type": "float32"
+    },
+    {
+      "name": "EMPLOYED_BIRTH_RATIO",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_EMPLOYED_PERCENT",
+      "type": "float32"
+    },
+    {
+      "name": "INCOME_PER_FAMILY",
+      "type": "float32"
+    },
+    {
+      "name": "CHILDREN_RATIO",
+      "type": "float32"
+    },
+    {
+      "name": "CAR_AGE_RATIO",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_MEAN",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_STD",
+      "type": "float32"
+    },
+    {
+      "name": "DOCUMENT_COUNT",
+      "type": "float32"
+    },
+    {
+      "name": "CONTACT_FLAG_SUM",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_EMPLOYED_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "OWN_CAR_AGE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_1_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_3_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "APARTMENTS_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "BASEMENTAREA_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BEGINEXPLUATATION_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BUILD_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "COMMONAREA_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "ELEVATORS_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "ENTRANCES_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMAX_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMIN_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LANDAREA_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAPARTMENTS_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAREA_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAPARTMENTS_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAREA_AVG_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "APARTMENTS_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "BASEMENTAREA_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BEGINEXPLUATATION_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BUILD_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "COMMONAREA_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "ELEVATORS_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "ENTRANCES_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMAX_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMIN_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LANDAREA_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAPARTMENTS_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAREA_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAPARTMENTS_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAREA_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "APARTMENTS_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "BASEMENTAREA_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BEGINEXPLUATATION_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_BUILD_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "COMMONAREA_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "ELEVATORS_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "ENTRANCES_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMAX_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "FLOORSMIN_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LANDAREA_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAPARTMENTS_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "LIVINGAREA_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAPARTMENTS_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "NONLIVINGAREA_MEDI_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "TOTALAREA_MODE_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_HOUR_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_DAY_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_WEEK_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_MON_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_QRT_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "AMT_REQ_CREDIT_BUREAU_YEAR_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "YEARS_EMPLOYED_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "EMPLOYED_BIRTH_RATIO_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "DAYS_EMPLOYED_PERCENT_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "CAR_AGE_RATIO_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "EXT_SOURCE_STD_ISNULL",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_CONTRACT_TYPE_Cash loans",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_CONTRACT_TYPE_Revolving loans",
+      "type": "float32"
+    },
+    {
+      "name": "CODE_GENDER_F",
+      "type": "float32"
+    },
+    {
+      "name": "CODE_GENDER_M",
+      "type": "float32"
+    },
+    {
+      "name": "CODE_GENDER_XNA",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_OWN_CAR_N",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_OWN_CAR_Y",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_OWN_REALTY_N",
+      "type": "float32"
+    },
+    {
+      "name": "FLAG_OWN_REALTY_Y",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_TYPE_SUITE_Children",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_TYPE_SUITE_Family",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_TYPE_SUITE_Group of people",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_TYPE_SUITE_Other_A",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_TYPE_SUITE_Other_B",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_TYPE_SUITE_Spouse, partner",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_TYPE_SUITE_Unaccompanied",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_Businessman",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_Commercial associate",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_Maternity leave",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_Pensioner",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_State servant",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_Student",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_Unemployed",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_INCOME_TYPE_Working",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_EDUCATION_TYPE_Academic degree",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_EDUCATION_TYPE_Higher education",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_EDUCATION_TYPE_Incomplete higher",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_EDUCATION_TYPE_Lower secondary",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_EDUCATION_TYPE_Secondary / secondary special",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_FAMILY_STATUS_Civil marriage",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_FAMILY_STATUS_Married",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_FAMILY_STATUS_Separated",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_FAMILY_STATUS_Single / not married",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_FAMILY_STATUS_Unknown",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_FAMILY_STATUS_Widow",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_HOUSING_TYPE_Co-op apartment",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_HOUSING_TYPE_House / apartment",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_HOUSING_TYPE_Municipal apartment",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_HOUSING_TYPE_Office apartment",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_HOUSING_TYPE_Rented apartment",
+      "type": "float32"
+    },
+    {
+      "name": "NAME_HOUSING_TYPE_With parents",
+      "type": "float32"
+    },
+    {
+      "name": "WEEKDAY_APPR_PROCESS_START_FRIDAY",
+      "type": "float32"
+    },
+    {
+      "name": "WEEKDAY_APPR_PROCESS_START_MONDAY",
+      "type": "float32"
+    },
+    {
+      "name": "WEEKDAY_APPR_PROCESS_START_SATURDAY",
+      "type": "float32"
+    },
+    {
+      "name": "WEEKDAY_APPR_PROCESS_START_SUNDAY",
+      "type": "float32"
+    },
+    {
+      "name": "WEEKDAY_APPR_PROCESS_START_THURSDAY",
+      "type": "float32"
+    },
+    {
+      "name": "WEEKDAY_APPR_PROCESS_START_TUESDAY",
+      "type": "float32"
+    },
+    {
+      "name": "WEEKDAY_APPR_PROCESS_START_WEDNESDAY",
+      "type": "float32"
+    },
+    {
+      "name": "FONDKAPREMONT_MODE_not specified",
+      "type": "float32"
+    },
+    {
+      "name": "FONDKAPREMONT_MODE_org spec account",
+      "type": "float32"
+    },
+    {
+      "name": "FONDKAPREMONT_MODE_reg oper account",
+      "type": "float32"
+    },
+    {
+      "name": "FONDKAPREMONT_MODE_reg oper spec account",
+      "type": "float32"
+    },
+    {
+      "name": "HOUSETYPE_MODE_block of flats",
+      "type": "float32"
+    },
+    {
+      "name": "HOUSETYPE_MODE_specific housing",
+      "type": "float32"
+    },
+    {
+      "name": "HOUSETYPE_MODE_terraced house",
+      "type": "float32"
+    },
+    {
+      "name": "WALLSMATERIAL_MODE_Block",
+      "type": "float32"
+    },
+    {
+      "name": "WALLSMATERIAL_MODE_Mixed",
+      "type": "float32"
+    },
+    {
+      "name": "WALLSMATERIAL_MODE_Monolithic",
+      "type": "float32"
+    },
+    {
+      "name": "WALLSMATERIAL_MODE_Others",
+      "type": "float32"
+    },
+    {
+      "name": "WALLSMATERIAL_MODE_Panel",
+      "type": "float32"
+    },
+    {
+      "name": "WALLSMATERIAL_MODE_Stone, brick",
+      "type": "float32"
+    },
+    {
+      "name": "WALLSMATERIAL_MODE_Wooden",
+      "type": "float32"
+    },
+    {
+      "name": "EMERGENCYSTATE_MODE_No",
+      "type": "float32"
+    },
+    {
+      "name": "EMERGENCYSTATE_MODE_Yes",
+      "type": "float32"
+    },
+    {
+      "name": "ORGANIZATION_TYPE_TE",
+      "type": "float32"
+    },
+    {
+      "name": "OCCUPATION_TYPE_TE",
+      "type": "float32"
+    }
+  ],
+  "categorical_mappings": {
+    "ORGANIZATION_TYPE": {
+      "encoding": "target_encoded_kfold"
+    },
+    "OCCUPATION_TYPE": {
+      "encoding": "target_encoded_kfold"
+    }
+  }
+}

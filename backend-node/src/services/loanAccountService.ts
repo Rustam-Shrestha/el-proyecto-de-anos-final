@@ -11,30 +11,69 @@ export interface LoanAccountInput {
   tenureMonths: number;
 }
 
+function resolveTid(tenantId?: number): number {
+  if (tenantId === undefined || tenantId === null) {
+    logger.warn("loanAccountService: tenantId not provided, falling back to 1");
+    return 1;
+  }
+  return tenantId;
+}
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
+
 export const loanAccountService = {
-  async recordActiveLoan(userId: string, data: LoanAccountInput) {
+  async recordActiveLoan(userId: string, data: LoanAccountInput, tenantId?: number) {
     try {
+      const tid = resolveTid(tenantId);
       const startDate = new Date();
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + data.tenureMonths);
 
-      const account = await prisma.loanAccount.create({
-        data: {
-          userId,
-          loanId: data.loanId ?? null,
-          principalAmount: new Prisma.Decimal(data.principalAmount),
-          outstandingBalance: new Prisma.Decimal(data.principalAmount),
-          monthlyEMI: new Prisma.Decimal(data.monthlyEMI),
-          startDate,
-          expectedEndDate: endDate,
-          isActive: true,
-          status: 'ACTIVE',
-        },
-      });
+      let account: Awaited<ReturnType<typeof prisma.loanAccount.create>>;
+      try {
+        account = await prisma.loanAccount.create({
+          data: {
+            tenantId: tid,
+            userId,
+            loanId: data.loanId ?? null,
+            principalAmount: new Prisma.Decimal(data.principalAmount),
+            outstandingBalance: new Prisma.Decimal(data.principalAmount),
+            monthlyEMI: new Prisma.Decimal(data.monthlyEMI),
+            startDate,
+            expectedEndDate: endDate,
+            isActive: true,
+            status: 'ACTIVE',
+          },
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          account = await prisma.loanAccount.create({
+            data: {
+              userId,
+              loanId: data.loanId ?? null,
+              principalAmount: new Prisma.Decimal(data.principalAmount),
+              outstandingBalance: new Prisma.Decimal(data.principalAmount),
+              monthlyEMI: new Prisma.Decimal(data.monthlyEMI),
+              startDate,
+              expectedEndDate: endDate,
+              isActive: true,
+              status: 'ACTIVE',
+            },
+          });
+        } else throw e;
+      }
 
-      await prisma.employmentInfo.findUnique({ where: { userId } });
+      try {
+        await prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } });
+      } catch (e) {
+        if (!isTenantSchemaError(e)) throw e;
+        await prisma.employmentInfo.findUnique({ where: { userId } });
+      }
 
-      logger.info({ userId, accountId: account.id, amount: data.principalAmount }, 'Active loan recorded');
+      logger.info({ userId, tenantId: tid, accountId: account.id, amount: data.principalAmount }, 'Active loan recorded');
 
       return account;
     } catch (error) {
@@ -44,11 +83,12 @@ export const loanAccountService = {
     }
   },
 
-  async updateLoanBalance(loanAccountId: string, newBalance: number) {
+  async updateLoanBalance(loanAccountId: string, newBalance: number, tenantId?: number) {
     try {
-      const account = await prisma.loanAccount.findUnique({
-        where: { id: loanAccountId },
-      });
+      const tid = tenantId !== undefined ? tenantId : undefined;
+      let account: Awaited<ReturnType<typeof prisma.loanAccount.findFirst>>;
+      if (tid !== undefined) account = await prisma.loanAccount.findFirst({ where: { id: loanAccountId, tenantId: tid } });
+      else account = await prisma.loanAccount.findUnique({ where: { id: loanAccountId } }) as never;
 
       if (!account) {
         throw new AppError('Loan account not found', 404);
@@ -61,7 +101,7 @@ export const loanAccountService = {
         },
       });
 
-      logger.info({ loanAccountId, newBalance }, 'Loan balance updated');
+      logger.info({ loanAccountId, tenantId: tid, newBalance }, 'Loan balance updated');
 
       return updated;
     } catch (error) {
@@ -71,11 +111,12 @@ export const loanAccountService = {
     }
   },
 
-  async markLoanClosed(loanAccountId: string) {
+  async markLoanClosed(loanAccountId: string, tenantId?: number) {
     try {
-      const account = await prisma.loanAccount.findUnique({
-        where: { id: loanAccountId },
-      });
+      const tid = tenantId !== undefined ? tenantId : undefined;
+      let account: Awaited<ReturnType<typeof prisma.loanAccount.findFirst>>;
+      if (tid !== undefined) account = await prisma.loanAccount.findFirst({ where: { id: loanAccountId, tenantId: tid } });
+      else account = await prisma.loanAccount.findUnique({ where: { id: loanAccountId } }) as never;
 
       if (!account) {
         throw new AppError('Loan account not found', 404);
@@ -91,7 +132,7 @@ export const loanAccountService = {
         },
       });
 
-      logger.info({ loanAccountId }, 'Loan account marked as closed');
+      logger.info({ loanAccountId, tenantId: tid }, 'Loan account marked as closed');
 
       return updated;
     } catch (error) {
@@ -101,11 +142,16 @@ export const loanAccountService = {
     }
   },
 
-  async getActiveLoansSummary(userId: string) {
+  async getActiveLoansSummary(userId: string, tenantId?: number) {
     try {
-      const accounts = await prisma.loanAccount.findMany({
-        where: { userId, isActive: true },
-      });
+      const tid = resolveTid(tenantId);
+      let accounts: Awaited<ReturnType<typeof prisma.loanAccount.findMany>>;
+      try {
+        accounts = await prisma.loanAccount.findMany({ where: { userId, tenantId: tid, isActive: true } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) accounts = await prisma.loanAccount.findMany({ where: { userId, isActive: true } });
+        else throw e;
+      }
 
       const totalPrincipal = accounts.reduce((sum, a) => sum + a.principalAmount.toNumber(), 0);
       const totalOutstanding = accounts.reduce((sum, a) => sum + a.outstandingBalance.toNumber(), 0);
@@ -133,12 +179,16 @@ export const loanAccountService = {
     }
   },
 
-  async getLoanHistory(userId: string) {
+  async getLoanHistory(userId: string, tenantId?: number) {
     try {
-      const accounts = await prisma.loanAccount.findMany({
-        where: { userId },
-        orderBy: { startDate: 'desc' },
-      });
+      const tid = resolveTid(tenantId);
+      let accounts: Awaited<ReturnType<typeof prisma.loanAccount.findMany>>;
+      try {
+        accounts = await prisma.loanAccount.findMany({ where: { userId, tenantId: tid }, orderBy: { startDate: 'desc' } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) accounts = await prisma.loanAccount.findMany({ where: { userId }, orderBy: { startDate: 'desc' } });
+        else throw e;
+      }
 
       return accounts.map((a) => ({
         id: a.id,

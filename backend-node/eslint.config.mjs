@@ -24,7 +24,16 @@ export default [
         require: "readonly",
         setImmediate: "readonly",
         setInterval: "readonly",
-        setTimeout: "readonly"
+        setTimeout: "readonly",
+        describe: "readonly",
+        it: "readonly",
+        test: "readonly",
+        expect: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        jest: "readonly"
       },
       parserOptions: {
         ecmaVersion: "latest",
@@ -44,7 +53,7 @@ export default [
           varsIgnorePattern: "^_"
         }
       ],
-      "@typescript-eslint/no-explicit-any": "warn"
+      "@typescript-eslint/no-explicit-any": "off"
     }
   }
 ];

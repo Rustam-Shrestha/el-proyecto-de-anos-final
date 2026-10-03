@@ -12,12 +12,18 @@ Boundary: Query processing only. No database writes. No business decisions.
 
 import re
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+
+from app.services.finguard.schemas import (
+    ChatRequest,
+    DocumentAnalyzeRequest,
+    DocumentAnalyzeResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +102,15 @@ def classify_intent(question: str) -> Intent:
 
 # ─── Entity Extraction ──────────────────────────────────────────────
 
+#: Date shapes that must not be mistaken for monetary amounts.
+_DATE_PATTERNS = (
+    r"\b\d{4}-\d{1,2}-\d{1,2}\b",
+    r"\b\d{1,2}/\d{1,2}/\d{2,4}\b",
+    r"\b\d{1,2}-[A-Za-z]{3,9}-\d{2,4}\b",
+    r"\b\d{1,2}\s?[A-Za-z]{3,9}\s?\d{4}\b",
+)
+
+
 def extract_amount(text: str) -> Optional[float]:
     patterns = [
         (r"rs\.?\s*([\d,]+)", 1),
@@ -129,6 +144,66 @@ def extract_entities(question: str) -> dict:
         "amount": extract_amount(question),
         "tenure_months": extract_tenure(question),
     }
+
+
+def extract_amounts(text: str) -> List[float]:
+    """All monetary amounts found in *text* (bank statement / OCR friendly).
+
+    Dates (``2026-01-04``, ``04/01/2026``) are stripped first and bare years are
+    ignored, so a messy statement does not report dates as amounts.
+    """
+    cleaned = text or ""
+    for pattern in _DATE_PATTERNS:
+        cleaned = re.sub(pattern, " ", cleaned)
+
+    amounts: List[float] = []
+    for match in re.finditer(r"(\d[\d,]*(?:\.\d+)?)", cleaned):
+        raw = match.group(1).replace(",", "")
+        try:
+            value = float(raw)
+        except ValueError:
+            continue
+        if value <= 0:
+            continue
+        # Bare years (e.g. "in 2026") are not amounts
+        if float(value).is_integer() and 1900 <= value <= 2100 and "." not in raw:
+            continue
+        amounts.append(value)
+    return amounts
+
+
+#: intent -> (chart_type, data_keys) hints for the frontend visualization layer
+CHART_HINTS: Dict[Intent, Any] = {
+    Intent.INCOME_ANALYSIS: ("bar", ["income", "period"]),
+    Intent.SPENDING_PATTERN: ("pie", ["category", "amount"]),
+    Intent.SAVINGS_ANALYSIS: ("line", ["savings", "period"]),
+    Intent.TRANSACTION_LIST: ("table", ["date", "description", "credit", "debit"]),
+    Intent.TREND_ANALYSIS: ("line", ["period", "income", "expense"]),
+    Intent.DEBT_ANALYSIS: ("bar", ["debt", "income", "dti"]),
+    Intent.COMPARISON: ("grouped_bar", ["period", "income", "expense"]),
+    Intent.LOAN_ELIGIBILITY: ("gauge", ["loan_amount", "eligible_amount"]),
+    Intent.FINANCIAL_HEALTH: ("radar", ["credit_score", "stability", "dti"]),
+}
+
+
+def visualization_hints(intent: Intent, amount_count: int = 0):
+    """Return ``(chart_type, data_keys)`` for a classified intent."""
+    chart_type, data_keys = CHART_HINTS.get(intent, (None, []))
+    if intent is Intent.UNRECOGNIZED and amount_count >= 3:
+        # Raw statement text with no clear intent -> generic amount breakdown
+        return "bar", ["amount"]
+    return chart_type, list(data_keys)
+
+
+def build_summary(intent: Intent, entities: Dict[str, Any], text: str) -> str:
+    """One-line human readable summary of the analysed document."""
+    amount = entities.get("amount") or entities.get("total_amount")
+    amount_text = f" of NPR {amount:,.0f}" if isinstance(amount, (int, float)) and amount else ""
+    lines = len([ln for ln in (text or "").splitlines() if ln.strip()])
+    return (
+        f"Detected {intent.value} content{amount_text} "
+        f"across {lines} line(s); {entities.get('amount_count', 0)} amount(s) extracted."
+    )
 
 
 # ─── SQL Templates ──────────────────────────────────────────────────
@@ -186,12 +261,74 @@ async def ask_question(request: AskRequest):
         answer = generate_fallback_response(intent)
 
         return AskResponse(
-            intent=str(intent),
+            intent=intent.value,
             extracted_entities=entities,
             answer=answer,
         )
     except Exception as e:
         logger.error("NLU query failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/chat", response_model=AskResponse)
+async def chat(request: ChatRequest):
+    """Spec-compatible alias for ``/ask`` — ``user_id`` is optional."""
+    try:
+        intent = classify_intent(request.message)
+        entities = extract_entities(request.message)
+        entities["user_id"] = request.user_id
+        entities["session_id"] = request.session_id
+
+        return AskResponse(
+            intent=intent.value,
+            extracted_entities=entities,
+            answer=generate_fallback_response(intent),
+        )
+    except Exception as e:
+        logger.error("NLU chat failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/document/analyze", response_model=DocumentAnalyzeResponse)
+async def analyze_document(request: DocumentAnalyzeRequest):
+    """Tier-3 minimal: classify intent + extract entities from raw document text.
+
+    Messy PDF tables are already parsed upstream by ``financial_ocr``; this
+    endpoint analyses the resulting text and returns a summary plus frontend
+    visualization hints.
+    """
+    try:
+        text = request.text or ""
+        intent = classify_intent(text)
+        entities = extract_entities(text)
+        amounts = extract_amounts(text)
+
+        entities["amount_count"] = len(amounts)
+        if amounts:
+            entities.setdefault("amount", amounts[0])
+            entities["total_amount"] = sum(amounts)
+            entities["max_amount"] = max(amounts)
+
+        chart_type, data_keys = visualization_hints(intent, len(amounts))
+        summary = build_summary(intent, entities, text)
+
+        return DocumentAnalyzeResponse(
+            status="success",
+            intent=intent.value,
+            confidence=0.85 if intent is not Intent.UNRECOGNIZED else 0.4,
+            extracted_entities=entities,
+            summary=summary,
+            answer=generate_fallback_response(intent),
+            chart_type=chart_type,
+            data_keys=data_keys,
+            visualization={"chart_type": chart_type, "data_keys": data_keys},
+            char_count=len(text),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Document analysis failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

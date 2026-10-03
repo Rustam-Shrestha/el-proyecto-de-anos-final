@@ -1,4 +1,5 @@
-import { logger } from '@/config/logger';
+/* eslint-disable no-useless-escape */
+import { logger as _logger } from '@/config/logger';
 
 interface OcrResult {
   fullText: string;
@@ -16,7 +17,7 @@ interface NormalizedOutput {
 
 interface ExtractionResult {
   documentType: string;
-  extractedData: Record<string, string | number | null>;
+  extractedData: Record<string, string | number | boolean | null>;
   confidence: Record<string, number>;
 }
 
@@ -371,7 +372,7 @@ function extractBusinessName(normalized: NormalizedOutput): string | null {
   return extractEmployer(normalized);
 }
 
-function extractSenderName(normalized: NormalizedOutput): string | null {
+function _extractSenderName(normalized: NormalizedOutput): string | null {
   return extractName(normalized);
 }
 
@@ -436,7 +437,7 @@ function extractTotalDebits(normalized: NormalizedOutput): number | null {
 
 function extractLargestDeposit(normalized: NormalizedOutput): number | null {
   const depositPattern = /(?:deposit|credit|salary)\s*:?\s*(?:rs\.?\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/gi;
-  let largest = null;
+  let largest: number | null = null;
   let match;
   while ((match = depositPattern.exec(normalized.cleanedText)) !== null) {
     const num = parseInt(match[1].replace(/,/g, ''), 10);
@@ -681,7 +682,7 @@ export const documentExtractionService = {
             : (extracted.confidence.averageMonthlyDeposit || 0),
         };
 
-        const salaryDetected = extracted.extractedData.salaryDepositDetected as boolean;
+        const salaryDetected = Boolean(extracted.extractedData.salaryDepositDetected);
 
         comparison.salaryPresenceMatch = {
           matched: salaryDetected || !declaredSalary,

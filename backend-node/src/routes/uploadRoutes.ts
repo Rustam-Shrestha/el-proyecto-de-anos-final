@@ -8,6 +8,8 @@ import {
   uploadStatement,
   listUploads,
   getUpload,
+  startChatForUpload,
+  deleteUpload,
 } from '@/controllers/uploadController';
 
 const uploadRouter = Router();
@@ -36,6 +38,20 @@ uploadRouter.get(
   authenticate,
   validate(getUploadSchema),
   getUpload,
+);
+
+uploadRouter.post(
+  '/:id/chat',
+  authenticate,
+  validate(getUploadSchema),
+  startChatForUpload,
+);
+
+uploadRouter.delete(
+  '/:id',
+  authenticate,
+  validate(getUploadSchema),
+  deleteUpload,
 );
 
 export default uploadRouter;

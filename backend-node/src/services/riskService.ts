@@ -18,6 +18,19 @@ export interface RiskResult {
 
 const ANNUAL_INTEREST_RATE = 0.18;
 
+function resolveTid(tenantId?: number): number {
+  if (tenantId === undefined || tenantId === null) {
+    logger.warn("riskService: tenantId not provided, falling back to 1");
+    return 1;
+  }
+  return tenantId;
+}
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
+
 export const riskService = {
   calculateEmi(principal: number, tenureMonths: number): number {
     const monthlyRate = ANNUAL_INTEREST_RATE / 12;
@@ -28,23 +41,31 @@ export const riskService = {
   async computeRiskScore(
     userId: string,
     requestedAmount: number,
-    tenureMonths: number
+    tenureMonths: number,
+    tenantId?: number
   ): Promise<RiskResult> {
     try {
+      const tid = resolveTid(tenantId);
       const emi = this.calculateEmi(requestedAmount, tenureMonths);
 
-      const employmentInfo = await prisma.employmentInfo.findUnique({
-        where: { userId },
-      });
+      let employmentInfo: Awaited<ReturnType<typeof prisma.employmentInfo.findFirst>>;
+      try {
+        employmentInfo = await prisma.employmentInfo.findFirst({ where: { userId, tenantId: tid } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) employmentInfo = await prisma.employmentInfo.findUnique({ where: { userId } }) as never;
+        else throw e;
+      }
 
-      const incomeProofDoc = await prisma.document.findFirst({
-        where: {
-          userId,
-          documentType: 'INCOME_PROOF',
-          isDeleted: false,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      let incomeProofDoc: Awaited<ReturnType<typeof prisma.document.findFirst>>;
+      try {
+        incomeProofDoc = await prisma.document.findFirst({
+          where: { userId, tenantId: tid, documentType: 'INCOME_PROOF', isDeleted: false },
+          orderBy: { createdAt: 'desc' },
+        });
+      } catch (e) {
+        if (isTenantSchemaError(e)) incomeProofDoc = await prisma.document.findFirst({ where: { userId, documentType: 'INCOME_PROOF', isDeleted: false }, orderBy: { createdAt: 'desc' } });
+        else throw e;
+      }
 
       let monthlyIncome: number | undefined;
 
@@ -82,15 +103,16 @@ export const riskService = {
         else if (daysEmployed < 365) riskScore += 15;
         else if (daysEmployed < 1095) riskScore += 5;
 
-        const citizenshipDoc = await prisma.document.findFirst({
-          where: {
-            userId,
-            documentType: 'CITIZENSHIP_FRONT',
-            isDeleted: false,
-            extractedData: { path: ['date_of_birth'], not: null },
-          },
-          orderBy: { createdAt: 'desc' },
-        });
+        let citizenshipDoc: Awaited<ReturnType<typeof prisma.document.findFirst>>;
+        try {
+          citizenshipDoc = await prisma.document.findFirst({
+            where: { userId, tenantId: tid, documentType: 'CITIZENSHIP_FRONT', isDeleted: false, extractedData: { path: ['date_of_birth'], not: null } },
+            orderBy: { createdAt: 'desc' },
+          });
+        } catch (e) {
+          if (isTenantSchemaError(e)) citizenshipDoc = await prisma.document.findFirst({ where: { userId, documentType: 'CITIZENSHIP_FRONT', isDeleted: false, extractedData: { path: ['date_of_birth'], not: null } }, orderBy: { createdAt: 'desc' } });
+          else throw e;
+        }
 
         if (citizenshipDoc?.extractedData && typeof citizenshipDoc.extractedData === 'object') {
           const dobStr = (citizenshipDoc.extractedData as Record<string, unknown>).date_of_birth as string | undefined;
@@ -103,13 +125,13 @@ export const riskService = {
         }
       }
 
-      const existingLoanDocs = await prisma.document.count({
-        where: {
-          userId,
-          documentType: 'EXISTING_LOAN',
-          isDeleted: false,
-        },
-      });
+      let existingLoanDocs: number;
+      try {
+        existingLoanDocs = await prisma.document.count({ where: { userId, tenantId: tid, documentType: 'EXISTING_LOAN', isDeleted: false } });
+      } catch (e) {
+        if (isTenantSchemaError(e)) existingLoanDocs = await prisma.document.count({ where: { userId, documentType: 'EXISTING_LOAN', isDeleted: false } });
+        else throw e;
+      }
 
       if (existingLoanDocs >= 3) riskScore += 20;
       else if (existingLoanDocs >= 1) riskScore += 10;

@@ -21,11 +21,9 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
 };
 
-const baseURL = import.meta.env.VITE_API_URL as string | undefined;
-
-if (!baseURL) {
-  throw new Error("Missing environment variable: VITE_API_URL");
-}
+const baseURL = (import.meta.env.VITE_API_URL as string | undefined) ||
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+  "http://localhost:3000/api/v1";
 
 const api: AxiosInstance = axios.create({
   baseURL,

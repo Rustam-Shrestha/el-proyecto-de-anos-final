@@ -1,0 +1,1129 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["auth", "public"]
+}
+
+// Document types for KYC and loan documents
+enum DocumentType {
+  CITIZENSHIP_FRONT
+  CITIZENSHIP_BACK
+  SELFIE
+  INCOME_PROOF
+  BANK_STATEMENT
+  EXISTING_LOAN
+  COLLATERAL
+  SALARY_SLIP
+  BUSINESS_REG
+  INCOME_CERT
+  PAN
+  PENSION_LETTER
+
+  @@schema("auth")
+}
+
+// Document verification statuses
+enum DocumentVerificationStatus {
+  PENDING
+  PROCESSING
+  VERIFIED
+  REJECTED
+  MANUAL_REVIEW
+
+  @@schema("auth")
+}
+
+// Loan application statuses
+enum LoanStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+
+  @@schema("auth")
+}
+
+// Loan purpose categories
+enum LoanPurpose {
+  HOME
+  EDUCATION
+  BUSINESS
+  PERSONAL
+
+  @@schema("auth")
+}
+
+// Credit risk levels
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@schema("auth")
+}
+
+// Roles for RBAC (legacy string role)
+model Role {
+  id   String @id @default(cuid())
+  name String @unique
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("auth")
+}
+
+// ===== Shared multi-tenant tables (prompt spec adapted to auth schema) =====
+model Tenant {
+  id               Int       @id @default(autoincrement())
+  slug             String    @unique @db.VarChar(50)
+  name             String    @db.VarChar(255)
+  domain           String?
+  companyType      String?   @db.VarChar(50)
+  status           String    @default("active") @db.VarChar(20)
+  createdAt        DateTime  @default(now())
+  createdBy        Int?
+  subscriptionTier String?   @db.VarChar(50)
+  maxUsers         Int       @default(100)
+  maxLoans         Int       @default(1000)
+  usageLoans       Int       @default(0)
+  usageUsers       Int       @default(0)
+  lastActivity     DateTime?
+  featureMlScoring       Boolean @default(true)
+  featureAuditLogs       Boolean @default(true)
+  featureApiAccess       Boolean @default(true)
+  featureCustomWorkflows Boolean @default(false)
+  dataResidency    String?   @db.VarChar(50)
+  encryptionEnabled Boolean  @default(true)
+
+  admins TenantAdmin[]
+
+  // Note: FeatureToggle / TenantMetrics live in public schema with FK to auth.tenants but no Prisma relation
+  // to keep cross-schema compatibility; accessed via raw/prisma.public.* queries
+  @@map("tenants")
+  @@schema("auth")
+}
+
+model TenantAdmin {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  userId    String
+  email     String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_admins")
+  @@schema("auth")
+}
+
+model RoleDefinition {
+  id             Int     @id @default(autoincrement())
+  name           String  @db.VarChar(100)
+  description    String?
+  hierarchyLevel Int
+  isSystem       Boolean @default(true)
+  colorCode      String? @db.VarChar(7)
+  icon           String? @db.VarChar(50)
+
+  permissions RolePermission[]
+
+  @@map("role_definitions")
+  @@schema("auth")
+}
+
+model PermissionDefinition {
+  id             Int     @id @default(autoincrement())
+  name           String  @db.VarChar(100) @unique
+  description    String?
+  resource       String? @db.VarChar(100)
+  action         String? @db.VarChar(50)
+  isSystem       Boolean @default(true)
+  category       String? @db.VarChar(50)
+  hierarchyLevel Int?
+
+  roles RolePermission[]
+
+  @@map("permission_definitions")
+  @@schema("auth")
+}
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  role       RoleDefinition       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission PermissionDefinition @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("auth")
+}
+
+// ===== Supercontroller layer (public schema) =====
+model Supercontroller {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @db.VarChar(255)
+  fullName     String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now())
+  lastLogin    DateTime?
+  status       String    @default("active") @db.VarChar(20)
+
+  @@map("supercontroller")
+  @@schema("public")
+}
+
+model FeatureToggle {
+  id           Int       @id @default(autoincrement())
+  tenantId     Int
+  featureName  String    @db.VarChar(100)
+  isEnabled    Boolean   @default(false)
+  enabledBy    Int?
+  enabledAt    DateTime?
+  metadataJson String?   @db.Text
+
+  @@unique([tenantId, featureName])
+  @@map("feature_toggles")
+  @@schema("public")
+}
+
+model SupercontrollerAuditLog {
+  id                  Int      @id @default(autoincrement())
+  supercontrollerId   Int?
+  action              String   @db.VarChar(100)
+  targetType          String?  @db.VarChar(50)
+  targetId            String?  @db.VarChar(255)
+  changesJson         String?  @db.Text
+  ipAddress           String?  @db.VarChar(45)
+  createdAt           DateTime @default(now())
+
+  @@map("supercontroller_audit_logs")
+  @@schema("public")
+}
+
+model TenantMetrics {
+  id                Int      @id @default(autoincrement())
+  tenantId          Int
+  metricDate        DateTime @db.Date
+  totalUsers        Int?
+  totalLoans        Int?
+  totalRevenue      Decimal? @db.Decimal(12, 2)
+  apiCalls          Int?
+  errorRate         Decimal? @db.Decimal(5, 2)
+  avgResponseTimeMs Int?
+  createdAt         DateTime @default(now())
+
+  @@unique([tenantId, metricDate])
+  @@map("tenant_metrics")
+  @@schema("public")
+}
+
+// Main user model
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  isVerified   Boolean @default(false)
+  isDeleted    Boolean @default(false)
+
+  tenantId Int     @default(1)
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  // Relations
+  profile              Profile?
+  sessions             Session[]
+  auditLogs            AuditLog[]
+  kycApplications      KycApplication[]
+  documents            Document[]
+  employmentInfo       EmploymentInfo?
+  borrowerFeatures     BorrowerFeatures?
+  loanFeatures         LoanFeatures?
+  loanApplications     LoanApplication[]
+  reviewedLoans        LoanApplication[] @relation("LoanReviewer")
+  verifiedDocuments    Document[]        @relation("DocumentVerifier")
+  financialDocuments   FinancialDocument[]
+  portfolioVerification PortfolioVerification?
+  loanAccounts         LoanAccount[]
+  bankStatements       BankStatement[]
+  transactions         Transaction[]
+  financialProfile     FinancialProfile?
+  loanAssessments      LoanAssessment[]
+  nluQueries           NluQuery[]
+  chatConversations    ChatConversation[]
+  notifications        Notification[]
+  notificationPreference NotificationPreference?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([roleId])
+  @@index([tenantId])
+  @@map("users")
+  @@schema("auth")
+}
+
+// User profile / extended information
+model Profile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String?
+  phone       String?
+  address     String?
+  dateOfBirth DateTime?
+  avatarUrl   String?
+
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("profiles")
+  @@schema("auth")
+}
+
+// Session management (refresh tokens)
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  isRevoked        Boolean  @default(false)
+  expiresAt        DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+  @@schema("auth")
+}
+
+// Audit logging
+model AuditLog {
+  id        String  @id @default(cuid())
+  tenantId  Int     @default(1)
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  metadata  Json?
+  ip        String  @default("unknown")
+  userAgent String  @default("unknown")
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+  @@schema("auth")
+}
+
+// KYC Application
+model KycApplication {
+  id              String    @id @default(cuid())
+  tenantId        Int       @default(1)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          String    @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, RESUBMIT_REQUIRED
+  submittedAt     DateTime  @default(now())
+  reviewedAt      DateTime?
+  reviewerId      String?
+  rejectionReason String?
+
+  // OCR extracted data (source: PaddleOCR)
+  ocrCitizenshipNumber String?
+  ocrFullName          String?
+  ocrDateOfBirth       String?
+  ocrGender            String?
+  ocrAddress           String?
+
+  // Processing progress & error tracking
+  processingStatus    String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  ocrFrontStatus      String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  ocrBackStatus       String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  faceStatus          String  @default("PENDING") // PENDING | PROCESSING | DONE | FAILED | SKIPPED
+  ocrProcessingError  String?
+  faceProcessingError String?
+
+  // Face-first workflow fields
+  workflowStage          String  @default("VALIDATING_FACE") // VALIDATING_FACE | AWAITING_OCR | AWAITING_USER_CONFIRMATION | COMPLETE
+  faceVerificationStatus String  @default("PENDING") // PENDING | VERIFIED | FAILED | SKIPPED
+  ocrProcessingStatus    String  @default("PENDING") // PENDING | EXTRACTING | EXTRACTED | PARTIAL | FAILED
+  queuedForManualReview  Boolean @default(false)
+
+  // User confirmed data (source of truth)
+  confirmedCitizenshipNumber String?
+  confirmedFullName          String?
+  confirmedDateOfBirth       String?
+  confirmedGender            String?
+  confirmedAddress           String?
+  confirmedPhoneNumber       String?
+  confirmedEmail             String?
+  confirmedOccupation        String?
+  confirmedEmployer          String?
+  confirmedMonthlyIncome     Decimal? @db.Decimal(12, 2)
+  confirmedMaritalStatus     String?
+  confirmedEducationLevel    String?
+
+  // Relations
+  documents              Document[]
+  ocrResults             OCRResult[]
+  ocrExtractions         OcrExtraction[]
+  faceVerification       FaceVerification?
+  verificationReport     VerificationReport?
+  extractionVerification ExtractionVerification?
+  submissionFile         KYCSubmissionFile?
+  manualReviewQueue      ManualReviewQueue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@map("kyc_applications")
+  @@schema("auth")
+}
+
+model OCRResult {
+  id               String         @id @default(cuid())
+  kycApplicationId String
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  documentType      String // CITIZENSHIP_FRONT, CITIZENSHIP_BACK, SELFIE
+  rawOcrText        String @db.Text
+  extractedData     Json // { name: "value", confidence: 0.92, ... }
+  overallConfidence Float // 0-1
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("ocr_results")
+  @@schema("auth")
+}
+
+model FaceVerification {
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  citizenshipPhotoPath String
+  selfiePhotoPath      String
+  similarityScore      Float // 0-1, displayed as 0-100
+  status               String  @default("PENDING") // PENDING, MATCH, POSSIBLE_MATCH, LOW_CONFIDENCE, MISMATCH
+  recommendation       String? // "APPROVE", "REVIEW", "REJECT"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("face_verifications")
+  @@schema("auth")
+}
+
+model VerificationReport {
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  faceSimilarity        Float?
+  ocrConfidence         Float?
+  fieldsCorrected       Int     @default(0)
+  possibleMismatches    Json? // array of field names
+  manualReviewSuggested Boolean @default(false)
+  report                String  @db.Text // JSON stringified full report
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("verification_reports")
+  @@schema("auth")
+}
+
+// OcrExtraction - stores raw OCR output with per-field confidence and comparison results
+model OcrExtraction {
+  id               String         @id @default(cuid())
+  kycApplicationId String
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  documentType      String // CITIZENSHIP_FRONT, CITIZENSHIP_BACK
+  rawText           String @db.Text
+  extractedFields   Json   // {name: "John", citizenship_number: "12345678901", ...}
+  overallConfidence Float  // 0.0 to 1.0
+  fieldConfidence   Json?  // Per-field confidence: {name: 0.95, citizenship_number: 0.87}
+  comparisonResults Json?  // Per-field comparison: {name: {match: true, userValue: "John", ocrValue: "John", matchPercent: 100}, ...}
+  matchScore        Float? // Overall match percentage 0-100 across compared fields
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@map("ocr_extractions")
+  @@schema("auth")
+}
+
+// ExtractionVerification - final decision + audit trail, locked after creation
+model ExtractionVerification {
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  decision          String  // AUTO_VERIFIED | QUEUED_FOR_REVIEW
+  ocrConfidence     Float   // Overall OCR confidence 0.0-1.0
+  matchScore        Float?  // Overall match with user data 0-100
+  autoVerified      Boolean @default(false)
+  manualReviewAdded Boolean @default(false)
+  decisionDetails   Json?   // Full details: {fieldComparisons: [...], matchScore: 95, reason: "All fields match"}
+  verifiedAt        DateTime? // When decision was made
+  verifiedBy        String? // "system" or userId
+  locked            Boolean @default(true) // Immutable after creation
+
+  createdAt DateTime @default(now())
+
+  @@index([kycApplicationId])
+  @@map("extraction_verifications")
+  @@schema("auth")
+}
+
+// KYC Submission File - immutable snapshot created after successful face verification
+model KYCSubmissionFile {
+  id               String         @id @default(cuid())
+  kycApplicationId String         @unique
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  status               String // PENDING | CREATED | FAILED
+  snapshotData         Json? // Complete submission snapshot at time of creation
+  faceSimilarity       Float?
+  faceStatusAtCreation String? // Face match result at submission time
+  ocrStatusAtCreation  String? // OCR status snapshot
+  createdAt            DateTime @default(now())
+
+  @@index([kycApplicationId])
+  @@map("kyc_submission_files")
+  @@schema("auth")
+}
+
+// Manual Review Queue - items needing admin review
+model ManualReviewQueue {
+  id               String         @id @default(cuid())
+  kycApplicationId String
+  kycApplication   KycApplication @relation(fields: [kycApplicationId], references: [id], onDelete: Cascade)
+
+  reason          String // LOW_OCR_CONFIDENCE | FACE_VERIFICATION_ERROR | OCR_PROCESSING_ERROR | PARTIAL_EXTRACTION
+  details         String? // Human-readable description
+  priority        String    @default("NORMAL") // LOW | NORMAL | HIGH
+  status          String    @default("PENDING") // PENDING | REVIEWED | RESOLVED
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  resolution      String? // APPROVED | REJECTED | RESUBMIT_REQUIRED
+  resolutionNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kycApplicationId])
+  @@index([status])
+  @@index([priority])
+  @@map("manual_review_queue")
+  @@schema("auth")
+}
+
+// Document storage
+model Document {
+  id                 String                     @id @default(cuid())
+  tenantId           Int                        @default(1)
+  userId             String
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycId              String
+  kyc                KycApplication             @relation(fields: [kycId], references: [id], onDelete: Cascade)
+  documentType       DocumentType
+  filePath           String
+  fileMimeType       String?
+  fileSize           Int?
+  ocrStatus          DocumentVerificationStatus @default(PENDING)
+  ocrConfidence      Float?
+  extractedData      Json?
+  ocrErrorMessage    String?
+  ocrProcessedAt     DateTime?
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  verificationNotes  String?
+  verifiedBy         String?
+  verifiedByUser     User?                      @relation("DocumentVerifier", fields: [verifiedBy], references: [id])
+  verifiedAt         DateTime?
+  isDeleted          Boolean                    @default(false)
+  version            Int                        @default(1)
+  replacedById       String?
+  replacedBy         Document?                  @relation("DocumentVersions", fields: [replacedById], references: [id])
+  previousVersions   Document[]                 @relation("DocumentVersions")
+
+  // Relations
+  versions DocumentVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([kycId])
+  @@index([documentType])
+  @@index([verificationStatus])
+  @@index([isDeleted])
+  @@map("documents")
+  @@schema("auth")
+}
+
+// Document versioning
+model DocumentVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  filePath   String
+  version    Int
+
+  createdAt DateTime @default(now())
+
+  @@index([documentId])
+  @@map("document_versions")
+  @@schema("auth")
+}
+
+// Financial documents for portfolio verification (separate from KYC documents)
+model FinancialDocument {
+  id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  documentType              String   // SALARY_SLIP, BANK_STATEMENT, BUSINESS_REG, INCOME_CERT, PAN, PENSION_LETTER, OTHER
+  filePath                  String
+  fileMimeType              String?
+  fileSize                  Int?
+  originalName              String?
+
+  // OCR Processing
+  ocrStatus                 String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  ocrData                   Json?    // Raw extracted text as JSON
+  ocrConfidence             Float?   // 0-1
+  ocrErrorMessage           String?
+  ocrRawText                String?  @db.Text // Full raw OCR text output as-is
+  ocrProcessedAt            DateTime?
+
+  // Extracted & Normalized Fields
+  extractedFields           Json?    // { documentType, extractedData: { salary, date, employer, ... }, confidence: {...} }
+  comparisonResult          Json?    // { salaryMatch: { matched, declared, extracted, diff }, ... }
+  anomalyFlags              String[] @default([]) // ["SALARY_MISMATCH", "EMPLOYER_MISMATCH", ...]
+  flagCount                 Int      @default(0)
+
+  // Verification
+  verificationStatus        String   @default("PENDING") // PENDING, VERIFIED, REJECTED, FLAGGED_REVIEW
+  adminNotes                String?
+  verifiedBy                String?
+  verifiedAt                DateTime?
+
+  // Expiry Tracking
+  isExpired                 Boolean  @default(false)
+  expiryDate                DateTime?
+
+  isDeleted                 Boolean  @default(false)
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([verificationStatus])
+  @@index([documentType])
+  @@map("financial_documents")
+  @@schema("auth")
+}
+
+// Portfolio verification status and admin review
+model PortfolioVerification {
+  id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  verificationStatus        String   @default("INCOMPLETE") // INCOMPLETE, PENDING_REVIEW, PENDING_VERIFICATION, VERIFIED, REJECTED
+
+  // Document Counters
+  documentsUploaded         Int      @default(0)
+  documentsVerified         Int      @default(0)
+  documentsFlagged          Int      @default(0)
+  allDocumentsVerified      Boolean  @default(false)
+  canProceedToLoan          Boolean  @default(false)
+
+  // Calculated Metrics
+  loanToIncomeRatio         Decimal? @db.Decimal(5, 2)
+  emiToIncomeRatio          Decimal? @db.Decimal(5, 2)
+  incomePerDependent        Decimal? @db.Decimal(12, 2)
+  employmentStabilityScore  Int?
+  ageCategory               String?
+
+  // Risk Assessment
+  overallRiskScore          Int?     // 0-100
+  riskLevel                 String?  // LOW, MEDIUM, HIGH
+
+  // Admin Review
+  flagsCount                Int      @default(0)
+  flagDetails               Json?    // Array of flag objects
+  adminNotes                String?
+  reviewedBy                String?
+  reviewedAt                DateTime?
+
+  lastUpdated               DateTime @default(now())
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([verificationStatus])
+  @@map("portfolio_verifications")
+  @@schema("auth")
+}
+
+// Active/closed loan accounts for portfolio evolution
+model LoanAccount {
+  id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  loanId                    String?  // FK to LoanApplication
+  principalAmount           Decimal  @db.Decimal(12, 2)
+  outstandingBalance        Decimal  @db.Decimal(12, 2)
+  monthlyEMI                Decimal  @db.Decimal(10, 2)
+  status                    String   @default("ACTIVE") // ACTIVE, CLOSED, DEFAULT, PAID_OFF
+  startDate                 DateTime
+  expectedEndDate           DateTime?
+  closedAt                  DateTime?
+
+  isActive                  Boolean  @default(true)
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([isActive])
+  @@map("loan_accounts")
+  @@schema("auth")
+}
+
+// Employment information for borrower income assessment
+model EmploymentInfo {
+  id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // HOME CREDIT MAPPING: Core Fields
+  employmentStatus          String   @default("UNEMPLOYED")
+  occupationJobTitle        String?  // Maps to OCCUPATION_TYPE
+  employerName              String?
+  employmentStartDate       DateTime?
+
+  // HOME CREDIT MAPPING: Income Fields
+  monthlyGrossIncome        Decimal  @db.Decimal(12, 2)  // Monthly salary
+  annualIncome              Decimal  @db.Decimal(12, 2)  // AMT_INCOME_TOTAL (Annual)
+
+  // HOME CREDIT MAPPING: Dependent Count
+  dependentsCount           Int      @default(0)         // CNT_CHILDREN
+
+  // Self-Employed / Business Fields
+  businessName              String?
+  businessType              String?  // Retail, Service, Manufacturing, etc.
+
+  // Student Fields
+  institutionName           String?
+  educationLevel            String?  // HighSchool, Bachelor, Master, PhD
+  expectedGraduationDate    DateTime?
+
+  // Calculated Fields (Home Credit Derived)
+  employmentTenureMonths    Int?
+  employmentTenureDays      Int?     // DAYS_EMPLOYED (calculated, negative)
+  employmentStable          Boolean  @default(false)     // 1 if > 5 years
+  incomeSourceType          String   @default("SALARY")
+  incomeStabilityScore      Int      @default(50)        // 1-100
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("employment_info")
+  @@schema("auth")
+}
+
+model LoanFeatures {
+  id                        String   @id @default(cuid())
+  tenantId                  Int      @default(1)
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loanApplicationId         String?  // FK to active loan
+
+  // HOME CREDIT MAPPING: Core Features
+  requestedLoanAmount       Decimal  @db.Decimal(12, 2)  // AMT_CREDIT
+  loanTenureMonths          Int
+  calculatedEMI             Decimal  @db.Decimal(10, 2)  // AMT_ANNUITY
+  daysBirth                 Int?     // Calculated: -age_in_days
+  daysEmployed              Int?     // Calculated: -employment_tenure_in_days
+  occupationType            String?  // Maps to OCCUPATION_TYPE
+  cntChildren               Int?     // Maps to CNT_CHILDREN
+
+  // Derived Features (Home Credit Model)
+  creditIncomePercent       Decimal  @db.Decimal(5, 2)   // AMT_CREDIT / AMT_INCOME × 100
+  annuityIncomePercent      Decimal  @db.Decimal(5, 2)   // (EMI×12) / AMT_INCOME × 100
+  incomePerPerson           Decimal  @db.Decimal(12, 2)  // Income / (1 + dependents)
+  daysEmployedPercent       Decimal? @db.Decimal(5, 2)   // employment_days / age_days × 100
+  employmentStability       Boolean  @default(false)     // 1 if > 5 years
+  ageCategory               Int      @default(0)         // 1 if 25-60
+
+  // Additional From Portfolio
+  totalDebtObligations      Decimal  @db.Decimal(12, 2)  // Sum of all EMIs
+  debtToIncomeRatio         Decimal  @db.Decimal(5, 2)   // (Debt + EMI) / Income × 100
+  availableMonthlyCapacity  Decimal  @db.Decimal(10, 2)  // Income - expenses - existing debt
+
+  // Risk Assessment
+  riskScore                 Int      @default(50)        // 0-100
+  riskLevel                 String   @default("MEDIUM")  // LOW, MEDIUM, HIGH
+  defaultProbability        Float?   // 0-1 if ML model used
+
+  lastCalculated            DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("loan_features")
+  @@schema("auth")
+}
+
+// Precomputed borrower features for risk assessment
+model BorrowerFeatures {
+  id                      String   @id @default(cuid())
+  tenantId                Int      @default(1)
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amtIncomeTotal          Decimal? @db.Decimal(12, 2)
+  amtCredit               Decimal? @db.Decimal(12, 2)
+  daysBirth               Int?
+  daysEmployed            Int?
+  debtToIncomeRatio       Decimal? @db.Decimal(5, 2)
+  paymentConsistencyScore Decimal? @db.Decimal(5, 2)
+  cntInstalment           Int?     @default(0)
+  amtAnnuity              Decimal? @db.Decimal(12, 2)
+  computedAt              DateTime @default(now())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("borrower_features")
+  @@schema("auth")
+}
+
+// Loan applications with risk assessment
+model LoanApplication {
+  id               String      @id @default(cuid())
+  tenantId         Int         @default(1)
+  userId           String
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestedAmount  Decimal     @db.Decimal(12, 2)
+  tenureMonths     Int
+  purpose          LoanPurpose
+  calculatedEmi    Decimal?    @db.Decimal(10, 2)
+  status           LoanStatus  @default(SUBMITTED)
+  riskScore        Int?
+  riskLevel        RiskLevel?
+  loanOfficerNotes String?
+  reviewedBy       String?
+  reviewedByUser   User?       @relation("LoanReviewer", fields: [reviewedBy], references: [id])
+  reviewedAt       DateTime?
+  // FinGuard ML audit fields
+  defaultProbability Float?
+  modelVersion     String?
+  shapValues       Json?
+  featureSnapshot  Json?
+  mlDecision       String?
+  creditScore      Int?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@map("loan_applications")
+  @@schema("auth")
+}
+
+// ==========================================
+// FinGuard Financial Analysis Module
+// ==========================================
+
+// Bank Statement upload metadata
+model BankStatement {
+  id                 String   @id @default(cuid())
+  tenantId           Int      @default(1)
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bankName           String?
+  accountNumber      String?
+  accountHolderName  String?
+  statementFromDate  DateTime?
+  statementToDate    DateTime?
+  openingBalance     Decimal? @db.Decimal(15, 2)
+  closingBalance     Decimal? @db.Decimal(15, 2)
+
+  filePath           String?
+  fileChecksum       String?  @unique
+  parsingStatus      String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  errorMessage       String?
+
+  transactions       Transaction[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([parsingStatus])
+  @@map("bank_statements")
+  @@schema("auth")
+}
+
+// Extracted transactions from bank statements
+model Transaction {
+  id                String   @id @default(cuid())
+  tenantId          Int      @default(1)
+  bankStatementId   String
+  bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  transactionDate   DateTime
+  description       String?
+  debit             Decimal? @db.Decimal(15, 2)
+  credit            Decimal? @db.Decimal(15, 2)
+  balance           Decimal? @db.Decimal(15, 2)
+  transactionType   String?  // SALARY, BILL_PAYMENT, TRANSFER, etc.
+  category          String?  // INCOME, EXPENSE, SAVINGS, INVESTMENT
+  confidenceScore   Float    @default(1.0)
+
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([bankStatementId])
+  @@index([transactionDate])
+  @@index([category])
+  @@map("transactions")
+  @@schema("auth")
+}
+
+// Aggregated financial profile per user
+model FinancialProfile {
+  id                    String   @id @default(cuid())
+  tenantId              Int      @default(1)
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  totalStatements       Int      @default(0)
+  dateRangeStart        DateTime?
+  dateRangeEnd          DateTime?
+  avgMonthlyIncome      Decimal? @db.Decimal(15, 2)
+  avgMonthlyExpense     Decimal? @db.Decimal(15, 2)
+  totalIncome           Decimal? @db.Decimal(15, 2)
+  totalExpense          Decimal? @db.Decimal(15, 2)
+  totalSavings          Decimal? @db.Decimal(15, 2)
+  savingsRate           Float?
+  debtToIncomeRatio     Float?
+  incomeStabilityScore  Float?   // 0-100
+  creditScoreEstimate   Int?     // 300-900
+
+  lastUpdated           DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("financial_profiles")
+  @@schema("auth")
+}
+
+// Loan eligibility assessments
+model LoanAssessment {
+  id                  String   @id @default(cuid())
+  tenantId            Int      @default(1)
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  requestedAmount     Decimal  @db.Decimal(15, 2)
+  loanTenureMonths    Int?
+  interestRateAssumed Float    @default(10.5)
+  eligibleAmount      Decimal? @db.Decimal(15, 2)
+  maxMonthlyEmi       Decimal? @db.Decimal(15, 2)
+  recommendedTenure   Int?
+  eligibilityScore    Float?   // 0-100
+  riskLevel           String?  // LOW, MEDIUM, HIGH, REJECTED
+  recommendation      String?
+  assessmentDetails   Json?    // Detailed reasoning breakdown
+
+  createdAt           DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("loan_assessments")
+  @@schema("auth")
+}
+
+// NLU query logs for debugging & learning
+model NluQuery {
+  id                String   @id @default(cuid())
+  tenantId          Int      @default(1)
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  rawQuestion       String   @db.Text
+  intent            String?  // LOAN_ELIGIBILITY, INCOME_ANALYSIS, etc.
+  extractedEntities Json?
+  generatedSql      String?  @db.Text
+  queryResult       Json?
+  response          String?  @db.Text
+  processingTimeMs  Int?
+  errorMessage      String?
+
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("nlu_queries")
+  @@schema("auth")
+}
+
+// Chat conversation history
+model ChatConversation {
+  id        String   @id @default(cuid())
+  tenantId  Int      @default(1)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sessionId String?
+  messages  Json?    // [{role, content, timestamp}]
+  context   Json?    // {focusedLoanAmount, focusedTenure, etc.}
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([sessionId])
+  @@map("chat_conversations")
+  @@schema("auth")
+}
+
+// Notification types
+enum NotificationType {
+  KYC_SUBMITTED
+  KYC_APPROVED
+  KYC_REJECTED
+  KYC_PENDING_REVIEW
+  PORTFOLIO_SUBMITTED
+  PORTFOLIO_APPROVED
+  PORTFOLIO_REJECTED
+  DOCUMENT_UPLOADED
+  DOCUMENT_FLAGGED
+  DOCUMENT_VERIFIED
+  LOAN_APPLICATION_SUBMITTED
+  LOAN_APPROVED
+  LOAN_REJECTED
+  LOAN_UNDER_REVIEW
+  LOAN_DISBURSED
+  LOAN_REPAYMENT_DUE
+  LOAN_REPAYMENT_OVERDUE
+  LOAN_REPAYMENT_REMINDER
+  SYSTEM_ALERT
+  ADMIN_ACTION_REQUIRED
+  DOCUMENT_EXPIRING_SOON
+
+  @@schema("auth")
+}
+
+// Notification status
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+
+  @@schema("auth")
+}
+
+// In-app notification
+model Notification {
+  id                 String             @id @default(cuid())
+  tenantId           Int                @default(1)
+  userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type               NotificationType
+  title              String
+  message            String             @db.Text
+  description        String?            @db.Text
+
+  relatedEntityType  String?
+  relatedEntityId    String?
+  actionUrl          String?
+
+  status             NotificationStatus @default(UNREAD)
+  priority           String             @default("NORMAL") // LOW, NORMAL, HIGH, CRITICAL
+  metadata           Json?
+
+  createdAt          DateTime           @default(now())
+  readAt             DateTime?
+  archivedAt         DateTime?
+  expiresAt          DateTime?
+
+  emailSent          Boolean            @default(false)
+  smsSent            Boolean            @default(false)
+
+  @@index([tenantId])
+  @@index([userId, status, createdAt])
+  @@index([type, createdAt])
+  @@map("notifications")
+  @@schema("auth")
+}
+
+// User notification preferences
+model NotificationPreference {
+  id                          String   @id @default(cuid())
+  userId                      String   @unique
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailNotificationsEnabled   Boolean  @default(true)
+  smsNotificationsEnabled     Boolean  @default(false)
+  inAppNotificationsEnabled   Boolean  @default(true)
+
+  kycNotifications            Boolean  @default(true)
+  portfolioNotifications      Boolean  @default(true)
+  loanNotifications           Boolean  @default(true)
+  documentNotifications       Boolean  @default(true)
+  systemNotifications         Boolean  @default(true)
+
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@map("notification_preferences")
+  @@schema("auth")
+}

@@ -182,6 +182,12 @@ export type LoanApplication = {
   closedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  // FinGuard ML
+  defaultProbability?: number | null;
+  modelVersion?: string | null;
+  mlDecision?: string | null;
+  creditScore?: number | null;
+  shapValues?: Record<string, number> | null;
 };
 
 export type BorrowerFeatures = {

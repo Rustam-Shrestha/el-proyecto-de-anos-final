@@ -4,7 +4,7 @@
  */
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalenderIcon, LeftIcon, RightIcon } from "../../../assets/data/icons";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { parseDateString } from "../../../helper";
 import useClickOutside from "../../../hooks/useClickOutside";
 
@@ -272,7 +272,7 @@ const CustomDatePicker = memo(({
             onClick={handlePrevMonth}
             className="p-1 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <LeftIcon />
+            <ChevronLeft className="h-4 w-4" />
           </button>
           <div className="flex items-center justify-center gap-2">
             <select
@@ -308,7 +308,7 @@ const CustomDatePicker = memo(({
             onClick={handleNextMonth}
             className="p-1 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <RightIcon />
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 
@@ -422,7 +422,7 @@ const CustomDatePicker = memo(({
               disabled ? "text-gray-300" : "text-gray-400"
             }`}
           >
-            <CalenderIcon />
+            <Calendar className="h-4 w-4" />
           </div>
         </div>
       )}
@@ -436,7 +436,7 @@ const CustomDatePicker = memo(({
           }`}
           onClick={handleToggleCalendar}
         >
-          <CalenderIcon className={disabled ? "opacity-50" : ""} />
+          <Calendar className={`h-4 w-4 ${disabled ? "opacity-50" : ""}`} />
           <span
             className={`text-sm ${disabled ? "text-gray-400" : "text-white"}`}
           >

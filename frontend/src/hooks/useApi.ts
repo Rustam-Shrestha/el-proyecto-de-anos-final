@@ -3,7 +3,9 @@ import { BASE_API_URL } from '../utils/constants';
 const getToken = () => localStorage.getItem('accessToken') || '';
 
 const buildUrl = (path: string, params?: Record<string, unknown>) => {
-  const url = new URL(path, BASE_API_URL);
+  const base = BASE_API_URL.replace(/\/+$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${base}${cleanPath}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null) url.searchParams.append(k, String(v));

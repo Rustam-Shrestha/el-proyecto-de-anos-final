@@ -123,48 +123,73 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
-          <h3 className="text-sm font-semibold text-gray-900 ">Loan Details</h3>
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <h3 className="text-sm font-semibold text-gray-900">Loan Details</h3>
           <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Amount" value={formatNPR(loan.amount)} />
-            <Row label="Tenure" value={`${loan.termMonths} months`} />
-            <Row label="Purpose" value={purposeLabel[loan.purpose] ?? loan.purpose} />
-            <Row label="Monthly EMI" value={formatNPR(loan.monthlyPayment)} />
-            <Row label="Total Repayment" value={formatNPR(loan.totalRepayment)} />
-            <Row label="Interest Rate" value={loan.interestRate ? `${loan.interestRate}%` : "18% (default)"} />
+            <Row label="Amount" value={formatNPR(loan.amount || (loan as any).requestedAmount)} />
+            <Row label="Tenure" value={`${loan.termMonths || (loan as any).tenureMonths || "--"} months`} />
+            <Row label="Purpose" value={purposeLabel[loan.purpose] ?? loan.purpose ?? "General"} />
+            <Row label="Monthly EMI" value={formatNPR(loan.monthlyPayment || (loan as any).calculatedEmi)} />
+            <Row label="Total Repayment" value={formatNPR(loan.totalRepayment || (loan.monthlyPayment && loan.termMonths ? loan.monthlyPayment * loan.termMonths : undefined))} />
+            <Row label="Interest Rate" value={loan.interestRate ? `${loan.interestRate}%` : "18% (standard)"} />
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
-          <h3 className="text-sm font-semibold text-gray-900 ">Applicant</h3>
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <h3 className="text-sm font-semibold text-gray-900">Applicant Information</h3>
           <dl className="mt-3 space-y-2 text-sm">
-            <Row label="User ID" value={loan.userId} />
-            {loan.userId ? (
-              <div className="flex justify-between">
-                <dt className="text-gray-500 ">KYC</dt>
-                <dd>
-                  <Link
-                    to={`/dashboard/kyc`}
-                    className="font-medium text-blue-600 underline "
-                  >
-                    View KYC
-                  </Link>
-                </dd>
-              </div>
-            ) : null}
+            <Row label="Applicant" value={(loan as any).user?.email || loan.applicantEmail || loan.userId || "N/A"} />
+            <div className="flex justify-between items-center pt-1">
+              <dt className="text-gray-500">KYC & Financial Profile</dt>
+              <dd className="flex items-center gap-3">
+                <Link
+                  to={`/dashboard/kyc`}
+                  className="text-xs font-semibold text-[var(--primary)] hover:underline"
+                >
+                  View KYC &rarr;
+                </Link>
+                <Link
+                  to={`/dashboard/portfolio/admin/${loan.userId}`}
+                  className="text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  View Portfolio &rarr;
+                </Link>
+              </dd>
+            </div>
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4  ">
-          <h3 className="text-sm font-semibold text-gray-900 ">Risk Assessment</h3>
-          <div className="mt-3 flex items-center gap-3">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">FinGuard ML Risk Assessment (XGBoost)</h3>
             <RiskScoreBadge
-              score={null}
+              score={(loan as any).creditScore || loan.riskScore || null}
               level={(loan.riskLevel as RiskLevel) ?? null}
             />
           </div>
           <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Risk Level" value={loan.riskLevel ? formatRiskLevel(loan.riskLevel) : "Pending"} />
+            <Row label="Risk Tier" value={loan.riskLevel ? formatRiskLevel(loan.riskLevel) : "Pending Review"} />
+            {(loan as any).defaultProbability != null ? (
+              <Row
+                label="Predicted Default Probability"
+                value={`${(Number((loan as any).defaultProbability) * 100).toFixed(1)}%`}
+              />
+            ) : null}
+            {(loan as any).creditScore != null ? (
+              <Row
+                label="Model Credit Score"
+                value={`${(loan as any).creditScore} / 850`}
+              />
+            ) : null}
+            {(loan as any).mlDecision ? (
+              <Row
+                label="Algorithmic Recommendation"
+                value={String((loan as any).mlDecision).toUpperCase()}
+              />
+            ) : null}
+            {(loan as any).modelVersion ? (
+              <Row label="Pipeline Version" value={String((loan as any).modelVersion)} />
+            ) : null}
           </dl>
         </div>
 

@@ -14,10 +14,12 @@ import { FileUploadField } from "@shared/components/FileUploadField";
 import InputField from "@components/common/InputField";
 import CustomDatePicker from "@components/common/CutomDatePicker";
 import CustomSelectField from "@components/common/SelectField";
-import { CheckMarkIcon } from "@assets/data/icons";
+import { Check } from "lucide-react";
 import { DocumentType } from "@shared/types/common";
 import { useToast } from "@shared/hooks/useToast";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
 
 type IncomeType = "EMPLOYED" | "SELF_EMPLOYED" | "STUDENT" | "UNEMPLOYED" | "RETIRED";
 
@@ -29,24 +31,12 @@ const INCOME_TYPES: { value: IncomeType; label: string; description: string }[] 
   { value: "RETIRED", label: "Retired", description: "I am retired and may have pension income" },
 ];
 
-const EMPLOYMENT_STATUS_OPTIONS = [
-  "EMPLOYED", "SELF_EMPLOYED", "BUSINESS", "STUDENT", "UNEMPLOYED", "RETIRED", "OTHER",
-];
-
 const BUSINESS_TYPE_OPTIONS = [
   "Retail", "Service", "Manufacturing", "Technology", "Agriculture", "Construction", "Transportation", "Freelance", "Other",
 ];
 
 const EDUCATION_LEVEL_OPTIONS = [
   "HighSchool", "Bachelor", "Master", "PhD", "Diploma",
-];
-
-const INCOME_SOURCE_OPTIONS = [
-  { value: "SALARY", label: "Salary" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "PENSION", label: "Pension" },
-  { value: "STIPEND", label: "Stipend" },
-  { value: "OTHER", label: "Other" },
 ];
 
 interface FormData {
@@ -222,9 +212,8 @@ const PortfolioPage = () => {
 
       const needsDocs = formData.employmentStatus === "EMPLOYED" || formData.employmentStatus === "SELF_EMPLOYED";
       setStep(needsDocs ? "documents" : "review");
-    } catch (error) {
-      const apiError = error as { response?: { data?: { message?: string } } };
-      toast.error(apiError.response?.data?.message || "Failed to save employment information");
+    } catch {
+      toast.error("Failed to save employment information");
     }
   };
 
@@ -246,7 +235,7 @@ const PortfolioPage = () => {
       try {
         await deleteMutation.mutateAsync(documentId);
         toast.success("Document removed");
-      } catch (error) {
+      } catch (_error) {
         toast.error("Failed to delete document");
       }
     },
@@ -262,11 +251,6 @@ const PortfolioPage = () => {
       const apiError = error as { response?: { data?: { message?: string } } };
       toast.error(apiError.response?.data?.message || "Failed to submit portfolio");
     }
-  };
-
-  const mapDocType = (dt: string): DocumentType => {
-    const known = Object.values(DocumentType);
-    return known.includes(dt as DocumentType) ? (dt as DocumentType) : DocumentType.OTHER;
   };
 
   const getDocForType = (docType: string): DocEntry | undefined =>
@@ -308,7 +292,7 @@ const PortfolioPage = () => {
                       : "bg-gray-200 text-gray-500"
                 }`}
               >
-                {isDone ? <CheckMarkIcon /> : i + 1}
+                {isDone ? <Check className="h-4 w-4" /> : i + 1}
               </div>
               <span
                 className={`text-sm ${
@@ -326,39 +310,20 @@ const PortfolioPage = () => {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
-          Financial Portfolio
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold text-gray-900">
-          {isComplete ? "Portfolio Verified" : "Complete Your Financial Profile"}
-        </h1>
-        <p className="mt-2 text-sm text-gray-500">
-          {isComplete
+    <section className="space-y-4">
+      <PageHeader
+        breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Financial Profile" }]} />}
+        title={isComplete ? "Financial Portfolio" : "Complete Financial Profile"}
+        description={
+          isComplete
             ? "Your financial profile is verified. You can now apply for loans."
             : currentStatus === "REJECTED"
-              ? "Your portfolio was rejected. Please review the feedback and resubmit."
+              ? "Your portfolio was rejected. Please review feedback and resubmit."
               : currentStatus === "PENDING_REVIEW"
-                ? "Your portfolio is under review by an admin."
-                : "Provide your employment details and upload supporting documents."}
-        </p>
-        {currentStatus && !isComplete ? (
-          <div className="mt-3">
-            <span
-              className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                currentStatus === "REJECTED"
-                  ? "bg-red-100 text-red-800"
-                  : currentStatus === "PENDING_REVIEW"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-blue-100 text-blue-800"
-              }`}
-            >
-              {currentStatus.replace(/_/g, " ")}
-            </span>
-          </div>
-        ) : null}
-      </div>
+                ? "Your portfolio is under review by staff."
+                : "Provide your employment details and upload supporting documents."
+        }
+      />
 
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
         {renderStepIndicator()}

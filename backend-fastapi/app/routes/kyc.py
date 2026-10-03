@@ -58,8 +58,10 @@ def get_ocr_service():
 def get_face_service():
     global face_service
     if face_service is None:
-        from app.services.identity_service import face_service as _face
-        face_service = _face
+        from app.services import identity_service as _identity
+        if _identity.DeepFace is None:
+            raise HTTPException(status_code=503, detail="Face verification engine unavailable")
+        face_service = _identity.face_service
     return face_service
 
 
@@ -146,20 +148,8 @@ async def upload_documents(
         session.add(document)
         await session.flush()
 
-        # If citizenship document, trigger OCR asynchronously
-        if document_type in ["citizenship_front", "citizenship_back"]:
-            try:
-                ocr_result = await get_ocr_service().process_document(
-                    image_path=file_path,
-                    kyc_application_id=str(kyc_app.id),
-                    document_type=document_type,
-                    session=session,
-                )
-                logger.info("OCR processing triggered for document: %s", document.id)
-            except Exception as e:
-                logger.error("OCR processing failed: %s", str(e))
-                # Continue anyway - OCR failure doesn't block upload
-
+        # OCR-based data extraction is intentionally disabled in the active KYC flow.
+        # Only face verification remains in use; legacy text extraction is isolated out of the live path.
         await session.commit()
 
         return {
@@ -241,6 +231,8 @@ async def verify_face(
             "message": message,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         await session.rollback()
         logger.error("Face verification failed: %s", str(e), exc_info=True)
@@ -350,6 +342,8 @@ async def verify_face_stateless(
             "status": status,
             "recommendation": recommendation,
         }
+    except HTTPException:
+        raise
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Image file not found")
     except ValueError as e:

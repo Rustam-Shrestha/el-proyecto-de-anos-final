@@ -121,7 +121,7 @@ export const financialDocumentService = {
           ocrData,
           ocrConfidence: confidence,
           ocrStatus: status,
-          verificationStatus: confidence !== null && confidence < 0.8 ? 'FLAGGED' : undefined,
+          verificationStatus: confidence !== null && confidence < 0.8 ? 'FLAGGED_REVIEW' : undefined,
         },
       });
 
@@ -214,7 +214,7 @@ export const financialDocumentService = {
       const verified = documents.filter((d) => d.verificationStatus === 'VERIFIED').length;
       const pending = documents.filter((d) => d.verificationStatus === 'PENDING' || d.verificationStatus === 'PROCESSING').length;
       const rejected = documents.filter((d) => d.verificationStatus === 'REJECTED').length;
-      const flagged = documents.filter((d) => d.verificationStatus === 'FLAGGED').length;
+      const flagged = documents.filter((d) => d.verificationStatus === 'FLAGGED_REVIEW').length;
 
       return { total, verified, pending, rejected, flagged };
     } catch (error) {

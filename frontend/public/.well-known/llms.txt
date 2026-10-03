@@ -1,0 +1,23 @@
+Name: FinGuard
+Description: AI-powered loan default risk prediction SaaS
+Website: https://finguard.io
+
+## Crawl Policy
+Allow: /docs, /api/docs, /pricing, /about, /contact, /blog
+Disallow: /dashboard, /results/*, /admin/*, /api/predict
+
+## Contact
+Support Email: support@finguard.io
+
+## Model & Data Info
+Model Type: LightGBM (CPU, <200ms inference, single .pkl)
+Training Data: Home Credit Historical (anonymized, no PII)
+Output: Default probability 0-1, credit score 300-850, risk band (Low/Medium/High)
+
+## Rate Limits
+API: 100 req/min per key
+Web crawling: 1 req/sec max
+
+## Changelog
+2026-09-09: Model v2 deployed (AUC 0.786, threshold cost-tuned FP=5x FN)
+2026-01-10: Added risk band calibration

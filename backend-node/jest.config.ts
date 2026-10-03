@@ -6,6 +6,7 @@ const config: Config = {
   roots: ["<rootDir>/tests"],
   setupFiles: ["<rootDir>/tests/setup-env.ts"],
   moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
     "^@config/(.*)$": "<rootDir>/src/config/$1",
     "^@controllers/(.*)$": "<rootDir>/src/controllers/$1",
     "^@db/(.*)$": "<rootDir>/src/db/$1",

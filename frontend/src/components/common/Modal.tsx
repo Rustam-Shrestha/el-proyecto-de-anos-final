@@ -6,7 +6,7 @@
  * changes but modal props haven't changed.
  */
 import React, { memo } from "react";
-import { CloseIcon } from "../../assets/data/icons";
+import { X } from "lucide-react";
 
 const Modal = memo(({
   size = "xl",
@@ -61,7 +61,7 @@ const Modal = memo(({
             aria-label="Close modal"
             className="flex-shrink-0 ml-2 hover:opacity-80 transition-opacity"
           >
-            <CloseIcon />
+            <X />
           </button>
         </div>
 

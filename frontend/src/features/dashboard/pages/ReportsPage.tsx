@@ -1,6 +1,8 @@
 import { memo } from "react";
 import { Activity, BarChart3, CheckCircle, Clock, FileText, Users, XCircle } from "lucide-react";
 import { useAdminStats } from "@features/dashboard/api/dashboardApi";
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
 
 type StatCardProps = {
   label: string;
@@ -43,16 +45,12 @@ const ReportsPage = () => {
   const { data, isLoading, isError, refetch } = useAdminStats();
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm  ">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
-          Reports
-        </p>
-        <h2 className="mt-2 text-3xl font-semibold text-gray-900 ">Reports</h2>
-        <p className="mt-2 text-sm text-gray-500 ">
-          Aggregate statistics and platform activity.
-        </p>
-      </div>
+    <section className="space-y-4">
+      <PageHeader
+        breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Reports" }]} />}
+        title="Analytics & Reports"
+        description="Aggregate platform metrics and performance statistics."
+      />
 
       {isLoading ? (
         <Skeleton />

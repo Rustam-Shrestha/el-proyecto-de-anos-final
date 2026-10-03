@@ -1,20 +1,23 @@
 import { useState, useRef, useEffect } from "react";
-import { Bell, Eye, Trash2, CheckCheck } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bell, Eye, Trash2, CheckCheck, FileText, Briefcase, CircleDollarSign, FileCheck, Info } from "lucide-react";
 import {
   useNotifications,
   useMarkAsRead,
   useMarkAllAsRead,
   useDeleteNotification,
+  notificationKeys,
   type Notification,
 } from "../api/notificationsApi";
+import { initSocket } from "@shared/lib/socketClient";
 import { NotificationModal } from "./NotificationModal";
 
 const getTypeIcon = (type: string) => {
-  if (type.includes("KYC")) return "🆔";
-  if (type.includes("PORTFOLIO")) return "💼";
-  if (type.includes("LOAN")) return "💰";
-  if (type.includes("DOCUMENT")) return "📄";
-  return "📢";
+  if (type.includes("KYC")) return <FileCheck className="h-4 w-4 text-[var(--primary)]" />;
+  if (type.includes("PORTFOLIO")) return <Briefcase className="h-4 w-4 text-blue-600" />;
+  if (type.includes("LOAN")) return <CircleDollarSign className="h-4 w-4 text-emerald-600" />;
+  if (type.includes("DOCUMENT")) return <FileText className="h-4 w-4 text-slate-600" />;
+  return <Info className="h-4 w-4 text-indigo-600" />;
 };
 
 const priorityClasses: Record<string, string> = {
@@ -47,10 +50,24 @@ export const NotificationBell = () => {
 
   const notifications = data?.notifications ?? [];
   const unreadCount = data?.unreadCount ?? 0;
+  const queryClient = useQueryClient();
+
+  // Realtime refresh: backend emits `notification:new` to user:<id> on create.
+  useEffect(() => {
+    const socket = initSocket();
+    if (!socket) return;
+    const handleNew = () => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+    };
+    socket.on("notification:new", handleNew);
+    return () => {
+      socket.off("notification:new", handleNew);
+    };
+  }, [queryClient]);
 
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+    const handleClick = (event: globalThis.MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as globalThis.Node)) {
         setIsOpen(false);
       }
     };
@@ -76,14 +93,17 @@ export const NotificationBell = () => {
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+          <span
+            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold text-white shadow-sm"
+            style={{ backgroundColor: "var(--danger, #DC2626)" }}
+          >
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-200 bg-white shadow-2xl">
+        <div className="absolute right-0 top-12 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-200 bg-white shadow-2xl z-50">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
@@ -102,8 +122,12 @@ export const NotificationBell = () => {
           </div>
 
           {notifications.length === 0 ? (
-            <div className="px-6 py-12 text-center text-sm text-gray-500">
-              No notifications yet
+            <div className="px-6 py-10 text-center">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-2">
+                <Bell className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">No notifications yet</p>
+              <p className="text-xs text-gray-400 mt-0.5">Real-time status updates will appear here.</p>
             </div>
           ) : (
             <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto">
@@ -112,13 +136,18 @@ export const NotificationBell = () => {
                   key={notification.id}
                   className={`flex items-start gap-3 bg-white px-4 py-3 transition-colors hover:bg-gray-50 ${priorityClasses[notification.priority] ?? ""}`}
                 >
-                  <span className="mt-0.5 text-xl">{getTypeIcon(notification.type)}</span>
+                  <span className="mt-0.5 shrink-0">{getTypeIcon(notification.type)}</span>
                   <button
                     type="button"
                     onClick={() => openDetails(notification)}
                     className="flex-1 text-left"
                   >
-                    <h4 className="text-sm font-semibold text-gray-900">{notification.title}</h4>
+                    <div className="flex items-center gap-2">
+                      {notification.status === "UNREAD" && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" aria-label="Unread notification" />
+                      )}
+                      <h4 className={notification.status === "UNREAD" ? "text-sm font-semibold text-gray-900" : "text-sm font-medium text-gray-500"}>{notification.title}</h4>
+                    </div>
                     <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{notification.message}</p>
                     <p className="mt-1 text-[11px] text-gray-400">{timeAgo(notification.createdAt)}</p>
                   </button>

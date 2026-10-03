@@ -183,7 +183,7 @@ portfolioRouter.get(
 portfolioRouter.get(
   '/admin/pending',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(listPortfoliosSchema),
   listPendingPortfolios
 );
@@ -191,7 +191,7 @@ portfolioRouter.get(
 portfolioRouter.get(
   '/admin/users/:userId',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(userParamSchema),
   getPortfolioDetail
 );
@@ -199,7 +199,7 @@ portfolioRouter.get(
 portfolioRouter.get(
   '/admin/users/:userId/documents',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(userParamSchema),
   getUserDocuments
 );
@@ -207,7 +207,7 @@ portfolioRouter.get(
 portfolioRouter.get(
   '/admin/users/:userId/report',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(userParamSchema),
   getPortfolioReport
 );
@@ -215,7 +215,7 @@ portfolioRouter.get(
 portfolioRouter.patch(
   '/admin/users/:userId/verify',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(verifyPortfolioSchema),
   verifyPortfolio
 );
@@ -223,7 +223,7 @@ portfolioRouter.patch(
 portfolioRouter.get(
   '/admin/users/:userId/employment',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(userParamSchema),
   adminGetUserEmployment
 );
@@ -232,14 +232,14 @@ portfolioRouter.get(
 portfolioRouter.get(
   '/admin/documents',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   adminListDocuments
 );
 
 portfolioRouter.patch(
   '/admin/documents/:id/verify',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  authorize('SUPERADMIN', 'ADMIN', 'REVIEWER'),
   validate(verifyFinancialDocumentSchema),
   adminVerifyFinancialDocument
 );

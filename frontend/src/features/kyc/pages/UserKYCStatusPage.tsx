@@ -3,19 +3,23 @@ import { Link } from "react-router-dom";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { DocumentStatusBadge } from "@shared/components/DocumentStatusBadge";
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
+import Card from "@shared/components/Card";
 import type { KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
 import { DocumentType } from "@shared/types/common";
+import { AlertCircle, FileCheck } from "lucide-react";
 
 const documentTypeLabels: Record<string, string> = {
   [DocumentType.CITIZENSHIP_FRONT]: "Citizenship (Front)",
   [DocumentType.CITIZENSHIP_BACK]: "Citizenship (Back)",
   [DocumentType.PASSPORT]: "Passport",
-  [DocumentType.SELFIE]: "Selfie",
+  [DocumentType.SELFIE]: "Selfie Verification Photo",
   [DocumentType.INCOME_PROOF]: "Income Proof",
   [DocumentType.BANK_STATEMENT]: "Bank Statement",
-  [DocumentType.EXISTING_LOAN]: "Existing Loan",
-  [DocumentType.COLLATERAL]: "Collateral",
-  [DocumentType.OTHER]: "Other",
+  [DocumentType.EXISTING_LOAN]: "Existing Loan Document",
+  [DocumentType.COLLATERAL]: "Collateral Document",
+  [DocumentType.OTHER]: "Other Document",
 };
 
 const docStatusToBadgeStatus = (
@@ -31,11 +35,11 @@ const docStatusToBadgeStatus = (
 };
 
 const statusClasses: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  APPROVED: "bg-green-100 text-green-800",
-  REJECTED: "bg-danger-100 text-red-800",
-  UNDER_REVIEW: "bg-blue-100 text-blue-800",
-  RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800",
+  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  APPROVED: "bg-green-100 text-green-800 border-green-200",
+  REJECTED: "bg-red-100 text-red-800 border-red-200",
+  UNDER_REVIEW: "bg-blue-100 text-blue-800 border-blue-200",
+  RESUBMIT_REQUIRED: "bg-orange-100 text-orange-800 border-orange-200",
 };
 
 const formatDate = (value?: string | null) => {
@@ -55,11 +59,6 @@ const UserKYCStatusPage = () => {
     [application?.documents]
   );
 
-  const ocrResults = useMemo(
-    () => application?.ocrResults ?? [],
-    [application?.ocrResults]
-  );
-
   const faceVerification = useMemo(
     () => application?.faceVerification ?? null,
     [application?.faceVerification]
@@ -67,8 +66,11 @@ const UserKYCStatusPage = () => {
 
   if (statusQuery.isLoading) {
     return (
-      <section className="space-y-6">
-        <HeaderShell />
+      <section className="space-y-4">
+        <PageHeader
+          breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "KYC Status" }]} />}
+          title="KYC Application Status"
+        />
         <SkeletonLoader count={3} type="list" />
       </section>
     );
@@ -76,10 +78,25 @@ const UserKYCStatusPage = () => {
 
   if (statusQuery.isError) {
     return (
-      <section className="space-y-6">
-        <HeaderShell />
-        <div className="rounded-3xl border border-red-200 bg-danger-50 p-6 text-red-800">
-          Unable to load your KYC status. Please try again later.
+      <section className="space-y-4">
+        <PageHeader
+          breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "KYC Status" }]} />}
+          title="KYC Application Status"
+        />
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+            <div>
+              <p className="text-base font-medium">Unable to load your KYC status.</p>
+              <p className="mt-1 text-xs text-red-600">Please try again later or reach out to support.</p>
+            </div>
+          </div>
+          <Link
+            to="/dashboard/kyc-submit"
+            className="mt-4 inline-flex items-center rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-95"
+          >
+            Submit KYC Application
+          </Link>
         </div>
       </section>
     );
@@ -87,25 +104,33 @@ const UserKYCStatusPage = () => {
 
   if (!application) {
     return (
-      <section className="space-y-6">
-        <HeaderShell />
+      <section className="space-y-4">
+        <PageHeader
+          breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "KYC Status" }]} />}
+          title="KYC Application Status"
+        />
         <NoApplicationCard />
       </section>
     );
   }
 
   return (
-    <section className="space-y-6">
-      <HeaderShell />
+    <section className="space-y-4">
+      <PageHeader
+        breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "KYC Status" }]} />}
+        title="KYC Application Status"
+      />
 
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[application.status] ?? statusClasses.PENDING}`}>
-            {application.status}
-          </span>
-          <p className="text-sm text-gray-500">
-            Applied {formatDate(application.appliedAt ?? application.submittedAt)}
-          </p>
+      <Card className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E8F0] pb-4">
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClasses[application.status] ?? statusClasses.PENDING}`}>
+              {application.status.replace(/_/g, " ")}
+            </span>
+            <span className="text-xs text-[#64748B]">
+              Applied on {formatDate(application.appliedAt ?? application.submittedAt)}
+            </span>
+          </div>
         </div>
 
         <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
@@ -126,64 +151,7 @@ const UserKYCStatusPage = () => {
           </dl>
         </div>
 
-        {/* OCR Extracted Data */}
-        {application.ocrFullName || application.ocrCitizenshipNumber || application.ocrDateOfBirth ? (
-          <div className="mt-6">
-            <h2 className="text-lg font-semibold text-gray-900">OCR Extracted Data</h2>
-            <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <dl className="space-y-2 text-sm">
-                {application.ocrFullName ? (
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500">Full Name</dt>
-                    <dd className="font-medium text-gray-900">{application.ocrFullName}</dd>
-                  </div>
-                ) : null}
-                {application.ocrCitizenshipNumber ? (
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500">Citizenship Number</dt>
-                    <dd className="font-medium text-gray-900">{application.ocrCitizenshipNumber}</dd>
-                  </div>
-                ) : null}
-                {application.ocrDateOfBirth ? (
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500">Date of Birth</dt>
-                    <dd className="font-medium text-gray-900">{application.ocrDateOfBirth}</dd>
-                  </div>
-                ) : null}
-                {application.ocrGender ? (
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500">Gender</dt>
-                    <dd className="font-medium text-gray-900">{application.ocrGender}</dd>
-                  </div>
-                ) : null}
-                {application.ocrAddress ? (
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500">Address</dt>
-                    <dd className="font-medium text-gray-900">{application.ocrAddress}</dd>
-                  </div>
-                ) : null}
-              </dl>
-            </div>
-          </div>
-        ) : null}
-
-        {/* OCR Results Details */}
-        {ocrResults.length > 0 ? (
-          <div className="mt-6">
-            <h2 className="text-lg font-semibold text-gray-900">OCR Processing Details</h2>
-            {ocrResults.map((ocr) => (
-              <div key={ocr.id} className="mt-3 rounded-2xl border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900">{ocr.documentType}</span>
-                  <span className="text-xs text-gray-500">
-                    Confidence: {(ocr.overallConfidence * 100).toFixed(1)}%
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-gray-500 line-clamp-3">{ocr.rawOcrText}</p>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        {/* Legacy OCR sections intentionally hidden; the live flow requires manual entry and face verification only. */}
 
         {/* Face Verification Results */}
         {faceVerification ? (
@@ -287,71 +255,70 @@ const UserKYCStatusPage = () => {
         </div>
 
         {application.rejectionReason ? (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-danger-50 p-4 text-red-800">
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
             <p className="text-sm font-semibold">Rejection Reason</p>
-            <p className="mt-1 text-sm">{application.rejectionReason}</p>
+            <p className="mt-1 text-xs text-red-700">{application.rejectionReason}</p>
             <Link
               to="/dashboard/kyc-submit"
-              className="mt-3 inline-block text-sm font-semibold text-red-800 underline"
+              className="mt-3 inline-flex items-center text-xs font-semibold text-red-700 hover:underline"
             >
-              Submit New Application
+              Submit New Application &rarr;
             </Link>
           </div>
         ) : null}
 
         {application.status === "APPROVED" ? (
-          <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-800">
+          <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
             <p className="text-sm font-semibold">Application Approved</p>
-            <p className="mt-1 text-sm">
+            <p className="mt-1 text-xs text-green-700">
               {application.approvalMessage ?? "Your KYC application has been approved."}
             </p>
-            <p className="mt-2 text-sm">
+            <p className="mt-2 text-[11px] text-green-600">
               Approved on {formatDate(application.approvedAt)}
             </p>
+            <div className="mt-3 rounded-lg border border-green-200 bg-white/80 p-3">
+              <p className="text-xs font-medium text-green-900">Next Steps</p>
+              <p className="mt-0.5 text-xs text-green-700">Explore lenders to submit your first loan application.</p>
+              <Link to="/dashboard/lenders" className="mt-2 inline-flex items-center text-xs font-semibold text-[var(--primary)] hover:underline">
+                Browse lenders &rarr;
+              </Link>
+            </div>
           </div>
         ) : null}
 
         {["PENDING", "UNDER_REVIEW", "RESUBMIT_REQUIRED"].includes(application.status) ? (
           <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3">
-            <p className="text-sm font-medium text-blue-800">
+            <p className="text-xs font-medium text-blue-900">
               Your application is being reviewed.
             </p>
-            <p className="mt-1 text-sm text-blue-700">
-              We will notify you when the review is complete.
+            <p className="mt-0.5 text-xs text-blue-700">
+              FinGuard officers will verify your identity details shortly.
             </p>
           </div>
         ) : null}
-      </div>
+      </Card>
     </section>
   );
 };
 
-const HeaderShell = () => (
-  <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
-      KYC Status
-    </p>
-    <h1 className="mt-2 text-3xl font-semibold text-gray-900">
-      Your KYC application
-    </h1>
-  </div>
-);
-
 const NoApplicationCard = () => (
-  <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm">
-    <p className="text-base font-medium text-gray-900">
+  <Card className="p-8 text-center">
+    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]">
+      <FileCheck className="h-6 w-6" />
+    </div>
+    <h3 className="mt-3 text-base font-semibold text-[#0F172A]">
       No KYC application found
-    </p>
-    <p className="mt-2 text-sm">
-      You have not submitted a KYC application yet. Start one from the submission page.
+    </h3>
+    <p className="mx-auto mt-1 max-w-md text-xs text-[#64748B]">
+      You have not submitted a KYC application yet. Complete verification to unlock loan applications.
     </p>
     <Link
       to="/dashboard/kyc-submit"
-      className="mt-4 inline-block rounded-xl bg-[var(--green-icon)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
+      className="mt-4 inline-flex items-center rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-95"
     >
       Submit KYC Application
     </Link>
-  </div>
+  </Card>
 );
 
 export default memo(UserKYCStatusPage);

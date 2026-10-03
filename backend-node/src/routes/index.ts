@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { tenantContext } from '@/middleware/tenantContext';
 import userRouter from '@/routes/userRoutes';
 import authRouter from '@/routes/authRoutes';
 import kycRouter from '@/routes/kycRoutes';
@@ -11,16 +12,25 @@ import transactionRouter from '@/routes/transactionRoutes';
 import financialRouter from '@/routes/financialRoutes';
 import chatbotRouter from '@/routes/chatbotRoutes';
 import loanAssessmentRouter from '@/routes/loanAssessmentRoutes';
+import loansAliasRouter from '@/routes/loansAliasRoutes';
 import notificationRouter from '@/routes/notificationRoutes';
+import supercontrollerRouter from '@/routes/supercontrollerRoutes';
+import exportRouter from '@/routes/exportRoutes';
+import companyRouter from '@/routes/companyRoutes';
 
 export const apiRouter = Router();
 
-// Health check (public)
-apiRouter.get('/health', (_req, res) => {
+// tenant context for all /api/v1/* (adds req.tenantId/slug, auto-creates default)
+apiRouter.use(tenantContext);
+
+// Health check (public, tenant-aware)
+apiRouter.get('/health', (req, res) => {
   res.json({
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
+    tenantId: (req as unknown as { tenantId?: number }).tenantId,
+    tenantSlug: (req as unknown as { tenantSlug?: string }).tenantSlug,
   });
 });
 
@@ -39,7 +49,12 @@ apiRouter.use('/transactions', transactionRouter);
 apiRouter.use('/financial', financialRouter);
 apiRouter.use('/chat', chatbotRouter);
 apiRouter.use('/loan-assessment', loanAssessmentRouter);
+// Spec alias: /api/v1/loans/* (assess, predict, history)
+apiRouter.use('/loans', loansAliasRouter);
 apiRouter.use('/notifications', notificationRouter);
+apiRouter.use('/supercontroller', supercontrollerRouter);
+apiRouter.use('/export', exportRouter);
+apiRouter.use('/company', companyRouter);
 
 // apiRouter.use('/audit', auditRoutes);   // TODO: implement audit routes
 

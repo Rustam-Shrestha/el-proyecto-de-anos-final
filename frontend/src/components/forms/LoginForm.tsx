@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { validateEmail, validatePassword } from '../../utils/validation';
 
@@ -38,6 +39,9 @@ const LoginForm: React.FC = () => {
       {errors.password && <div style={{ color: 'red' }}>{errors.password}</div>}
 
       <button disabled={loading} type="submit">{loading ? 'Logging...' : 'Login'}</button>
+      <p style={{ marginTop: 4 }}>
+        <Link to="/forgot-password">Forgot password?</Link>
+      </p>
     </form>
   );
 };

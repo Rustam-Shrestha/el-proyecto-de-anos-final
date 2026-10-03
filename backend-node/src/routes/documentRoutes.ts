@@ -74,7 +74,8 @@ documentRouter.get(
 documentRouter.patch(
   '/:documentId/verify',
   authenticate,
-  authorize('ADMIN', 'REVIEWER'),
+  // Two-stage KYC: identity document verification is superadmin-only.
+  authorize('SUPERADMIN'),
   validate(verifyDocumentSchema),
   verifyDocument
 );

@@ -2,8 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { portfolioService } from '../../services/portfolioService';
 import type { FinancialDocument, BankTransaction, BankMeta } from '../../types/financial';
 
-const FILTERS = ['', 'PENDING', 'FLAGGED', 'VERIFIED', 'REJECTED'] as const;
-const FILTER_LABELS: Record<string, string> = { '': 'All', PENDING: 'Pending', FLAGGED: 'Flagged', VERIFIED: 'Verified', REJECTED: 'Rejected' };
+const FILTERS = ['', 'PENDING', 'FLAGGED_REVIEW', 'VERIFIED', 'REJECTED'] as const;
+const FILTER_LABELS: Record<string, string> = { '': 'All', PENDING: 'Pending', FLAGGED_REVIEW: 'Flagged', VERIFIED: 'Verified', REJECTED: 'Rejected' };
 
 export default function AdminDocumentVerification() {
   const [documents, setDocuments] = useState<FinancialDocument[]>([]);

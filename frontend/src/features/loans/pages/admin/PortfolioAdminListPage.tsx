@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useGetPendingPortfolios } from "@features/loans/api/portfolioApi";
 import { Button } from "@shared/components/Button";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
 
 const PortfolioAdminListPage = () => {
   const [page, setPage] = useState(1);
@@ -16,18 +18,12 @@ const PortfolioAdminListPage = () => {
   const meta = data?.meta;
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--green-icon)]">
-          Admin
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold text-gray-900">
-          Portfolio Verification Queue
-        </h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Review and verify user financial portfolios.
-        </p>
-      </div>
+    <section className="space-y-4">
+      <PageHeader
+        breadcrumb={<Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Financial Review" }]} />}
+        title="Financial Review Queue"
+        description="Review and verify applicant financial and employment profiles."
+      />
 
       <div className="rounded-3xl border border-gray-200 bg-white shadow-sm">
         {items.length === 0 ? (

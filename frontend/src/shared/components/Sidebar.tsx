@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase } from "lucide-react";
+import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase, MessageSquareText, Sparkles, Building2, ClipboardCheck } from "lucide-react";
 import { useAuth } from "@store/hooks";
-import { normalizeRole } from "@shared/utils/roleUtils";
+import { roleKind } from "@shared/utils/roleUtils";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 
 type SidebarProps = {
@@ -16,35 +16,92 @@ type MenuItem = {
   icon: typeof LayoutDashboard;
 };
 
+// End customer: own KYC, loans, assistant, chat with company staff.
 const userItems: MenuItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "KYC Status", path: "/dashboard/kyc-status", icon: ShieldCheck },
   { label: "Financial Profile", path: "/dashboard/portfolio", icon: Briefcase },
-  { label: "Apply for Loan", path: "/dashboard/loans/apply", icon: HandCoins },
+  { label: "Financial Assistant", path: "/dashboard/finguard", icon: Sparkles },
+  { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
+  { label: "Browse Lenders", path: "/dashboard/lenders", icon: HandCoins },
   { label: "My Loans", path: "/dashboard/loans/status", icon: FileBarChart2 },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
 
+// Tenant admin: own company only. Platform pages are never shown here.
+// Stage 2 of the two-stage flow: financial review (income + employment) lives
+// here — identity documents were already verified globally by the platform.
 const adminItems: MenuItem[] = [
   { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
   { label: "Users Management", path: "/dashboard/users", icon: Users },
-  { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
+  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
+  { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
   { label: "Reports", path: "/dashboard/reports", icon: FileBarChart2 },
+  { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
 
+// Reviewer: the review queue + staff chat + profile. Nothing else.
 const reviewerItems: MenuItem[] = [
-  { label: "KYC Applications", path: "/dashboard/kyc", icon: FileText },
+  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
+  { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
   { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
+  { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
+  { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
+
+// Platform owner only: full platform control + company management + all tenant operations.
+const platformItems: MenuItem[] = [
+  { label: "SuperController", path: "/supercontroller", icon: ShieldCheck },
+  { label: "Company Requests", path: "/admin/company-requests", icon: Building2 },
+  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
+];
+
+const superadminManagementItems: MenuItem[] = [
+  { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
+  { label: "Users Management", path: "/dashboard/users", icon: Users },
+  { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
+  { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
+  { label: "Reports", path: "/dashboard/reports", icon: FileBarChart2 },
+  { label: "Financial Assistant", path: "/dashboard/finguard", icon: Sparkles },
+  { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
+  { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
+];
+
+const sectionOf = (items: MenuItem[], title: string, onClose: () => void, linkClassName: (p: { isActive: boolean }) => string) => (
+  <div className="pt-4">
+    <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 ">
+      {title}
+    </p>
+    <div className="space-y-2">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <NavLink
+            key={item.label}
+            to={item.path}
+            onClick={onClose}
+            className={linkClassName}
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-[#DCFCE7] text-[#15803D]">
+              <Icon className="h-4 w-4" />
+            </span>
+            <span>{item.label}</span>
+          </NavLink>
+        );
+      })}
+    </div>
+  </div>
+);
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { userData } = useAuth();
-  const role = useMemo(() => normalizeRole(userData?.role), [userData?.role]);
-  const showUserItems = useMemo(() => role === "user", [role]);
-  const showAdminItems = useMemo(() => role === "admin", [role]);
-  const showReviewerItems = useMemo(() => role === "reviewer", [role]);
+  const kind = useMemo(() => roleKind(userData?.role), [userData?.role]);
+  const isSuper = Boolean((userData as any)?.isSuperUser) || kind === "superadmin";
+  const showUserItems = !isSuper && kind === "user";
+  const showAdminItems = !isSuper && kind === "admin";
+  const showReviewerItems = !isSuper && kind === "reviewer";
 
   const { data: kycStatus } = useGetMyKYCStatus();
   const kycApproved = kycStatus?.status === "APPROVED";
@@ -52,21 +109,17 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   const linkClassName = ({ isActive }: { isActive: boolean }) =>
     [
-      "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition-colors",
+      "flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-left text-sm font-medium transition-colors",
       isActive
-        ? "bg-[var(--green-footer)] text-[var(--green-background)]"
-        : "text-gray-700 hover:bg-gray-100",
+        ? "bg-[#DCFCE7] text-[#166534]"
+        : "text-[#334155] hover:bg-[#F1F5F9]",
     ].join(" ");
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-gray-200 bg-white px-4 py-5 text-gray-900 shadow-2xl transition-transform duration-300    lg:static lg:translate-x-0 lg:shadow-none ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+      className={`fixed inset-y-0 left-0 z-50 w-[256px] border-r border-[#E2E8F0] bg-white px-3 py-5 text-[#0F172A] shadow-card transition-transform duration-200 lg:static lg:translate-x-0 lg:shadow-none ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
     >
       <div className="mb-6 flex items-center justify-between lg:justify-start">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green-icon)]">Navigation</p>
-          <h2 className="text-lg font-semibold text-gray-900 ">Workspace</h2>
-        </div>
         <button
           type="button"
           onClick={onClose}
@@ -77,6 +130,13 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       </div>
 
       <nav className="space-y-2">
+        {isSuper && (
+          <>
+            {sectionOf(platformItems, "Platform", onClose, linkClassName)}
+            {sectionOf(superadminManagementItems, "Management", onClose, linkClassName)}
+          </>
+        )}
+
         {showUserItems && (
           <>
             {userItems.map((item) => {
@@ -88,7 +148,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                   onClick={onClose}
                   className={linkClassName}
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-[#DCFCE7] text-[#15803D]">
                     <Icon className="h-4 w-4" />
                   </span>
                   <span>{item.label}</span>
@@ -101,7 +161,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 onClick={onClose}
                 className={linkClassName}
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-[#DCFCE7] text-[#15803D]">
                   <ShieldPlus className="h-4 w-4" />
                 </span>
                 <span>Submit KYC</span>
@@ -110,57 +170,8 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           </>
         )}
 
-        {showAdminItems && (
-          <div className="pt-4">
-            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 ">
-              Admin
-            </p>
-            <div className="space-y-2">
-              {adminItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.label}
-                    to={item.path}
-                    onClick={onClose}
-                    className={linkClassName}
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {showReviewerItems && (
-          <div className="pt-4">
-            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 ">
-              Reviewer
-            </p>
-            <div className="space-y-2">
-              {reviewerItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.label}
-                    to={item.path}
-                    onClick={onClose}
-                    className={linkClassName}
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-footer)] text-[var(--green-background)]  ">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {showAdminItems && sectionOf(adminItems, "Company", onClose, linkClassName)}
+        {showReviewerItems && sectionOf(reviewerItems, "Review", onClose, linkClassName)}
       </nav>
     </aside>
   );

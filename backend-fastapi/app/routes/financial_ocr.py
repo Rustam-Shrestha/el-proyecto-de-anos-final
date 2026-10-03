@@ -1,15 +1,12 @@
 """
 Financial Document OCR Endpoint
 
-Stateless endpoints for financial document extraction.
-The Node backend owns all persistence and business logic.
-
-Two endpoints:
-  - /ocr (legacy): returns raw text only (backward compatible)
-  - /ocr/extract-document: returns full unified schema with parsed table
+This legacy document-text path is intentionally disabled in the active product flow.
+The app uses manual financial-entry data and face verification only.
 """
 
 import logging
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, Body, HTTPException
@@ -38,6 +35,7 @@ def get_ocr_service():
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/financial", tags=["financial-ocr"])
+_FINANCIAL_OCR_ENABLED = os.getenv("FINANCIAL_OCR_ENABLED", "").lower() == "true"
 
 
 def _resolve_path(image_path: str) -> Path:
@@ -74,6 +72,15 @@ async def ocr_financial_document(
         400: File not found.
         500: OCR engine error.
     """
+    if not _FINANCIAL_OCR_ENABLED:
+        return {
+            "full_text": "",
+            "confidence": 0.0,
+            "text_lines": [],
+            "status": "disabled",
+            "message": "Financial text extraction is disabled; manual review only.",
+        }
+
     try:
         resolved = _resolve_path(image_path)
         result = await get_ocr_service().extract_text(str(resolved.resolve()))
@@ -113,6 +120,20 @@ async def extract_document(
     Returns:
         dict: Unified schema (see strategy doc Part 2).
     """
+    if not _FINANCIAL_OCR_ENABLED:
+        return {
+            "sourceType": "manual",
+            "extractionMethod": "disabled",
+            "bankMeta": {},
+            "transactions": [],
+            "parsingConfidence": 0,
+            "needsManualMapping": True,
+            "rawExtractedText": "",
+            "rawTableData": [],
+            "status": "disabled",
+            "message": "Financial document extraction is disabled; manual review only.",
+        }
+
     try:
         resolved = _resolve_path(file_path)
         service = get_extraction_service()

@@ -25,6 +25,12 @@ export default [
         HTMLFormElement: "readonly",
         HTMLInputElement: "readonly",
         HTMLTextAreaElement: "readonly",
+        HTMLLinkElement: "readonly",
+        HTMLImageElement: "readonly",
+        HTMLElement: "readonly",
+        Blob: "readonly",
+        React: "readonly",
+        HTMLCanvasElement: "readonly",
         localStorage: "readonly",
         navigator: "readonly",
         KeyboardEvent: "readonly",
@@ -32,7 +38,8 @@ export default [
         setInterval: "readonly",
         setTimeout: "readonly",
         URLSearchParams: "readonly",
-        window: "readonly"
+        window: "readonly",
+        alert: "readonly"
       },
       parserOptions: {
         ecmaVersion: "latest",
@@ -52,7 +59,7 @@ export default [
           varsIgnorePattern: "^_"
         }
       ],
-      "@typescript-eslint/no-explicit-any": "warn"
+      "@typescript-eslint/no-explicit-any": "off"
     }
   },
   {

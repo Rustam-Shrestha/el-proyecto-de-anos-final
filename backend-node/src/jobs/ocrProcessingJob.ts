@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { documentExtractionService } from '@/services/documentExtractionService';
 import { callFinancialDocumentOcr, callFinancialDocumentExtraction } from '@/services/ocrService';
-import type { ExtractionResult as ApiExtractionResult } from '@/services/ocrService';
+import type { ExtractionResult as _ApiExtractionResult } from '@/services/ocrService';
 
 interface OcrResult {
   fullText: string;
@@ -28,6 +28,21 @@ interface ProcessedExtraction {
 
 const activeJobs = new Set<string>();
 const JOB_TIMEOUT_MS = 120000;
+const FINANCIAL_TEXT_EXTRACTION_ENABLED = process.env.FINANCIAL_TEXT_EXTRACTION_ENABLED === 'true';
+
+function buildManualFinancialSummary(documentType: string): Record<string, unknown> {
+  return {
+    documentType,
+    status: 'MANUAL_REVIEW_ONLY',
+    summary: 'Text extraction and document parsing are disabled. Financial review is based on the submitted profile details and manual verification.',
+    extractedData: {
+      documentType,
+      source: 'manual-entry',
+      incomeSummary: null,
+    },
+    confidence: { overall: 0 },
+  };
+}
 
 async function runLocalOcrFallback(filePath: string): Promise<OcrResult> {
   try {
@@ -107,19 +122,44 @@ export async function processOcrJob(documentId: string): Promise<void> {
   }
 
   activeJobs.add(documentId);
-
   try {
+    await runOcrJobInner(documentId);
+  } finally {
+    // Single release point: every exit path (early return, success, throw)
+    // funnels through here instead of scattered manual deletes.
+    activeJobs.delete(documentId);
+  }
+}
+
+async function runOcrJobInner(documentId: string): Promise<void> {
+  try {
+    const doc = await prisma.financialDocument.findUnique({ where: { id: documentId } });
+    if (!doc || doc.isDeleted) {
+      logger.warn({ documentId }, 'Document not found or deleted, aborting OCR');
+      return;
+    }
+
+    if (!FINANCIAL_TEXT_EXTRACTION_ENABLED) {
+      const summary = buildManualFinancialSummary(doc.documentType);
+      await prisma.financialDocument.update({
+        where: { id: documentId },
+        data: {
+          ocrStatus: 'SKIPPED',
+          verificationStatus: 'PENDING',
+          ocrData: { status: 'manual-review-only' },
+          extractedFields: summary,
+          comparisonResult: { manualReview: true, summary: 'OCR disabled; manual verification only' },
+          ocrErrorMessage: 'Financial text extraction disabled for this flow.',
+        },
+      });
+      logger.info({ documentId, documentType: doc.documentType }, 'Financial document processing skipped: text extraction disabled');
+      return;
+    }
+
     await prisma.financialDocument.update({
       where: { id: documentId },
       data: { ocrStatus: 'PROCESSING' },
     });
-
-    const doc = await prisma.financialDocument.findUnique({ where: { id: documentId } });
-    if (!doc || doc.isDeleted) {
-      logger.warn({ documentId }, 'Document not found or deleted, aborting OCR');
-      activeJobs.delete(documentId);
-      return;
-    }
 
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('OCR processing timed out')), JOB_TIMEOUT_MS),
@@ -150,11 +190,10 @@ export async function processOcrJob(documentId: string): Promise<void> {
     });
 
     if (!processed) {
-      activeJobs.delete(documentId);
       return;
     }
 
-    const { ocrResult, extractedFields: apiExtractedFields, transactions, bankMeta } = processed;
+    const { ocrResult, extractedFields: apiExtractedFields, transactions, bankMeta: _bankMeta } = processed;
 
     const normalized = documentExtractionService.normalizeOcrOutput(ocrResult, doc.documentType);
 
@@ -242,8 +281,6 @@ export async function processOcrJob(documentId: string): Promise<void> {
       flags: flags.count,
       status: verificationStatus,
     }, 'OCR processing completed for financial document');
-
-    activeJobs.delete(documentId);
   } catch (error) {
     logger.error({ err: error, documentId }, 'Unexpected OCR job error');
     try {
@@ -257,7 +294,6 @@ export async function processOcrJob(documentId: string): Promise<void> {
     } catch {
       logger.error({ documentId }, 'Failed to update OCR error status');
     }
-    activeJobs.delete(documentId);
   }
 }
 
@@ -294,6 +330,32 @@ async function updatePortfolioDocumentCounters(userId: string): Promise<void> {
     });
   } catch (error) {
     logger.error({ err: error, userId }, 'Failed to update portfolio document counters');
+  }
+}
+
+/**
+ * Crash recovery: documents stuck in PROCESSING (worker died mid-job) would
+ * otherwise sit there forever — no worker re-queues them. Mark anything
+ * older than the job timeout as FAILED so it can be retried or triaged.
+ * Called once at server startup; returns the number of rows reset.
+ */
+export async function resetStaleOcrJobs(staleAfterMs: number = JOB_TIMEOUT_MS): Promise<number> {
+  try {
+    const cutoff = new Date(Date.now() - staleAfterMs);
+    const { count } = await prisma.financialDocument.updateMany({
+      where: { ocrStatus: 'PROCESSING', updatedAt: { lt: cutoff } },
+      data: {
+        ocrStatus: 'FAILED',
+        ocrErrorMessage: 'OCR worker restarted: stale PROCESSING job reset for retry.',
+      },
+    });
+    if (count > 0) {
+      logger.info({ count }, 'Reset stale OCR jobs left PROCESSING by a previous run');
+    }
+    return count;
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to reset stale OCR jobs');
+    return 0;
   }
 }
 

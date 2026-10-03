@@ -68,6 +68,9 @@ export const useNotifications = (status?: NotificationStatus) => {
       return data.data;
     },
     staleTime: 30 * 1000,
+    // Fallback for when the realtime socket is unavailable; the bell also
+    // invalidates this query on `notification:new`.
+    refetchInterval: 60 * 1000,
   });
 };
 
