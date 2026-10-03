@@ -26,7 +26,11 @@ const useClickOutside = (callback, extraRefs = []) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      const targets = [ref.current, ...(Array.isArray(extraRefs) ? extraRefs : [])].filter(Boolean);
+      // Normalize extraRefs: support both DOM elements and ref objects ({current: element})
+      const normalizedExtraRefs = Array.isArray(extraRefs)
+        ? extraRefs.map((r) => (r && typeof r === "object" && "current" in r ? r.current : r))
+        : [];
+      const targets = [ref.current, ...normalizedExtraRefs].filter(Boolean);
 
       if (targets.length > 0 && targets.some((currentRef) => currentRef.contains(event.target))) {
         return;

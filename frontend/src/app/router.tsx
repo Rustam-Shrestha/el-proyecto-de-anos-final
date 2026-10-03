@@ -19,7 +19,10 @@ const LoanStatusPage = lazy(() => import("@features/loans/pages/LoanStatusPage")
 const LoanOfficerDashboardPage = lazy(() => import("@features/loans/pages/LoanOfficerDashboardPage"));
 const ReportsPage = lazy(() => import("@features/dashboard/pages/ReportsPage"));
 const DashboardPage = lazy(() => import("@pages/DashboardPage"));
+const FinguardDashboardPage = lazy(() => import("@features/finguard/pages/FinguardDashboardPage"));
 const PortfolioPage = lazy(() => import("@features/loans/pages/PortfolioPage"));
+const PortfolioAdminListPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminListPage"));
+const PortfolioAdminDetailPage = lazy(() => import("@features/loans/pages/admin/PortfolioAdminDetailPage"));
 const NotFoundPage = lazy(() => import("@pages/NotFoundPage"));
 
 export const router = createBrowserRouter([
@@ -119,6 +122,22 @@ export const router = createBrowserRouter([
             )
           },
           {
+            path: "portfolio/admin",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+                <PortfolioAdminListPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "portfolio/admin/:userId",
+            element: (
+              <RoleProtectedRoute requiredRoles={["admin", "reviewer"]}>
+                <PortfolioAdminDetailPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
             path: "loans/apply",
             element: (
               <RoleProtectedRoute requiredRoles={["user", "admin"]}>
@@ -131,6 +150,14 @@ export const router = createBrowserRouter([
             element: (
               <RoleProtectedRoute requiredRoles={["user", "admin"]}>
                 <LoanStatusPage />
+              </RoleProtectedRoute>
+            )
+          },
+          {
+            path: "finguard",
+            element: (
+              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+                <FinguardDashboardPage />
               </RoleProtectedRoute>
             )
           }

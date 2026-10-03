@@ -1,6 +1,31 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Activity, CheckCircle, FileText, Users, XCircle } from "lucide-react";
+import Highcharts from "highcharts";
 import { useAdminStats } from "@features/dashboard/api/dashboardApi";
+
+const KycPieChart = ({ data }: { data: Array<{ name: string; y: number; color: string }> }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const chart = Highcharts.chart(containerRef.current, {
+      chart: { type: "pie", height: 280 },
+      title: { text: undefined },
+      tooltip: { pointFormat: "<b>{point.y}</b> ({point.percentage:.1f}%)" },
+      plotOptions: {
+        pie: {
+          allowPointSelect: true,
+          cursor: "pointer",
+          dataLabels: { enabled: true, format: "{point.name}: {point.y}" },
+        },
+      },
+      series: [{ name: "Applications", colorByPoint: true, data }],
+    });
+    return () => chart.destroy();
+  }, [data]);
+
+  return <div ref={containerRef} />;
+};
 
 type StatCardProps = {
   label: string;
@@ -69,6 +94,7 @@ const AdminDashboardPage = () => {
           </button>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <StatCard label="Total Users" value={data!.stats!.users?.total ?? 0} icon={Users} colorClass="bg-blue-50 text-blue-600  " />
           <StatCard label="Active Users" value={data!.stats!.users?.active ?? 0} icon={Activity} colorClass="bg-cyan-50 text-cyan-600  " />
@@ -76,6 +102,21 @@ const AdminDashboardPage = () => {
           <StatCard label="Approved KYC" value={data!.stats!.kyc?.approved ?? 0} icon={CheckCircle} colorClass="bg-emerald-50 text-emerald-600  " />
           <StatCard label="Rejected KYC" value={data!.stats!.kyc?.rejected ?? 0} icon={XCircle} colorClass="bg-rose-50 text-rose-600  " />
         </div>
+
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900">KYC Application Status</h3>
+          <p className="mt-1 text-sm text-gray-500">Distribution of KYC applications by status.</p>
+          <div className="mt-4">
+            <KycPieChart
+              data={[
+                { name: "Approved", y: data!.stats!.kyc?.approved ?? 0, color: "#10b981" },
+                { name: "Pending", y: data!.stats!.kyc?.pending ?? 0, color: "#f59e0b" },
+                { name: "Rejected", y: data!.stats!.kyc?.rejected ?? 0, color: "#f43f5e" },
+              ]}
+            />
+          </div>
+        </div>
+        </>
       )}
     </section>
   );

@@ -9,11 +9,12 @@ param(
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $searchRoots = @(
-    Join-Path $scriptDir "..\.venv\Scripts\python.exe",
-    Join-Path $scriptDir "..\app\.venv\Scripts\python.exe",
-    Join-Path $scriptDir "..\venv\Scripts\python.exe",
+    Join-Path $scriptDir "..\.venv\Scripts\python.exe"
+    Join-Path $scriptDir "..\app\.venv\Scripts\python.exe"
+    Join-Path $scriptDir "..\venv\Scripts\python.exe"
     Join-Path $scriptDir "..\..\.venv\Scripts\python.exe"
 )
+
 
 $python = $null
 foreach ($p in $searchRoots) {

@@ -1,19 +1,26 @@
 // @ts-nocheck
 import { memo, useMemo, useState, type ChangeEvent } from "react";
-import { Link } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import InputField from "@components/common/InputField";
 import Modal from "@components/common/Modal";
 import { PrimaryButton } from "@components/common/Button";
 import TableView from "@components/common/TableView";
 import useAuth from "@hooks/useAuth";
+import { normalizeRole } from "@shared/utils/roleUtils";
+import { UserDashboard } from "@features/dashboard/pages/UserDashboard";
 import { Users, FileText, CreditCard } from "lucide-react";
 
 const DashboardPage = () => {
+  const { userData } = useAuth();
+  const role = normalizeRole(userData?.role);
+
+  if (role === "admin") return <Navigate to="/dashboard/admin" replace />;
+  if (role === "reviewer") return <Navigate to="/dashboard/loans" replace />;
+  if (role === "user") return <UserDashboard />;
   const [showModal, setShowModal] = useState(false);
   const [query, setQuery] = useState<string>("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const { userData } = useAuth();
 
   const rows = useMemo(
     () => [
