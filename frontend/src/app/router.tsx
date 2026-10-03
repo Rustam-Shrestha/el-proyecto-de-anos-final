@@ -68,7 +68,7 @@ export const router = createBrowserRouter([
           {
             path: "admin",
             element: (
-              <RoleProtectedRoute requiredRoles={["admin"]}>
+              <RoleProtectedRoute requiredRoles={["admin", "superadmin"]}>
                 <AdminDashboardPage />
               </RoleProtectedRoute>
             )
@@ -76,7 +76,7 @@ export const router = createBrowserRouter([
           {
             path: "users",
             element: (
-              <RoleProtectedRoute requiredRoles={["admin"]}>
+              <RoleProtectedRoute requiredRoles={["admin", "superadmin"]}>
                 <UsersPage />
               </RoleProtectedRoute>
             )
@@ -92,7 +92,7 @@ export const router = createBrowserRouter([
           {
             path: "reports",
             element: (
-              <RoleProtectedRoute requiredRoles={["admin"]}>
+              <RoleProtectedRoute requiredRoles={["admin", "superadmin"]}>
                 <ReportsPage />
               </RoleProtectedRoute>
             )
@@ -108,7 +108,7 @@ export const router = createBrowserRouter([
           {
             path: "kyc-submit",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "superadmin"]}>
                 <UserKYCPage />
               </RoleProtectedRoute>
             )
@@ -116,7 +116,7 @@ export const router = createBrowserRouter([
           {
             path: "kyc-status",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "superadmin"]}>
                 <KYCStatusPage />
               </RoleProtectedRoute>
             )
@@ -156,7 +156,7 @@ export const router = createBrowserRouter([
           {
             path: "loans/apply",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "superadmin"]}>
                 <LoanApplicationPage />
               </RoleProtectedRoute>
             )
@@ -164,7 +164,7 @@ export const router = createBrowserRouter([
           {
             path: "loans/status",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "superadmin"]}>
                 <LoanStatusPage />
               </RoleProtectedRoute>
             )
@@ -174,7 +174,7 @@ export const router = createBrowserRouter([
             // quick-apply (amount/tenure/purpose only) at /:slug/apply.
             path: "lenders",
             element: (
-              <RoleProtectedRoute requiredRoles={["user"]}>
+              <RoleProtectedRoute requiredRoles={["user", "superadmin"]}>
                 <LendersPage />
               </RoleProtectedRoute>
             )
@@ -182,7 +182,7 @@ export const router = createBrowserRouter([
           {
             path: "chat",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "reviewer", "superadmin"]}>
                 <ChatPage />
               </RoleProtectedRoute>
             )
@@ -190,7 +190,7 @@ export const router = createBrowserRouter([
           {
             path: "finguard",
             element: (
-              <RoleProtectedRoute requiredRoles={["user", "admin"]}>
+              <RoleProtectedRoute requiredRoles={["user", "admin", "superadmin"]}>
                 <FinguardDashboardPage />
               </RoleProtectedRoute>
             )

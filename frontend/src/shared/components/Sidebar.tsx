@@ -51,12 +51,21 @@ const reviewerItems: MenuItem[] = [
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
 
-// Platform owner only: all companies, creation approvals, new companies,
-// plus global KYC document verification (two-stage KYC, stage 1).
+// Platform owner only: full platform control + company management + all tenant operations.
 const platformItems: MenuItem[] = [
   { label: "SuperController", path: "/supercontroller", icon: ShieldCheck },
-  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
   { label: "Company Requests", path: "/admin/company-requests", icon: Building2 },
+  { label: "KYC Verification", path: "/dashboard/kyc", icon: FileText },
+];
+
+const superadminManagementItems: MenuItem[] = [
+  { label: "Admin Dashboard", path: "/dashboard/admin", icon: Gauge },
+  { label: "Users Management", path: "/dashboard/users", icon: Users },
+  { label: "Financial Review", path: "/dashboard/portfolio/admin", icon: ClipboardCheck },
+  { label: "Loan Applications", path: "/dashboard/loans", icon: Landmark },
+  { label: "Reports", path: "/dashboard/reports", icon: FileBarChart2 },
+  { label: "Financial Assistant", path: "/dashboard/finguard", icon: Sparkles },
+  { label: "Messages", path: "/dashboard/chat", icon: MessageSquareText },
   { label: "Profile", path: "/dashboard/profile", icon: UserCircle2 },
 ];
 
@@ -121,7 +130,12 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       </div>
 
       <nav className="space-y-2">
-        {isSuper && sectionOf(platformItems, "Platform", onClose, linkClassName)}
+        {isSuper && (
+          <>
+            {sectionOf(platformItems, "Platform", onClose, linkClassName)}
+            {sectionOf(superadminManagementItems, "Management", onClose, linkClassName)}
+          </>
+        )}
 
         {showUserItems && (
           <>

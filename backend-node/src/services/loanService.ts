@@ -95,23 +95,46 @@ export const loanService = {
       // FinGuard ML prediction (non-blocking fallback to heuristic) — include exposure
       let ml: Awaited<ReturnType<typeof finguardProxyService.evaluate>> = null;
       try {
-        const employment = await prisma.employmentInfo.findUnique({ where: { userId } });
-        const profile = await prisma.profile.findUnique({ where: { userId } });
-        const daysBirth = profile?.dateOfBirth
-          ? -Math.floor((Date.now() - new Date(profile.dateOfBirth).getTime()) / 86400000)
-          : -12000;
-        const daysEmployed = employment?.employmentStartDate
-          ? -Math.floor((Date.now() - new Date(employment.employmentStartDate).getTime()) / 86400000)
-          : 365243;
+        const [employment, profile] = await Promise.all([
+          prisma.employmentInfo.findFirst({ where: { userId } }),
+          prisma.profile.findUnique({ where: { userId } }),
+        ]);
+
+        const today = new Date();
+        let daysBirth = -10957;
+        if (profile?.dateOfBirth) {
+          const b = new Date(profile.dateOfBirth);
+          if (!isNaN(b.getTime())) {
+            const diff = Math.floor((today.getTime() - b.getTime()) / 86400000);
+            daysBirth = -Math.min(30000, Math.max(6000, diff));
+          }
+        }
+
+        let daysEmployed = 365243;
+        if (employment?.employmentStartDate) {
+          const e = new Date(employment.employmentStartDate);
+          if (!isNaN(e.getTime())) {
+            const diff = Math.floor((today.getTime() - e.getTime()) / 86400000);
+            daysEmployed = -Math.min(20000, Math.max(0, diff));
+          }
+        }
+
+        const annualIncome = features.amtIncomeTotal ?? (employment?.annualIncome
+          ? Number(employment.annualIncome)
+          : (employment?.monthlyGrossIncome ? Number(employment.monthlyGrossIncome) * 12 : 500000));
+
         ml = await finguardProxyService.evaluate({
-          amt_income_total: features.amtIncomeTotal ?? Number(employment?.annualIncome ?? 0),
+          amt_income_total: annualIncome,
           amt_credit: data.requestedAmount,
           amt_annuity: emi,
+          amt_goods_price: data.requestedAmount,
           days_birth: daysBirth,
           days_employed: daysEmployed,
           cnt_children: employment?.dependentsCount ?? 0,
           cnt_fam_members: (employment?.dependentsCount ?? 0) + 1,
           occupation_type: employment?.occupationJobTitle ?? undefined,
+          organization_type: employment?.businessType ?? undefined,
+          ext_source_2: employment?.incomeStabilityScore ? (Number(employment.incomeStabilityScore) / 100) : undefined,
         });
       } catch { /* ignore ml error */ }
 
@@ -186,14 +209,10 @@ export const loanService = {
       try {
         loan = await prisma.loanApplication.findFirst({
           where: { id: loanId, tenantId: tenantId ?? 1 },
-        include: {
-          user: {
-            select: { id: true, email: true },
+          include: {
+            user: { select: { id: true, email: true } },
+            reviewedByUser: { select: { id: true, email: true } },
           },
-          reviewedByUser: {
-            select: { id: true, email: true },
-          },
-        },
         });
       } catch (e) {
         if (isTenantSchemaError(e)) {
@@ -208,11 +227,91 @@ export const loanService = {
       }
 
       if (!loan) {
+        // Try global lookup if not found in specific tenant
+        loan = await prisma.loanApplication.findUnique({
+          where: { id: loanId },
+          include: {
+            user: { select: { id: true, email: true } },
+            reviewedByUser: { select: { id: true, email: true } },
+          },
+        });
+      }
+
+      if (!loan) {
         throw new AppError('Loan application not found', 404);
       }
 
-      if (requestingUserRole !== 'ADMIN' && requestingUserRole !== 'REVIEWER' && loan.userId !== requestingUserId) {
+      const roleUpper = (requestingUserRole || '').toUpperCase();
+      if (roleUpper !== 'ADMIN' && roleUpper !== 'REVIEWER' && roleUpper !== 'SUPERADMIN' && loan.userId !== requestingUserId) {
         throw new AppError('You do not have access to this loan application', 403);
+      }
+
+      // Auto-score unscored loans on the fly
+      if (loan && (loan.defaultProbability === null || loan.defaultProbability === undefined || loan.creditScore === null)) {
+        try {
+          const [employment, profile] = await Promise.all([
+            prisma.employmentInfo.findFirst({ where: { userId: loan.userId } }),
+            prisma.profile.findUnique({ where: { userId: loan.userId } }),
+          ]);
+
+          const today = new Date();
+          let daysBirth = -10957;
+          if (profile?.dateOfBirth) {
+            const b = new Date(profile.dateOfBirth);
+            if (!isNaN(b.getTime())) {
+              const diff = Math.floor((today.getTime() - b.getTime()) / 86400000);
+              daysBirth = -Math.min(30000, Math.max(6000, diff));
+            }
+          }
+
+          let daysEmployed = 365243;
+          if (employment?.employmentStartDate) {
+            const e = new Date(employment.employmentStartDate);
+            if (!isNaN(e.getTime())) {
+              const diff = Math.floor((today.getTime() - e.getTime()) / 86400000);
+              daysEmployed = -Math.min(20000, Math.max(0, diff));
+            }
+          }
+
+          const annualIncome = employment?.annualIncome
+            ? Number(employment.annualIncome)
+            : (employment?.monthlyGrossIncome ? Number(employment.monthlyGrossIncome) * 12 : 500000);
+
+          const ml = await finguardProxyService.evaluate({
+            amt_income_total: annualIncome,
+            amt_credit: Number(loan.requestedAmount),
+            amt_annuity: Number(loan.calculatedEmi) || 0,
+            amt_goods_price: Number(loan.requestedAmount),
+            days_birth: daysBirth,
+            days_employed: daysEmployed,
+            cnt_children: employment?.dependentsCount ?? 0,
+            cnt_fam_members: (employment?.dependentsCount ?? 0) + 1,
+            occupation_type: employment?.occupationJobTitle ?? undefined,
+            organization_type: employment?.businessType ?? undefined,
+            ext_source_2: employment?.incomeStabilityScore ? (Number(employment.incomeStabilityScore) / 100) : undefined,
+          });
+
+          if (ml) {
+            loan = await prisma.loanApplication.update({
+              where: { id: loan.id },
+              data: {
+                riskScore: Math.round(ml.default_probability * 100),
+                riskLevel: (ml.risk_band.toUpperCase() as typeof loan.riskLevel) || loan.riskLevel,
+                defaultProbability: ml.default_probability,
+                modelVersion: ml.model_version,
+                shapValues: ml.shap_summary as unknown as Prisma.InputJsonValue | undefined,
+                mlDecision: ml.decision,
+                creditScore: ml.credit_score,
+              },
+              include: {
+                user: { select: { id: true, email: true } },
+                reviewedByUser: { select: { id: true, email: true } },
+              },
+            });
+          }
+        } catch {
+          // ignore on-the-fly score error
+        }
       }
 
       return loan;

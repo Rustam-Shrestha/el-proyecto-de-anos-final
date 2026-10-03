@@ -284,16 +284,26 @@ export const loanAssessmentService = {
    */
   async buildFinguardFeatures(userId: string, requestedAmount = 0): Promise<Record<string, number | string>> {
     const features: Record<string, number | string> = {};
-    if (requestedAmount > 0) features.amt_credit = requestedAmount;
+    if (requestedAmount > 0) {
+      features.amt_credit = requestedAmount;
+      features.amt_goods_price = requestedAmount;
+    }
 
     type ProfileRow = { dateOfBirth?: Date | string | null };
     type EmploymentRow = {
       employmentStartDate?: Date | string | null;
       annualIncome?: number | string | null;
+      monthlyGrossIncome?: number | string | null;
       occupationJobTitle?: string | null;
+      businessType?: string | null;
+      educationLevel?: string | null;
+      incomeStabilityScore?: number | null;
       dependentsCount?: number | null;
     };
-    type FinancialRow = { avgMonthlyIncome?: number | string | null };
+    type FinancialRow = {
+      avgMonthlyIncome?: number | string | null;
+      incomeStabilityScore?: number | null;
+    };
 
     let profile: ProfileRow | null = null;
     let employment: EmploymentRow | null = null;
@@ -311,11 +321,18 @@ export const loanAssessmentService = {
     }
 
     const monthlyIncome = Number(financial?.avgMonthlyIncome ?? 0);
-    const annualFromEmployment = Number(employment?.annualIncome ?? 0);
+    const annualFromEmployment = Number(employment?.annualIncome ?? (employment?.monthlyGrossIncome ? Number(employment.monthlyGrossIncome) * 12 : 0));
     const annualIncome = annualFromEmployment > 0 ? annualFromEmployment : monthlyIncome * 12;
     if (annualIncome > 0) features.amt_income_total = round2(annualIncome);
 
     if (employment?.occupationJobTitle) features.occupation_type = String(employment.occupationJobTitle);
+    if (employment?.businessType) features.organization_type = String(employment.businessType);
+    if (employment?.educationLevel) features.name_education_type = String(employment.educationLevel);
+
+    const stability = employment?.incomeStabilityScore ?? financial?.incomeStabilityScore;
+    if (stability && Number(stability) > 0) {
+      features.ext_source_2 = Number(stability) / 100;
+    }
 
     const dependents = Number(employment?.dependentsCount ?? 0);
     if (dependents > 0) {

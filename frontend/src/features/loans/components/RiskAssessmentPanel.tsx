@@ -167,19 +167,26 @@ const resolveInitialState = (
   };
 };
 
-const buildPayload = (form: RiskAssessmentFormState): FinguardPredictInput => ({
-  AMT_INCOME_TOTAL: parseNumber(form.AMT_INCOME_TOTAL),
-  AMT_CREDIT: parseNumber(form.AMT_CREDIT),
-  AMT_ANNUITY: parseNumber(form.AMT_ANNUITY),
-  AMT_GOODS_PRICE: parseNumber(form.AMT_GOODS_PRICE),
-  DAYS_BIRTH: toDays(parseNumber(form.AGE_YEARS)),
-  DAYS_EMPLOYED: toDays(parseNumber(form.EMPLOYED_YEARS)),
-  CNT_CHILDREN: parseNumber(form.CNT_CHILDREN),
-  CNT_FAM_MEMBERS: parseNumber(form.CNT_FAM_MEMBERS),
-  EXT_SOURCE_2: parseNumber(form.EXT_SOURCE_2),
-  OCCUPATION_TYPE: form.OCCUPATION_TYPE,
-  ORGANIZATION_TYPE: form.ORGANIZATION_TYPE,
-});
+const buildPayload = (form: RiskAssessmentFormState): FinguardPredictInput => {
+  let ext2 = parseNumber(form.EXT_SOURCE_2);
+  if (ext2 > 1 && ext2 <= 100) ext2 = ext2 / 100;
+  if (ext2 > 1) ext2 = 1.0;
+  if (ext2 < 0) ext2 = 0.0;
+
+  return {
+    AMT_INCOME_TOTAL: parseNumber(form.AMT_INCOME_TOTAL),
+    AMT_CREDIT: parseNumber(form.AMT_CREDIT),
+    AMT_ANNUITY: parseNumber(form.AMT_ANNUITY),
+    AMT_GOODS_PRICE: parseNumber(form.AMT_GOODS_PRICE),
+    DAYS_BIRTH: toDays(parseNumber(form.AGE_YEARS)),
+    DAYS_EMPLOYED: toDays(parseNumber(form.EMPLOYED_YEARS)),
+    CNT_CHILDREN: parseNumber(form.CNT_CHILDREN),
+    CNT_FAM_MEMBERS: parseNumber(form.CNT_FAM_MEMBERS),
+    EXT_SOURCE_2: ext2,
+    OCCUPATION_TYPE: form.OCCUPATION_TYPE,
+    ORGANIZATION_TYPE: form.ORGANIZATION_TYPE,
+  };
+};
 
 const isApproved = (result: FinguardResult | null) =>
   (result?.decision ?? "").toUpperCase().includes("APPROVE");

@@ -135,9 +135,9 @@ _EXTRA_FEATURE_KEYS = frozenset(
 #: Key used to carry pass-through features inside a normalized dict.
 EXTRA_FEATURES_KEY = "EXTRA_FEATURES"
 
-#: Risk band boundaries (kept identical to the pre-existing adapter behaviour).
-_LOW_RISK_CUTOFF: float = 0.2
-_MEDIUM_RISK_CUTOFF: float = 0.5
+#: Risk band boundaries (calibrated for credit default scoring).
+_LOW_RISK_CUTOFF: float = 0.15
+_MEDIUM_RISK_CUTOFF: float = 0.35
 
 
 __all__ = [
@@ -399,6 +399,13 @@ def validate_request(data: Mapping[str, Any]) -> Dict[str, Any]:
                     values[field] = low
                 elif number > high:
                     values[field] = high
+            elif field.startswith("EXT_SOURCE_"):
+                if number > 1.0 and number <= 100.0:
+                    values[field] = number / 100.0
+                elif number > 1.0:
+                    values[field] = 1.0
+                elif number < 0.0:
+                    values[field] = 0.0
             else:
                 raise _fail(3, f"'{field}' must be within [{low:g}, {high:g}], got {number}")
 

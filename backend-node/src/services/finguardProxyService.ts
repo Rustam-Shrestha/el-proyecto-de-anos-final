@@ -21,6 +21,9 @@ export interface FinguardInput {
   cnt_fam_members?: number;
   occupation_type?: string;
   organization_type?: string;
+  ext_source_1?: number;
+  ext_source_2?: number;
+  ext_source_3?: number;
 }
 
 export interface FinguardResult {
@@ -417,6 +420,9 @@ export function normalizeFinguardInput(payload: FinguardPayload): Record<string,
         }
       }
       value = Math.trunc(value);
+    } else if (key.startsWith('ext_source')) {
+      if (value > 1.0 && value <= 100.0) value = value / 100.0;
+      value = round(Math.max(0, Math.min(1, value)), 4);
     } else {
       value = round(value, 2);
     }
@@ -611,13 +617,16 @@ export const finguardProxyService = {
         amt_income_total: input.amt_income_total,
         amt_credit: input.amt_credit,
         amt_annuity: input.amt_annuity ?? 0,
-        amt_goods_price: input.amt_goods_price ?? 0,
+        amt_goods_price: input.amt_goods_price ?? input.amt_credit,
         days_birth: daysBirth,
         days_employed: daysEmployed,
         cnt_children: input.cnt_children ?? 0,
         cnt_fam_members: input.cnt_fam_members ?? 1,
         occupation_type: input.occupation_type,
         organization_type: input.organization_type,
+        ext_source_1: input.ext_source_1,
+        ext_source_2: input.ext_source_2,
+        ext_source_3: input.ext_source_3,
       }, { timeout: FINGUARD_TIMEOUT_MS });
       return data;
     } catch (e) {

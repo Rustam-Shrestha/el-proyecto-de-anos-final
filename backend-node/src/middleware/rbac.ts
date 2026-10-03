@@ -51,6 +51,7 @@ function resolveForRole(roleName: string): string[] {
 
 export function requirePermission(requiredPerm: string) {
   return (req: Request, _res: Response, next: NextFunction): void => {
+    if (req.user && normalizeRoleName(req.user.role) === 'SUPERADMIN') return next();
     const perms = (req as any).permissions || (req.user as any)?.permissions || [];
     if (!perms || perms.length === 0) {
       const derived = resolveForRole(req.user?.role || '');
@@ -64,6 +65,7 @@ export function requirePermission(requiredPerm: string) {
 
 export function requireAnyPermission(...perms: string[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
+    if (req.user && normalizeRoleName(req.user.role) === 'SUPERADMIN') return next();
     const permissions = (req as any).permissions || (req.user as any)?.permissions || [];
     if (!permissions || permissions.length === 0) {
       const derived = resolveForRole(req.user?.role || '');

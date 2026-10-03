@@ -83,11 +83,33 @@ class CreditDefaultPredictor:
         # SHAP explainer (optional, degrade gracefully)
         try:
             import shap
+            import shap.explainers._tree as shap_tree
+
+            # Safe UBJSON decoder wrapper to handle bracketed base_score string formats like '[2.5244E-1]'
+            if hasattr(shap_tree, "decode_ubjson_buffer"):
+                orig_decode = shap_tree.decode_ubjson_buffer
+
+                def safe_decode(fd):
+                    jmodel = orig_decode(fd)
+                    try:
+                        lmp = jmodel.get("learner", {}).get("learner_model_param", {})
+                        if "base_score" in lmp:
+                            val = lmp["base_score"]
+                            if isinstance(val, str):
+                                lmp["base_score"] = float(val.strip("[] \t\n\r"))
+                            elif isinstance(val, (list, tuple)) and len(val) > 0:
+                                lmp["base_score"] = float(val[0])
+                    except Exception:
+                        pass
+                    return jmodel
+
+                shap_tree.decode_ubjson_buffer = safe_decode
+
             # get booster for TreeExplainer
             booster = self.model.get_booster() if hasattr(self.model, "get_booster") else self.model
             self.explainer = shap.TreeExplainer(booster)
             self.base_value = _scalar(getattr(self.explainer, "expected_value", None))
-            logger.info("SHAP explainer initialized")
+            logger.info("SHAP explainer initialized successfully")
         except Exception as e:
             logger.warning(f"SHAP explainer init failed, running without SHAP: {e}")
             self.explainer = None

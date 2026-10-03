@@ -7,6 +7,8 @@ import { prisma } from '@/config/database';
 import { tokenService } from '@/services/tokenService';
 import { slugAuthMiddleware, slugCompanyGuard } from '@/middleware/slugAuth';
 import { normalizePan } from '@/utils/roles';
+import { finguardProxyService } from '@/services/finguardProxyService';
+import type { Prisma } from '@prisma/client';
 
 /**
  * MD-compat root routes (FINGUARD_MULTITENANT_COMPLETE_FIX Parts 6-8).
@@ -414,6 +416,62 @@ router.post('/:slug/apply', slugAuthMiddleware, slugCompanyGuard, async (req: Re
     // A lender with no reviewer on staff must not dead-end the customer: the
     // application is still lodged and the tenant assigns a reviewer later.
     const estimatedEmi = Math.round(Number(amount_requested) / Number(tenure_months));
+
+    // FinGuard ML Scoring
+    let ml: Awaited<ReturnType<typeof finguardProxyService.evaluate>> = null;
+    let riskScore = 30;
+    let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
+    try {
+      const [employment, profile] = await Promise.all([
+        prisma.employmentInfo.findFirst({ where: { userId: req.scope.user_id } }),
+        prisma.profile.findUnique({ where: { userId: req.scope.user_id } }),
+      ]);
+
+      const today = new Date();
+      let daysBirth = -10957;
+      if (profile?.dateOfBirth) {
+        const b = new Date(profile.dateOfBirth);
+        if (!isNaN(b.getTime())) {
+          const diff = Math.floor((today.getTime() - b.getTime()) / 86400000);
+          daysBirth = -Math.min(30000, Math.max(6000, diff));
+        }
+      }
+
+      let daysEmployed = 365243;
+      if (employment?.employmentStartDate) {
+        const e = new Date(employment.employmentStartDate);
+        if (!isNaN(e.getTime())) {
+          const diff = Math.floor((today.getTime() - e.getTime()) / 86400000);
+          daysEmployed = -Math.min(20000, Math.max(0, diff));
+        }
+      }
+
+      const annualIncome = employment?.annualIncome
+        ? Number(employment.annualIncome)
+        : (employment?.monthlyGrossIncome ? Number(employment.monthlyGrossIncome) * 12 : 500000);
+
+      ml = await finguardProxyService.evaluate({
+        amt_income_total: annualIncome,
+        amt_credit: Number(amount_requested),
+        amt_annuity: estimatedEmi,
+        amt_goods_price: Number(amount_requested),
+        days_birth: daysBirth,
+        days_employed: daysEmployed,
+        cnt_children: employment?.dependentsCount ?? 0,
+        cnt_fam_members: (employment?.dependentsCount ?? 0) + 1,
+        occupation_type: employment?.occupationJobTitle ?? undefined,
+        organization_type: employment?.businessType ?? undefined,
+        ext_source_2: employment?.incomeStabilityScore ? (Number(employment.incomeStabilityScore) / 100) : undefined,
+      });
+
+      if (ml) {
+        riskScore = Math.round(ml.default_probability * 100);
+        riskLevel = (ml.risk_band?.toUpperCase() as typeof riskLevel) || 'LOW';
+      }
+    } catch {
+      // Fallback heuristic if ML call fails
+    }
+
     const application = await prisma.loanApplication.create({
       data: {
         userId: req.scope.user_id,
@@ -423,12 +481,19 @@ router.post('/:slug/apply', slugAuthMiddleware, slugCompanyGuard, async (req: Re
         purpose: mdPurposeToEnum(purpose),
         status: 'SUBMITTED',
         calculatedEmi: estimatedEmi,
+        riskScore: ml ? Math.round(ml.default_probability * 100) : riskScore,
+        riskLevel: ml ? (ml.risk_band.toUpperCase() as typeof riskLevel) : riskLevel,
+        defaultProbability: ml?.default_probability,
+        modelVersion: ml?.model_version,
+        shapValues: ml?.shap_summary as unknown as Prisma.InputJsonValue | undefined,
+        mlDecision: ml?.decision,
+        creditScore: ml?.credit_score,
         ...(reviewer
           ? {
               reviewedBy: reviewer.id,
-              loanOfficerNotes: `Auto-assigned to ${reviewer.email}; MD-compat apply`,
+              loanOfficerNotes: `Auto-assigned to ${reviewer.email}; ML Scored: ${ml ? `${ml.decision} (${Math.round((ml.default_probability || 0) * 100)}% default risk, score ${ml.credit_score})` : 'Heuristic'}`,
             }
-          : { loanOfficerNotes: 'No reviewer available yet; tenant must assign one.' }),
+          : { loanOfficerNotes: ml ? `ML Scored: ${ml.decision} (${Math.round((ml.default_probability || 0) * 100)}% default risk, score ${ml.credit_score})` : 'No reviewer available yet; tenant must assign one.' }),
       } as never,
     });
     res.status(201).json({

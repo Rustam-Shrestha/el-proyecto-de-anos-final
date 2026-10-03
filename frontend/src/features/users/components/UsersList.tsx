@@ -16,6 +16,8 @@ import EmptyState from "@shared/components/EmptyState";
 import Card from "@shared/components/Card";
 import StatusBadge from "@shared/components/StatusBadge";
 
+import { roleKind } from "@shared/utils/roleUtils";
+
 const formatDate = (value?: string) => {
   if (!value) return "--";
   const date = new Date(value);
@@ -33,7 +35,8 @@ const UsersList = memo(({ onEdit }: { onEdit: (id: string) => void }) => {
   const userData = useAppSelector(selectUserData);
   const deleteModal = useModal();
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const isAdmin = userData?.role === "ADMIN" || userData?.isSuperUser === true;
+  const kind = roleKind(userData?.role);
+  const isAdmin = kind === "admin" || kind === "superadmin" || userData?.role === "ADMIN" || userData?.isSuperUser === true;
   const users = data?.users ?? [];
   const total = data?.total ?? 0;
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
