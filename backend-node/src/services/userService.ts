@@ -59,20 +59,29 @@ const mapUserProfile = (user: UserWithProfile): UserDetail => ({
   avatarUrl: user.profile?.avatarUrl ?? null,
 });
 
+function isTenantSchemaError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = String((e as { message?: string })?.message ?? (e as Error)?.message ?? "");
+  return code === "P2021" || code === "P2022" || msg.includes("tenantId") || msg.includes("tenant_id") || msg.includes("does not exist");
+}
+
 export const userService = {
   /**
-   * List all users with pagination and optional search
+   * List all users with pagination, optional search, and tenant isolation
    */
   async listUsers(
     limit: number = 10,
     offset: number = 0,
-    search?: string
+    search?: string,
+    tenantId?: number
   ): Promise<{ users: UserListItem[]; total: number }> {
     try {
-      const where = search
+      const tenantFilter = tenantId !== undefined ? { tenantId } : {};
+      const where: any = search
         ? {
             AND: [
               { isDeleted: false },
+              tenantFilter,
               {
                 OR: [
                   { email: { contains: search, mode: 'insensitive' as const } },
@@ -80,28 +89,63 @@ export const userService = {
               },
             ],
           }
-        : { isDeleted: false };
+        : { isDeleted: false, ...tenantFilter };
 
-      const [users, total] = await Promise.all([
-        prisma.user.findMany({
-          where,
-          select: {
-            id: true,
-            email: true,
-            role: {
-              select: { name: true },
+      try {
+        const [users, total] = await Promise.all([
+          prisma.user.findMany({
+            where,
+            select: {
+              id: true,
+              email: true,
+              role: {
+                select: { name: true },
+              },
+              isVerified: true,
+              createdAt: true,
             },
-            isVerified: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.user.count({ where }),
-      ]);
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset,
+          }),
+          prisma.user.count({ where }),
+        ]);
 
-      return { users, total };
+        return { users, total };
+      } catch (e) {
+        if (!isTenantSchemaError(e)) throw e;
+        const fallbackWhere: any = search
+          ? {
+              AND: [
+                { isDeleted: false },
+                {
+                  OR: [
+                    { email: { contains: search, mode: 'insensitive' as const } },
+                  ],
+                },
+              ],
+            }
+          : { isDeleted: false };
+        const [users, total] = await Promise.all([
+          prisma.user.findMany({
+            where: fallbackWhere,
+            select: {
+              id: true,
+              email: true,
+              role: {
+                select: { name: true },
+              },
+              isVerified: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset,
+          }),
+          prisma.user.count({ where: fallbackWhere }),
+        ]);
+        return { users, total };
+      }
     } catch (error) {
       logger.error({ err: error }, 'Failed to list users');
       throw new AppError('Failed to fetch users', 500);
@@ -109,15 +153,16 @@ export const userService = {
   },
 
   /**
-   * Get a single user by ID
+   * Get a single user by ID with tenant verification
    */
-  async getUserById(userId: string): Promise<UserDetail> {
+  async getUserById(userId: string, tenantId?: number): Promise<UserDetail> {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
           id: true,
           email: true,
+          tenantId: true,
           role: {
             select: { name: true },
           },
@@ -134,6 +179,10 @@ export const userService = {
 
       if (user.isDeleted) {
         throw new AppError('User has been deleted', 404);
+      }
+
+      if (tenantId !== undefined && (user as unknown as { tenantId?: number | null }).tenantId !== null && (user as unknown as { tenantId?: number | null }).tenantId !== undefined && (user as unknown as { tenantId?: number | null }).tenantId !== tenantId) {
+        throw new AppError('You do not have permission to view users from another company', 403);
       }
 
       return {
@@ -369,15 +418,19 @@ export const userService = {
   /**
    * Change user role (ADMIN only)
    */
-  async changeUserRole(userId: string, newRole: 'USER' | 'ADMIN' | 'REVIEWER'): Promise<UserDetail> {
+  async changeUserRole(userId: string, newRole: 'USER' | 'ADMIN' | 'REVIEWER', tenantId?: number): Promise<UserDetail> {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, isDeleted: true },
+        select: { id: true, isDeleted: true, tenantId: true },
       });
 
       if (!user || user.isDeleted) {
         throw new AppError('User not found', 404);
+      }
+
+      if (tenantId !== undefined && (user as unknown as { tenantId?: number | null }).tenantId !== null && (user as unknown as { tenantId?: number | null }).tenantId !== undefined && (user as unknown as { tenantId?: number | null }).tenantId !== tenantId) {
+        throw new AppError('You do not have permission to modify users from another company', 403);
       }
 
       const updated = await prisma.user.update({
@@ -414,11 +467,11 @@ export const userService = {
   /**
    * Soft delete user (mark as deleted, don't remove from DB)
    */
-  async softDeleteUser(userId: string): Promise<void> {
+  async softDeleteUser(userId: string, tenantId?: number): Promise<void> {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, isDeleted: true },
+        select: { id: true, isDeleted: true, tenantId: true },
       });
 
       if (!user) {
@@ -427,6 +480,10 @@ export const userService = {
 
       if (user.isDeleted) {
         throw new AppError('User is already deleted', 410);
+      }
+
+      if (tenantId !== undefined && (user as unknown as { tenantId?: number | null }).tenantId !== null && (user as unknown as { tenantId?: number | null }).tenantId !== undefined && (user as unknown as { tenantId?: number | null }).tenantId !== tenantId) {
+        throw new AppError('You do not have permission to delete users from another company', 403);
       }
 
       await prisma.user.update({

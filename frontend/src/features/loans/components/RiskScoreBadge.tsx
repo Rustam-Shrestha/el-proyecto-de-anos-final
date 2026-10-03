@@ -7,15 +7,57 @@ type RiskScoreBadgeProps = {
 };
 
 const getRiskConfig = (score: number | null, level: RiskLevel | null) => {
-  if (score === null && !level) {
+  // If explicit risk tier level is provided, it is the single source of truth
+  if (level) {
+    const normalized = String(level).toUpperCase();
+    if (normalized === "LOW") {
+      return {
+        label: "Low Risk",
+        bg: "bg-green-100 text-green-800",
+        dot: "bg-green-500",
+      };
+    }
+    if (normalized === "MEDIUM") {
+      return {
+        label: "Medium Risk",
+        bg: "bg-yellow-100 text-yellow-800",
+        dot: "bg-yellow-500",
+      };
+    }
+    if (normalized === "HIGH" || normalized === "VERY_HIGH") {
+      return {
+        label: "High Risk",
+        bg: "bg-danger-100 text-red-800",
+        dot: "bg-danger-500",
+      };
+    }
+  }
+
+  // If level is not provided, evaluate numeric score
+  if (score === null || score === undefined) {
     return {
       label: "Pending Analysis",
-      bg: "bg-gray-100 text-gray-700  ",
+      bg: "bg-gray-100 text-gray-700",
       dot: "bg-gray-400",
     };
   }
 
-  if (level === "VERY_HIGH" || (score !== null && score > 70)) {
+  // Credit score scale (300 to 850)
+  if (score > 100) {
+    if (score >= 670) {
+      return {
+        label: "Low Risk",
+        bg: "bg-green-100 text-green-800",
+        dot: "bg-green-500",
+      };
+    }
+    if (score >= 580) {
+      return {
+        label: "Medium Risk",
+        bg: "bg-yellow-100 text-yellow-800",
+        dot: "bg-yellow-500",
+      };
+    }
     return {
       label: "High Risk",
       bg: "bg-danger-100 text-red-800",
@@ -23,25 +65,24 @@ const getRiskConfig = (score: number | null, level: RiskLevel | null) => {
     };
   }
 
-  if (level === "HIGH" || (score !== null && score > 70)) {
+  // Legacy risk percentage score scale (0 to 100)
+  if (score > 70) {
     return {
       label: "High Risk",
       bg: "bg-danger-100 text-red-800",
       dot: "bg-danger-500",
     };
   }
-
-  if (level === "MEDIUM" || (score !== null && score >= 40 && score <= 70)) {
+  if (score >= 40) {
     return {
       label: "Medium Risk",
-      bg: "bg-yellow-100 text-yellow-800  ",
+      bg: "bg-yellow-100 text-yellow-800",
       dot: "bg-yellow-500",
     };
   }
-
   return {
     label: "Low Risk",
-    bg: "bg-green-100 text-green-800  ",
+    bg: "bg-green-100 text-green-800",
     dot: "bg-green-500",
   };
 };
@@ -57,9 +98,9 @@ const RiskScoreBadge = ({ score, level }: RiskScoreBadgeProps) => {
         <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
         {config.label}
       </span>
-      {score !== null ? (
-        <span className="text-xs font-medium text-gray-500 ">
-          {score}
+      {score !== null && score !== undefined ? (
+        <span className="text-xs font-medium text-gray-500">
+          {score > 100 ? `${score}/850` : score}
         </span>
       ) : null}
     </div>

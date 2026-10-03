@@ -31,6 +31,8 @@ const deleteUploadIfPresent = async (value?: string | null): Promise<void> => {
 export const createUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email, password, role, fullName } = req.body;
+    const isSuper = req.user?.role?.toUpperCase() === 'SUPERADMIN';
+    const tenantId = isSuper ? undefined : ((req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId);
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -51,6 +53,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
         passwordHash,
         roleId: roleRecord.id,
         isVerified: false,
+        ...(tenantId !== undefined ? { tenantId } : {}),
         profile: fullName ? { create: { fullName } } : undefined,
       },
       include: {
@@ -94,13 +97,20 @@ export const updateUserAdmin = async (req: Request, res: Response, next: NextFun
   try {
     const { id } = req.params;
     const { email, role } = req.body;
+    const isSuper = req.user?.role?.toUpperCase() === 'SUPERADMIN';
+    const tenantId = isSuper ? undefined : ((req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId);
 
     const existing = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, isDeleted: true },
+      select: { id: true, isDeleted: true, tenantId: true },
     });
     if (!existing || existing.isDeleted) {
       res.status(404).json(apiResponse.error('User not found', 404));
+      return;
+    }
+
+    if (tenantId !== undefined && (existing as unknown as { tenantId?: number | null }).tenantId !== null && (existing as unknown as { tenantId?: number | null }).tenantId !== undefined && (existing as unknown as { tenantId?: number | null }).tenantId !== tenantId) {
+      res.status(403).json(apiResponse.error('You do not have permission to modify users from another company', 403));
       return;
     }
 
@@ -291,8 +301,10 @@ export const listUsers = async (req: Request, res: Response, next: NextFunction)
   try {
     const { skip, take, page, limit } = paginate(req.query);
     const search = (req.query.search as string) || undefined;
+    const isSuper = req.user?.role?.toUpperCase() === 'SUPERADMIN';
+    const tenantId = isSuper ? undefined : ((req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId);
 
-    const { users, total } = await userService.listUsers(take, skip, search);
+    const { users, total } = await userService.listUsers(take, skip, search, tenantId);
 
     res.json(
       apiResponse.paginated(
@@ -315,7 +327,10 @@ export const listUsers = async (req: Request, res: Response, next: NextFunction)
 export const getUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const user = await userService.getUserById(id);
+    const isSuper = req.user?.role?.toUpperCase() === 'SUPERADMIN';
+    const tenantId = isSuper ? undefined : ((req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId);
+
+    const user = await userService.getUserById(id, tenantId);
 
     res.json(apiResponse.success('User retrieved', user));
   } catch (error) {
@@ -337,7 +352,10 @@ export const changeUserRole = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const updated = await userService.changeUserRole(id, role);
+    const isSuper = req.user?.role?.toUpperCase() === 'SUPERADMIN';
+    const tenantId = isSuper ? undefined : ((req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId);
+
+    const updated = await userService.changeUserRole(id, role, tenantId);
 
     // Log the role change action
     await auditService.log({
@@ -371,6 +389,16 @@ export const updateProfile = async (
 
     const { id } = req.params;
     const { firstName, lastName, phoneNumber } = req.body;
+    const isSuper = req.user?.role?.toUpperCase() === 'SUPERADMIN';
+    const tenantId = isSuper ? undefined : ((req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId);
+
+    if (tenantId !== undefined) {
+      const target = await prisma.user.findUnique({ where: { id }, select: { tenantId: true } });
+      if (target && target.tenantId !== null && target.tenantId !== undefined && target.tenantId !== tenantId) {
+        res.status(403).json(apiResponse.error('You do not have permission to modify users from another company', 403));
+        return;
+      }
+    }
 
     const data: Record<string, string> = {};
     if (firstName || lastName) {
@@ -415,7 +443,10 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    await userService.softDeleteUser(id);
+    const isSuper = req.user?.role?.toUpperCase() === 'SUPERADMIN';
+    const tenantId = isSuper ? undefined : ((req as unknown as { tenantId?: number }).tenantId ?? req.user?.tenantId);
+
+    await userService.softDeleteUser(id, tenantId);
 
     // Log the deletion action
     await auditService.log({

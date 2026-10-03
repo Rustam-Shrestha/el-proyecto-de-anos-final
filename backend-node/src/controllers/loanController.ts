@@ -86,14 +86,15 @@ export const listLoans = async (
     const { take, page, limit } = paginate(req.query);
     const status = (req.query.status as string) || undefined;
     const userId = (req.query.userId as string) || undefined;
+    const isCustomer = normalizeRoleName(user.role) === 'USER';
 
     const { loans, total } = await loanService.listLoans(
       {
         status: status as LoanStatus | undefined,
-        userId: user.role === 'USER' ? user.id : userId,
+        userId: isCustomer ? user.id : userId,
         page,
         limit: take,
-        tenantId: (req as unknown as { tenantId?: number }).tenantId,
+        tenantId: isCustomer ? undefined : (req as unknown as { tenantId?: number }).tenantId,
       },
       user.role,
       user.id
@@ -122,10 +123,14 @@ export const reviewLoan = async (
     const { id } = req.params as { id: string };
     const { action, notes } = req.body;
 
-    // Defense in depth: customers must never approve/reject loans, even if
-    // the route middleware is ever relaxed. Staff = REVIEWER, ADMIN, SUPERADMIN.
-    if (normalizeRoleName(user.role) === 'USER') {
+    const normalizedRole = normalizeRoleName(user.role);
+    if (normalizedRole === 'USER') {
       res.status(403).json(apiResponse.error('Only staff reviewers can review loan applications', 403));
+      return;
+    }
+
+    if (normalizedRole === 'SUPERADMIN') {
+      res.status(403).json(apiResponse.error('Superadmins have read-only visibility. Approvals and rejections must be performed by the lender company admin or reviewer.', 403));
       return;
     }
 

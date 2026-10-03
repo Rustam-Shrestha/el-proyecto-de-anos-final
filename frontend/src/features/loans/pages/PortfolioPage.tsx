@@ -512,7 +512,7 @@ const PortfolioPage = () => {
               min={0}
               max={20}
               value={formData.dependentsCount}
-              onChange={(e) => updateField("dependentsCount", e.target.value)}
+              onChange={(e) => updateField("dependentsCount", e.target.value.replace(/[^0-9]/g, ""))}
             />
           </div>
 

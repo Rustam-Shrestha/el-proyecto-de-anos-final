@@ -153,7 +153,12 @@ const CustomerApplyPage = () => {
                   min={1000}
                   step={1000}
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+") {
+                      e.preventDefault();
+                    }
+                  }}
                   className={inputClass}
                 />
               </div>
@@ -168,7 +173,12 @@ const CustomerApplyPage = () => {
                   min={1}
                   max={360}
                   value={tenure}
-                  onChange={(e) => setTenure(e.target.value)}
+                  onChange={(e) => setTenure(e.target.value.replace(/[^0-9]/g, ""))}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+") {
+                      e.preventDefault();
+                    }
+                  }}
                   className={inputClass}
                 />
               </div>

@@ -205,15 +205,27 @@ export const loanService = {
 
   async getLoanById(loanId: string, requestingUserId: string, requestingUserRole: string, tenantId?: number) {
     try {
+      const roleUpper = (requestingUserRole || '').toUpperCase();
+      const isCustomer = roleUpper === 'USER' || roleUpper === 'CUSTOMER';
       let loan: Awaited<ReturnType<typeof prisma.loanApplication.findFirst>>;
       try {
-        loan = await prisma.loanApplication.findFirst({
-          where: { id: loanId, tenantId: tenantId ?? 1 },
-          include: {
-            user: { select: { id: true, email: true } },
-            reviewedByUser: { select: { id: true, email: true } },
-          },
-        });
+        if (isCustomer || roleUpper === 'SUPERADMIN' || !tenantId) {
+          loan = await prisma.loanApplication.findUnique({
+            where: { id: loanId },
+            include: {
+              user: { select: { id: true, email: true } },
+              reviewedByUser: { select: { id: true, email: true } },
+            },
+          });
+        } else {
+          loan = await prisma.loanApplication.findFirst({
+            where: { id: loanId, tenantId },
+            include: {
+              user: { select: { id: true, email: true } },
+              reviewedByUser: { select: { id: true, email: true } },
+            },
+          });
+        }
       } catch (e) {
         if (isTenantSchemaError(e)) {
           loan = await prisma.loanApplication.findFirst({
@@ -227,7 +239,7 @@ export const loanService = {
       }
 
       if (!loan) {
-        // Try global lookup if not found in specific tenant
+        // Fallback global lookup
         loan = await prisma.loanApplication.findUnique({
           where: { id: loanId },
           include: {
@@ -241,7 +253,6 @@ export const loanService = {
         throw new AppError('Loan application not found', 404);
       }
 
-      const roleUpper = (requestingUserRole || '').toUpperCase();
       if (roleUpper !== 'ADMIN' && roleUpper !== 'REVIEWER' && roleUpper !== 'SUPERADMIN' && loan.userId !== requestingUserId) {
         throw new AppError('You do not have access to this loan application', 403);
       }
@@ -334,16 +345,27 @@ export const loanService = {
     requestingUserId?: string
   ) {
     try {
-      const where: Prisma.LoanApplicationWhereInput = { tenantId: filters.tenantId ?? 1 };
+      const roleUpper = (requestingUserRole || '').toUpperCase();
+      const isCustomer = roleUpper === 'USER' || roleUpper === 'CUSTOMER';
+      const where: Prisma.LoanApplicationWhereInput = {};
 
-      if (filters.status) {
-        where.status = filters.status;
-      }
-
-      if (requestingUserRole === 'USER') {
+      if (isCustomer) {
         where.userId = requestingUserId;
-      } else if (filters.userId) {
-        where.userId = filters.userId;
+        if (filters.status) {
+          where.status = filters.status;
+        }
+      } else {
+        if (filters.tenantId) {
+          where.tenantId = filters.tenantId;
+        } else if (roleUpper !== 'SUPERADMIN') {
+          where.tenantId = 1;
+        }
+        if (filters.status) {
+          where.status = filters.status;
+        }
+        if (filters.userId) {
+          where.userId = filters.userId;
+        }
       }
 
       const skip = (filters.page - 1) * filters.limit;
@@ -364,7 +386,7 @@ export const loanService = {
         if (!isTenantSchemaError(e)) throw e;
         const fallbackWhere: Prisma.LoanApplicationWhereInput = {};
         if (filters.status) fallbackWhere.status = filters.status;
-        if (requestingUserRole === 'USER') fallbackWhere.userId = requestingUserId;
+        if (roleUpper === 'USER') fallbackWhere.userId = requestingUserId;
         else if (filters.userId) fallbackWhere.userId = filters.userId;
         const [loans, total] = await Promise.all([
           prisma.loanApplication.findMany({

@@ -9,24 +9,28 @@ import {
 import { Button } from "@shared/components/Button";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { useToast } from "@shared/hooks/useToast";
+import { CheckCircle2, XCircle, AlertTriangle, Edit3 } from "lucide-react";
 
 const PortfolioAdminDetailPage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const toast = useToast();
-  const { data: detail, isLoading } = useGetAdminPortfolioDetail(userId || "");
+  const { data: detail, isLoading, refetch } = useGetAdminPortfolioDetail(userId || "");
   const { data: documents } = useGetAdminUserDocuments(userId || "");
   const verifyPortfolioMutation = useVerifyPortfolioMutation();
   const verifyDocumentMutation = useVerifyFinancialDocumentMutation();
 
   const [adminNotes, setAdminNotes] = useState("");
   const [docNotes, setDocNotes] = useState<Record<string, string>>({});
+  const [isEditingDecision, setIsEditingDecision] = useState(false);
 
   const handleVerifyPortfolio = async (status: string) => {
     if (!userId) return;
     try {
       await verifyPortfolioMutation.mutateAsync({ userId, verificationStatus: status, adminNotes });
       toast.success(`Portfolio ${status.toLowerCase()}`);
+      setIsEditingDecision(false);
+      refetch();
     } catch {
       toast.error("Failed to update portfolio status");
     }
@@ -60,6 +64,10 @@ const PortfolioAdminDetailPage = () => {
   const { summary } = detail;
   const emp = summary.employment;
   const ver = summary.verification;
+  const isFinalized =
+    ver?.verificationStatus === "VERIFIED" ||
+    ver?.verificationStatus === "REJECTED" ||
+    ver?.verificationStatus === "NEEDS_RESUBMISSION";
 
   return (
     <section className="space-y-6">
@@ -83,12 +91,12 @@ const PortfolioAdminDetailPage = () => {
           <div className="mt-4 flex items-center gap-3">
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ${ver.verificationStatus === "VERIFIED"
-                  ? "bg-green-100 text-green-800"
-                  : ver.verificationStatus === "REJECTED"
-                    ? "bg-red-100 text-red-800"
-                    : ver.verificationStatus === "PENDING_REVIEW"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-blue-100 text-blue-800"
+                ? "bg-green-100 text-green-800"
+                : ver.verificationStatus === "REJECTED"
+                  ? "bg-red-100 text-red-800"
+                  : ver.verificationStatus === "NEEDS_RESUBMISSION" || ver.verificationStatus === "PENDING_REVIEW"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-blue-100 text-blue-800"
                 }`}
             >
               {ver.verificationStatus?.replace(/_/g, " ") || "PENDING"}
@@ -96,10 +104,10 @@ const PortfolioAdminDetailPage = () => {
             {ver.overallRiskScore != null ? (
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${ver.riskLevel === "LOW"
-                    ? "bg-green-100 text-green-800"
-                    : ver.riskLevel === "HIGH"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-yellow-100 text-yellow-800"
+                  ? "bg-green-100 text-green-800"
+                  : ver.riskLevel === "HIGH"
+                    ? "bg-red-100 text-red-800"
+                    : "bg-yellow-100 text-yellow-800"
                   }`}
               >
                 Risk: {ver.riskLevel} ({ver.overallRiskScore})
@@ -139,19 +147,24 @@ const PortfolioAdminDetailPage = () => {
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <AdminField label="Loan-to-Income Ratio" value={ver.loanToIncomeRatio != null ? `${Number(ver.loanToIncomeRatio).toFixed(2)}%` : "N/A"} />
             <AdminField label="EMI-to-Income Ratio" value={ver.emiToIncomeRatio != null ? `${Number(ver.emiToIncomeRatio).toFixed(2)}%` : "N/A"} />
-            <AdminField label="Income per Dependent" value={ver.incomePerDependent != null ? `NPR ${Number(ver.incomePerDependent).toFixed(2)}` : "N/A"} />
-            <AdminField label="Employment Stability" value={ver.employmentStabilityScore != null ? `${ver.employmentStabilityScore}/100` : "N/A"} />
-            <AdminField label="Flags" value={ver.flagsCount?.toString()} />
+            <AdminField label="Income per Dependent" value={ver.incomePerDependent != null ? `NPR ${Number(ver.incomePerDependent).toLocaleString()}` : "N/A"} />
+            <AdminField label="Stability Score" value={ver.employmentStabilityScore != null ? `${ver.employmentStabilityScore}/100` : "N/A"} />
+            <AdminField label="Age Category" value={ver.ageCategory || "N/A"} />
+            <AdminField label="Flags Count" value={ver.flagsCount?.toString() || "0"} />
           </div>
 
           {ver.flagDetails && ver.flagDetails.length > 0 ? (
-            <div className="mt-4">
-              <p className="text-sm font-medium text-red-600">Anomaly Flags:</p>
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">Verification Flags</p>
               <ul className="mt-2 space-y-1">
                 {ver.flagDetails.map((flag, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
                     <span
-                      className={`h-2 w-2 rounded-full ${flag.severity === "HIGH" ? "bg-red-500" : flag.severity === "MEDIUM" ? "bg-yellow-500" : "bg-blue-500"
+                      className={`h-2 w-2 rounded-full ${flag.severity === "HIGH"
+                        ? "bg-red-500"
+                        : flag.severity === "MEDIUM"
+                          ? "bg-yellow-500"
+                          : "bg-blue-500"
                         }`}
                     />
                     <span className="font-medium">{flag.field}:</span> {flag.issue}
@@ -192,12 +205,12 @@ const PortfolioAdminDetailPage = () => {
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${doc.verificationStatus === "VERIFIED"
-                        ? "bg-green-100 text-green-800"
-                        : doc.verificationStatus === "REJECTED"
-                          ? "bg-red-100 text-red-800"
-                          : doc.verificationStatus === "FLAGGED"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-blue-100 text-blue-800"
+                      ? "bg-green-100 text-green-800"
+                      : doc.verificationStatus === "REJECTED"
+                        ? "bg-red-100 text-red-800"
+                        : doc.verificationStatus === "FLAGGED"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-blue-100 text-blue-800"
                       }`}
                   >
                     {doc.verificationStatus}
@@ -243,45 +256,102 @@ const PortfolioAdminDetailPage = () => {
 
       {/* Verification Actions */}
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Verification Decision</h2>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700">Admin Notes</label>
-          <textarea
-            value={adminNotes}
-            onChange={(e) => setAdminNotes(e.target.value)}
-            rows={3}
-            placeholder="Enter verification notes, flags, or comments..."
-            className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--green-icon)]"
-          />
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Verification Decision</h2>
+          {isFinalized && !isEditingDecision ? (
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => setIsEditingDecision(true)}
+              leftIcon={<Edit3 className="h-4 w-4" />}
+            >
+              Change Decision
+            </Button>
+          ) : null}
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => handleVerifyPortfolio("VERIFIED")}
-            disabled={verifyPortfolioMutation.isPending}
-            className="rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
-          >
-            {verifyPortfolioMutation.isPending ? "Processing..." : "Approve Portfolio"}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleVerifyPortfolio("REJECTED")}
-            disabled={verifyPortfolioMutation.isPending}
-            className="rounded-xl bg-red px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-          >
-            Reject Portfolio
-          </button>
-          <button
-            type="button"
-            onClick={() => handleVerifyPortfolio("NEEDS_RESUBMISSION")}
-            disabled={verifyPortfolioMutation.isPending}
-            className="rounded-xl bg-yellow-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-yellow-700 disabled:opacity-50"
-          >
-            Request Resubmission
-          </button>
-        </div>
+        {isFinalized && !isEditingDecision ? (
+          <div className="mt-4 space-y-3">
+            <div
+              className={`rounded-2xl border p-4 ${ver?.verificationStatus === "VERIFIED"
+                ? "border-green-200 bg-green-50 text-green-800"
+                : ver?.verificationStatus === "REJECTED"
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : "border-yellow-200 bg-yellow-50 text-yellow-800"
+                }`}
+            >
+              <div className="flex items-center gap-2 font-semibold">
+                {ver?.verificationStatus === "VERIFIED" ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                ) : ver?.verificationStatus === "REJECTED" ? (
+                  <XCircle className="h-5 w-5 text-red-600" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                )}
+                <span>
+                  Portfolio Status: {ver?.verificationStatus?.replace(/_/g, " ")}
+                </span>
+              </div>
+              {ver?.adminNotes ? (
+                <p className="mt-2 text-sm text-gray-700">
+                  <span className="font-medium">Recorded Notes:</span> {ver.adminNotes}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700">Admin Notes</label>
+              <textarea
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                rows={3}
+                placeholder="Enter verification notes, flags, or comments..."
+                className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--green-icon)]"
+              />
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => handleVerifyPortfolio("VERIFIED")}
+                disabled={verifyPortfolioMutation.isPending}
+                className="rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+              >
+                {verifyPortfolioMutation.isPending ? "Processing..." : "Approve Portfolio"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVerifyPortfolio("REJECTED")}
+                disabled={verifyPortfolioMutation.isPending}
+                className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                Reject Portfolio
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVerifyPortfolio("NEEDS_RESUBMISSION")}
+                disabled={verifyPortfolioMutation.isPending}
+                className="rounded-xl bg-yellow-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-yellow-700 disabled:opacity-50"
+              >
+                Request Resubmission
+              </button>
+              {isEditingDecision ? (
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => {
+                    setIsEditingDecision(false);
+                    setAdminNotes("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </section>
   );
