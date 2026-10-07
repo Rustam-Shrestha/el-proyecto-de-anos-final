@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@shared/components/Button";
 import { useToast } from "@shared/hooks/useToast";
 import { apiClient } from "@shared/lib/apiClient";
+import CustomSelectField from "@components/common/SelectField";
 
 interface Props {
   kycApplicationId: string;
@@ -18,6 +19,21 @@ const FIELDS = [
   { key: "confirmedAddress", label: "Address", ocrKey: "address" },
 ];
 
+const GENDER_OPTIONS = [
+  { value: "MALE", label: "Male" },
+  { value: "FEMALE", label: "Female" },
+  { value: "OTHER", label: "Other" },
+];
+
+const normalizeGender = (value?: string): string => {
+  if (!value) return "";
+  const v = value.trim().toUpperCase();
+  if (v === "M" || v === "MALE") return "MALE";
+  if (v === "F" || v === "FEMALE") return "FEMALE";
+  if (v === "O" || v === "OTHER" || v === "TG") return "OTHER";
+  return v;
+};
+
 export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: Props) => {
   const toast = useToast();
   const [form, setForm] = useState<Record<string, string>>({});
@@ -26,18 +42,22 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
   useEffect(() => {
     const initial: Record<string, string> = {};
     FIELDS.forEach(({ key, ocrKey }) => {
-      initial[key] = ocrData?.[ocrKey] || "";
+      const raw = ocrData?.[ocrKey] || "";
+      initial[key] = key === "confirmedGender" ? normalizeGender(raw) : raw;
     });
     setForm(initial);
   }, [ocrData]);
 
   const handleChange = (key: string, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: key === "confirmedGender" ? normalizeGender(value) : value,
+    }));
   };
 
   const handleSubmit = async () => {
     if (!form.confirmedCitizenshipNumber || !form.confirmedFullName) {
-      toast("Citizenship number and full name are required", "error");
+      toast.error("Citizenship number and full name are required");
       return;
     }
     setSaving(true);
@@ -46,11 +66,11 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
         kycApplicationId,
         confirmedData: form,
       });
-      toast("Data saved successfully", "success");
+      toast.success("Data saved successfully");
       onComplete(form);
     } catch (error) {
       const apiError = error as { response?: { data?: { message?: string } } };
-      toast(apiError.response?.data?.message || "Failed to save data. Please try again.", "error");
+      toast.error(apiError.response?.data?.message || "Failed to save data. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -69,37 +89,37 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
             <label className="block text-sm font-medium mb-1 text-gray-700">{label}</label>
             <div className="flex gap-2 items-start">
               {key === "confirmedGender" ? (
-                <select
-                  value={form[key] || ""}
-                  onChange={(e) => handleChange(key, e.target.value)}
-                  className={`w-full border rounded-lg p-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 ${
-                    ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] ? "border-amber-400 bg-amber-50/40" : "border-gray-200"
-                  }`}
-                >
-                  <option value="">Select Gender</option>
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                <div className="w-full">
+                  <CustomSelectField
+                    value={form[key] || ""}
+                    onChange={(e) => handleChange(key, e.target.value)}
+                    options={GENDER_OPTIONS}
+                    placeholder="Select Gender"
+                  />
+                </div>
               ) : (
-                <input
-                  type={key === "confirmedDateOfBirth" ? "date" : "text"}
-                  value={form[key] || ""}
-                  onChange={(e) => handleChange(key, e.target.value)}
-                  className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 ${
-                    ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] ? "border-amber-400 bg-amber-50/40" : "border-gray-200"
-                  }`}
-                  placeholder={`OCR: ${ocrData?.[ocrKey] || "not detected"}`}
-                />
-              )}
-              {ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] && (
-                <button
-                  type="button"
-                  className="text-xs text-blue-600 underline mt-2.5 shrink-0 hover:text-blue-800"
-                  onClick={() => handleChange(key, ocrData[ocrKey])}
-                >
-                  Reset
-                </button>
+                <div className="flex-1 flex gap-2 items-start">
+                  <input
+                    type={key === "confirmedDateOfBirth" ? "date" : "text"}
+                    value={form[key] || ""}
+                    onChange={(e) => handleChange(key, e.target.value)}
+                    className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 ${
+                      ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key]
+                        ? "border-amber-400 bg-amber-50/40"
+                        : "border-gray-200"
+                    }`}
+                    placeholder={`OCR: ${ocrData?.[ocrKey] || "not detected"}`}
+                  />
+                  {ocrData?.[ocrKey] && ocrData[ocrKey] !== form[key] && (
+                    <button
+                      type="button"
+                      className="text-xs text-blue-600 underline mt-2.5 shrink-0 hover:text-blue-800"
+                      onClick={() => handleChange(key, ocrData[ocrKey])}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             {ocrData?.[ocrKey] && (
@@ -110,7 +130,9 @@ export const Step3Review = ({ kycApplicationId, ocrData, onComplete, onBack }: P
       </div>
 
       <div className="flex gap-3">
-        <Button variant="secondary" onClick={onBack}>Back</Button>
+        <Button variant="secondary" onClick={onBack}>
+          Back
+        </Button>
         <Button variant="primary" onClick={handleSubmit} disabled={saving}>
           {saving ? "Saving..." : "Confirm & Continue"}
         </Button>

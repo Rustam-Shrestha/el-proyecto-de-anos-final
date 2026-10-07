@@ -4,7 +4,6 @@ import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { useGetMyEmployment } from "@features/loans/api/employmentApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import LoanApplicationForm from "@features/loans/components/LoanApplicationForm";
-import RiskAssessmentPanel from "@features/loans/components/RiskAssessmentPanel";
 import { Seo } from "@components/seo/Seo";
 import { Breadcrumb } from "@components/seo/Breadcrumb";
 
@@ -36,7 +35,7 @@ const LoanApplicationPage = () => {
             to="/dashboard/lenders"
             className="inline-flex items-center justify-center rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
           >
-            Browse Specific Lenders &rarr;
+            Browse Specific Lenders
           </Link>
         </div>
       </div>
@@ -48,8 +47,8 @@ const LoanApplicationPage = () => {
           Unable to load KYC status. Please try again later.
         </div>
       ) : !kyc ? (
-        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm   ">
-          <p className="text-base font-medium text-gray-900 ">
+        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm">
+          <p className="text-base font-medium text-gray-900">
             KYC verification required
           </p>
           <p className="mt-2 text-sm">
@@ -63,7 +62,7 @@ const LoanApplicationPage = () => {
           </Link>
         </div>
       ) : !isKycApproved ? (
-        <div className="rounded-3xl border border-dashed border-yellow-300 bg-yellow-50 p-8 text-yellow-800 shadow-sm   ">
+        <div className="rounded-3xl border border-dashed border-yellow-300 bg-yellow-50 p-8 text-yellow-800 shadow-sm">
           <p className="text-base font-medium">KYC not yet approved</p>
           <p className="mt-2 text-sm">
             Your KYC application status is{" "}
@@ -78,14 +77,13 @@ const LoanApplicationPage = () => {
           </Link>
         </div>
       ) : !hasPortfolio ? (
-        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm   ">
-          <p className="text-base font-medium text-gray-900 ">
+        <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-gray-600 shadow-sm">
+          <p className="text-base font-medium text-gray-900">
             Financial profile required
           </p>
           <p className="mt-2 text-sm">
-            You need to set up your financial profile (employment & income details)
-            before applying for a loan. This data is used to assess your loan eligibility
-            and calculate your risk score.
+            You need to set up your financial profile (employment and income details)
+            before applying for a loan.
           </p>
           <Link
             to="/dashboard/portfolio"
@@ -95,9 +93,8 @@ const LoanApplicationPage = () => {
           </Link>
         </div>
       ) : (
-        <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="max-w-3xl">
           <LoanApplicationForm />
-          <RiskAssessmentPanel />
         </div>
       )}
     </section>

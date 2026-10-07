@@ -52,7 +52,7 @@ const LendersPage = () => {
         description={
           kycApproved
             ? "Your identity is verified once and reused everywhere. Pick a company, then enter loan details."
-            : "Verify your identity first — then you can apply to any lender below with ease."
+            : "Verify your identity first - then you can apply to any lender below with ease."
         }
       />
 

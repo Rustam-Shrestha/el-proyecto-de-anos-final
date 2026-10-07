@@ -4,6 +4,8 @@ import { apiClient } from "@shared/lib/apiClient";
 import type { ApiResponse } from "@shared/types/common";
 import { useAuth } from "@store/hooks";
 import { BadgeCheck, Wallet, CreditCard, ArrowRight } from "lucide-react";
+import PageHeader from "@shared/components/PageHeader";
+import Breadcrumb from "@components/seo/Breadcrumb";
 
 const statusTone: Record<string, string> = {
   APPROVED: "bg-green-50 text-green-700 border-green-200",
@@ -16,9 +18,6 @@ const statusTone: Record<string, string> = {
 };
 
 const tone = (status?: string) => statusTone[status ?? ""] ?? "bg-gray-50 text-gray-600 border-gray-200";
-
-import PageHeader from "@shared/components/PageHeader";
-import Breadcrumb from "@components/seo/Breadcrumb";
 
 export const UserDashboard = () => {
   const { userData } = useAuth();
@@ -56,14 +55,14 @@ export const UserDashboard = () => {
   const cards = [
     {
       label: "KYC Status",
-      value: kycStatus ?? "—",
+      value: kycStatus ?? "Pending",
       icon: BadgeCheck,
       to: "/dashboard/kyc-status",
       href: readyForLoan ? undefined : "/dashboard/kyc-submit",
     },
     {
       label: "Portfolio Verification",
-      value: portfolioStatus ?? "—",
+      value: portfolioStatus ?? "Pending",
       icon: Wallet,
       to: "/dashboard/portfolio",
     },
@@ -122,10 +121,10 @@ export const UserDashboard = () => {
           </p>
           {readyForLoan ? (
             <Link
-              to="/dashboard/loans/apply"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              to="/dashboard/lenders"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--green-icon)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
-              Apply for Loan <ArrowRight className="h-4 w-4" />
+              Browse Lenders & Apply <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
             <Link

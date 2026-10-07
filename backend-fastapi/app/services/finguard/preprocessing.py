@@ -1,11 +1,12 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_SUBSISTENCE_COST = 4000.0  # NPR per dependent minimum monthly subsistence threshold
 
 
 class PreprocessingPipeline:
@@ -20,7 +21,7 @@ class PreprocessingPipeline:
         self.numeric_medians: Dict[str, float] = self.impute_stats.get("numeric_median", {})
 
     def _safe_get(self, data: Dict[str, Any], key: str, default: float = 0.0) -> float:
-        # Try both lowercase and uppercase keys
+        # Try lowercase, uppercase, and camelCase
         v = data.get(key)
         if v is None:
             v = data.get(key.upper())
@@ -33,24 +34,149 @@ class PreprocessingPipeline:
         except Exception:
             return default
 
-    def transform(self, data_dict: Dict[str, Any]) -> np.ndarray:
+    def extract_derived_features(self, data_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract derived features including status flags, ratios, disposable income,
+        and out-of-distribution (OOD) indicators.
+        """
+        eps = 1e-6
+
+        # 1. Income and Loan Amounts (Standardized to NPR)
+        annual_income = self._safe_get(data_dict, "amt_income_total", 0.0)
+        monthly_income = self._safe_get(data_dict, "monthly_income", 0.0)
+        if annual_income <= 0 and monthly_income > 0:
+            annual_income = monthly_income * 12.0
+        elif monthly_income <= 0 and annual_income > 0:
+            monthly_income = annual_income / 12.0
+        elif annual_income <= 0 and monthly_income <= 0:
+            annual_income = self.numeric_medians.get("AMT_INCOME_TOTAL", 150000.0)
+            monthly_income = annual_income / 12.0
+
+        loan_amount = self._safe_get(data_dict, "amt_credit", 0.0)
+        if loan_amount <= 0:
+            loan_amount = self.numeric_medians.get("AMT_CREDIT", 500000.0)
+
+        # 2. Status and Employment Flags
+        status_raw = str(
+            data_dict.get("status")
+            or data_dict.get("employment_status")
+            or data_dict.get("employmentStatus")
+            or data_dict.get("name_income_type")
+            or data_dict.get("NAME_INCOME_TYPE")
+            or data_dict.get("occupation_type")
+            or data_dict.get("OCCUPATION_TYPE")
+            or ""
+        ).strip().upper()
+
+        is_student = 1.0 if "STUDENT" in status_raw else 0.0
+        days_employed = self._safe_get(data_dict, "days_employed", -1648.0)
+        is_unemployed = 1.0 if ("UNEMPLOYED" in status_raw or days_employed == 365243 or days_employed == 365243.0) else 0.0
+
+        employer_val = (
+            data_dict.get("employer")
+            or data_dict.get("employer_name")
+            or data_dict.get("employerName")
+            or data_dict.get("organization_type")
+            or data_dict.get("ORGANIZATION_TYPE")
+            or data_dict.get("business_name")
+            or data_dict.get("businessName")
+        )
+        has_employer = 1.0 if (
+            employer_val is not None
+            and str(employer_val).strip().upper() not in ("", "NONE", "NULL", "N/A", "NA", "UNDEFINED", "XNA")
+            and is_student == 0.0
+            and is_unemployed == 0.0
+        ) else 0.0
+
+        # One-hot encoded status categories
+        status_category = "OTHER"
+        if is_student == 1.0:
+            status_category = "STUDENT"
+        elif "SELF" in status_raw or "BUSINESS" in status_raw or "ENTREPRENEUR" in status_raw:
+            status_category = "SELF_EMPLOYED"
+        elif is_unemployed == 1.0:
+            status_category = "UNEMPLOYED"
+        elif has_employer == 1.0 or "EMPLOYED" in status_raw or "WORKING" in status_raw:
+            status_category = "EMPLOYED"
+
+        status_one_hot = {
+            "status_is_student": 1.0 if status_category == "STUDENT" else 0.0,
+            "status_is_employed": 1.0 if status_category == "EMPLOYED" else 0.0,
+            "status_is_self_employed": 1.0 if status_category == "SELF_EMPLOYED" else 0.0,
+            "status_is_unemployed": 1.0 if status_category == "UNEMPLOYED" else 0.0,
+            "status_is_other": 1.0 if status_category == "OTHER" else 0.0,
+        }
+
+        # 3. Dependents & Subsistence
+        dependents = self._safe_get(
+            data_dict, "dependents", self._safe_get(data_dict, "cnt_children", 0.0)
+        )
+        fam_members = self._safe_get(
+            data_dict, "cnt_fam_members", dependents + 1.0
+        )
+        if fam_members < 1.0:
+            fam_members = 1.0
+
+        subsistence_cost = DEFAULT_SUBSISTENCE_COST
+        disposable_income = monthly_income - (dependents * subsistence_cost)
+        income_per_dependent = monthly_income / (dependents + 1.0)
+        loan_to_income_ratio = loan_amount / max(annual_income, 1.0)
+        loan_to_monthly_income_ratio = loan_amount / max(monthly_income, 1.0)
+
+        # 4. Out of Distribution (OOD) Profile Detection
+        # Check if applicant is in an extreme low-representation space (e.g. extreme leverage or student high debt)
+        out_of_distribution = False
+        if is_student == 1.0 and (loan_amount > 100000.0 or dependents >= 3):
+            out_of_distribution = True
+        elif loan_to_income_ratio > 10.0:
+            out_of_distribution = True
+        elif monthly_income < 3000.0:
+            out_of_distribution = True
+
+        return {
+            "annual_income": annual_income,
+            "monthly_income": monthly_income,
+            "loan_amount": loan_amount,
+            "is_student": is_student,
+            "is_unemployed": is_unemployed,
+            "has_employer": has_employer,
+            "status_category": status_category,
+            "status_one_hot": status_one_hot,
+            "loan_to_income_ratio": loan_to_income_ratio,
+            "loan_to_monthly_income_ratio": loan_to_monthly_income_ratio,
+            "disposable_income": disposable_income,
+            "income_per_dependent": income_per_dependent,
+            "out_of_distribution": out_of_distribution,
+        }
+
+    def check_null_rates_and_log(self, data_dict: Dict[str, Any]) -> None:
+        """Log warnings if any feature set experiences high missingness at inference."""
+        core_keys = [
+            "amt_income_total", "amt_credit", "days_birth", "days_employed",
+            "cnt_children", "cnt_fam_members", "ext_source_1", "ext_source_2", "ext_source_3"
+        ]
+        missing_count = sum(1 for k in core_keys if data_dict.get(k) is None and data_dict.get(k.upper()) is None)
+        missing_rate = missing_count / len(core_keys)
+        if missing_rate > 0.20:
+            logger.warning(
+                f"[FinGuard Inference Audit] Feature missingness rate is {missing_rate:.1%} (>20% threshold). "
+                f"Missing keys: {[k for k in core_keys if data_dict.get(k) is None and data_dict.get(k.upper()) is None]}"
+            )
+
+    def transform(self, data_dict: Dict[str, Any]) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Transform raw application and borrower inputs into the exact 243-feature
-        vector expected by the trained XGBoost model.
+        vector expected by the trained XGBoost model, returning the vector and
+        extracted pipeline metadata.
         """
-        # 1. Start with the dataset numeric medians so unprovided historical features
-        # (e.g. bureau averages, registration age, document flags) reflect a standard baseline
-        # rather than extreme zero-outlier anomalies.
+        self.check_null_rates_and_log(data_dict)
+        derived = self.extract_derived_features(data_dict)
+
+        # 1. Start with dataset numeric medians
         mapped: Dict[str, Any] = dict(self.numeric_medians)
 
-        # 2. Extract core numerical parameters
-        income = self._safe_get(data_dict, "amt_income_total", self.numeric_medians.get("AMT_INCOME_TOTAL", 150000.0))
-        if income <= 0:
-            income = self.numeric_medians.get("AMT_INCOME_TOTAL", 150000.0)
-
-        credit = self._safe_get(data_dict, "amt_credit", self.numeric_medians.get("AMT_CREDIT", 500000.0))
-        if credit <= 0:
-            credit = self.numeric_medians.get("AMT_CREDIT", 500000.0)
+        income = derived["annual_income"]
+        credit = derived["loan_amount"]
 
         # Default annuity to realistic tenure EMI if 0
         annuity = self._safe_get(data_dict, "amt_annuity", 0.0)
@@ -72,9 +198,11 @@ class PreprocessingPipeline:
         if days_birth > -5000:
             days_birth = -12000.0
 
-        # Handle days employed (Home Credit standard: negative days or 365243 for unemployed)
+        # Handle days employed
         days_employed = self._safe_get(data_dict, "days_employed", self.numeric_medians.get("DAYS_EMPLOYED", -1648.0))
-        if days_employed > 0 and days_employed != 365243:
+        if derived["is_student"] == 1.0 or derived["is_unemployed"] == 1.0:
+            days_employed = 365243.0
+        elif days_employed > 0 and days_employed != 365243:
             days_employed = -abs(days_employed)
 
         cnt_children = self._safe_get(data_dict, "cnt_children", 0.0)
@@ -92,12 +220,10 @@ class PreprocessingPipeline:
         mapped["CNT_FAM_MEMBERS"] = cnt_fam_members
 
         # 3. External source scores (EXT_SOURCE_1, 2, 3)
-        # Check explicit inputs first
         ext1 = data_dict.get("ext_source_1") or data_dict.get("EXT_SOURCE_1")
         ext2 = data_dict.get("ext_source_2") or data_dict.get("EXT_SOURCE_2")
         ext3 = data_dict.get("ext_source_3") or data_dict.get("EXT_SOURCE_3")
 
-        # Dynamic inference if not provided: estimate external quality from financial stability & DTI
         eps = 1e-6
         dti = (annuity * 12.0) / (income + eps)
         tenure_years = abs(days_employed) / 365.25 if days_employed < 0 else 0.0
@@ -106,24 +232,27 @@ class PreprocessingPipeline:
             v2 = float(ext2)
             mapped["EXT_SOURCE_2"] = v2 / 100.0 if v2 > 1.0 else v2
         else:
-            # Calibrated baseline around 0.56, adjusted by tenure and debt burden
+            # Calibrated baseline
             quality_factor = min(0.35, max(-0.35, (tenure_years - 2.0) * 0.04 - (dti - 0.20) * 0.5))
+            if derived["is_student"] == 1.0 or derived["is_unemployed"] == 1.0:
+                quality_factor -= 0.10
             mapped["EXT_SOURCE_2"] = min(0.95, max(0.05, float(self.numeric_medians.get("EXT_SOURCE_2", 0.5659)) + quality_factor))
+
+        v2_val = float(mapped["EXT_SOURCE_2"])
 
         if ext3 is not None:
             v3 = float(ext3)
             mapped["EXT_SOURCE_3"] = v3 / 100.0 if v3 > 1.0 else v3
         else:
-            quality_factor = min(0.35, max(-0.35, (tenure_years - 2.0) * 0.04 - (dti - 0.20) * 0.5))
-            mapped["EXT_SOURCE_3"] = min(0.95, max(0.05, float(self.numeric_medians.get("EXT_SOURCE_3", 0.5352)) + quality_factor))
+            mapped["EXT_SOURCE_3"] = min(0.95, max(0.05, v2_val))
 
         if ext1 is not None:
             v1 = float(ext1)
             mapped["EXT_SOURCE_1"] = v1 / 100.0 if v1 > 1.0 else v1
         else:
-            mapped["EXT_SOURCE_1"] = min(0.95, max(0.05, float(self.numeric_medians.get("EXT_SOURCE_1", 0.5060))))
+            mapped["EXT_SOURCE_1"] = min(0.95, max(0.05, v2_val))
 
-        # 4. Derived ratios & aggregations (matching training feature engineering)
+        # 4. Derived ratios & aggregations
         age_years = abs(days_birth) / 365.25
         years_employed = abs(days_employed) / 365.25 if days_employed < 0 else 0.0
 
@@ -142,7 +271,7 @@ class PreprocessingPipeline:
         mapped["EXT_SOURCE_MEAN"] = float(np.mean(ext_vals))
         mapped["EXT_SOURCE_STD"] = float(np.std(ext_vals))
 
-        # Standard contact & document completeness for active applicants
+        # Standard contact & document completeness
         mapped["DOCUMENT_COUNT"] = 1.0
         mapped["FLAG_DOCUMENT_3"] = 1.0
         mapped["FLAG_EMP_PHONE"] = 1.0 if days_employed != 365243 else 0.0
@@ -196,4 +325,14 @@ class PreprocessingPipeline:
                 if col_name in idx_map:
                     vec[idx_map[col_name]] = 1.0
 
-        return np.array(vec, dtype=np.float32).reshape(1, -1)
+        # Activate Student / Unemployed categorical OHE if applicable
+        if derived["is_student"] == 1.0:
+            student_col = "NAME_INCOME_TYPE_Student"
+            if student_col in idx_map:
+                vec[idx_map[student_col]] = 1.0
+        elif derived["is_unemployed"] == 1.0:
+            unemp_col = "NAME_INCOME_TYPE_Unemployed"
+            if unemp_col in idx_map:
+                vec[idx_map[unemp_col]] = 1.0
+
+        return np.array(vec, dtype=np.float32).reshape(1, -1), derived

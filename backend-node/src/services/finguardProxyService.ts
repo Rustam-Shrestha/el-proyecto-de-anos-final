@@ -28,10 +28,15 @@ export interface FinguardInput {
 
 export interface FinguardResult {
   model_version: string;
+  pipeline_version?: string;
   default_probability: number;
   credit_score: number;
   risk_band: string;
   decision: string;
+  decision_tier?: string;
+  recommendation?: string;
+  hard_rule_triggered?: boolean;
+  reason_codes?: string[];
   threshold: number;
   shap_summary: Record<string, number>;
   features_used: string[];
@@ -56,6 +61,12 @@ export interface FinguardEnvelope {
   probability: number;
   risk_score: number;
   decision: string;
+  decision_tier?: string;
+  recommendation?: string;
+  hard_rule_triggered?: boolean;
+  reason_codes?: string[];
+  pipeline_version?: string;
+  out_of_distribution?: boolean;
   model_version?: string;
   credit_score?: number;
   risk_band?: string;
@@ -473,6 +484,13 @@ export function toFinguardEnvelope(data: unknown, source: string): FinguardEnvel
     if (num !== undefined) shapSummary[key] = round(num, 6);
   }
 
+  const hardRuleTriggered = Boolean(raw.hard_rule_triggered);
+  const reasonCodes = Array.isArray(raw.reason_codes) ? raw.reason_codes.map(String) : [];
+  const decisionTier = toStr(raw.decision_tier)
+    ?? (hardRuleTriggered ? 'HIGH' : rawProbability < 0.05 ? 'LOW' : rawProbability <= threshold ? 'MEDIUM' : 'HIGH');
+  const recommendation = toStr(raw.recommendation)
+    ?? (hardRuleTriggered ? 'REJECT' : rawProbability < 0.05 ? 'APPROVE' : rawProbability <= threshold ? 'MANUAL_REVIEW' : 'REJECT');
+
   return {
     status: toStr(raw.status) ?? 'success',
     prediction: predictionLabel,
@@ -480,6 +498,12 @@ export function toFinguardEnvelope(data: unknown, source: string): FinguardEnvel
     probability,
     risk_score: round(riskScore, 6),
     decision: toStr(raw.decision) ?? (predictionLabel === 'APPROVE' ? 'Approve' : 'Decline'),
+    decision_tier: decisionTier,
+    recommendation,
+    hard_rule_triggered: hardRuleTriggered,
+    reason_codes: reasonCodes,
+    pipeline_version: toStr(raw.pipeline_version) ?? '1.4.0',
+    out_of_distribution: Boolean(raw.out_of_distribution),
     model_version: toStr(raw.model_version) ?? toStr(raw.modelVersion),
     credit_score: toNumber(raw.credit_score) ?? toNumber(raw.creditScore),
     risk_band: toStr(raw.risk_band) ?? toStr(raw.riskBand),

@@ -1,5 +1,5 @@
 import { useRef, useState, type RefObject } from 'react';
-import { Download, FileSpreadsheet, FileText, Table as TableIcon } from 'lucide-react';
+import { Download, FileCode, FileSpreadsheet, FileText, Table as TableIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -21,6 +21,18 @@ export function ExportBar<T extends Record<string, unknown>>({ data, columns, fi
     for (const c of columns) o[c.header] = c.accessor ? c.accessor(row) : (row[c.key] as unknown);
     return o;
   });
+
+  const exportJson = () => {
+    const jsonStr = JSON.stringify(rows, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setOpen(false);
+  };
 
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -66,6 +78,7 @@ export function ExportBar<T extends Record<string, unknown>>({ data, columns, fi
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg p-1 z-20">
+          <button onClick={exportJson} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 rounded-lg"><FileCode className="w-4 h-4 text-purple-600" /> JSON (.json)</button>
           <button onClick={exportExcel} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 rounded-lg"><FileSpreadsheet className="w-4 h-4 text-[#15803D]" /> Excel (.xlsx)</button>
           <button onClick={exportCsv} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 rounded-lg"><TableIcon className="w-4 h-4 text-[#0ea5e9]" /> CSV (.csv)</button>
           <button onClick={exportPdf} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 rounded-lg"><FileText className="w-4 h-4 text-slate-600" /> PDF (.pdf)</button>

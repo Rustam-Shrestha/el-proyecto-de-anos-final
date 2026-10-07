@@ -13,7 +13,7 @@ const UserKYCPage = () => {
   }
 
   if (kyc?.status === "APPROVED") {
-    return <Navigate to="/dashboard/loans/apply" replace />;
+    return <Navigate to="/dashboard/portfolio" replace />;
   }
 
   return (

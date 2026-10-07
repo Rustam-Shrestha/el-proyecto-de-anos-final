@@ -7,6 +7,7 @@ import RiskScoreBadge from "@features/loans/components/RiskScoreBadge";
 import { useToast } from "@shared/hooks/useToast";
 import { useReviewLoanMutation } from "@features/loans/api/loansApi";
 import type { LoanApplication, LoanStatus, RiskLevel } from "@shared/types/common";
+import { useAuth } from "@store/hooks";
 
 const statusBadgeClasses: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800  ",
@@ -59,9 +60,12 @@ type LoanDetailsModalProps = {
 
 const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
   const toast = useToast();
+  const { user } = useAuth();
   const reviewMutation = useReviewLoanMutation();
   const [action, setAction] = useState<"approve" | "reject" | null>(null);
   const [notes, setNotes] = useState("");
+
+  const isSuperadmin = (user?.role || "").toLowerCase() === "superadmin" || user?.email === "superadmin@finguard.io";
 
   useEffect(() => {
     if (!isOpen) {
@@ -70,9 +74,12 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
     }
   }, [isOpen]);
 
-  if (!loan) return null;
+  if (!isOpen || !loan) return null;
 
-  const isReviewable = loan.status === "PENDING" || loan.status === "UNDER_REVIEW";
+  const isReviewable =
+    loan.status === "SUBMITTED" ||
+    loan.status === "PENDING" ||
+    loan.status === "UNDER_REVIEW";
   const isSubmitting = reviewMutation.isPending;
 
   const handleApprove = async () => {
@@ -152,7 +159,7 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
                   to={`/dashboard/portfolio/admin/${loan.userId}`}
                   className="text-xs font-semibold text-blue-600 hover:underline"
                 >
-                  View Portfolio &rarr;
+                  View Portfolio
                 </Link>
               </dd>
             </div>
@@ -200,7 +207,14 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
           </div>
         ) : null}
 
-        {isReviewable ? (
+        {isSuperadmin ? (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-gray-200 pt-4">
+            <span className="text-xs text-slate-500 italic">
+              Superadmin View (Read-Only): Approvals and rejections are handled by the tenant company admin / reviewer.
+            </span>
+            <Button variant="ghost" type="button" onClick={onClose}>Close</Button>
+          </div>
+        ) : isReviewable ? (
           <div className="space-y-4 border-t border-gray-200 pt-4 ">
             {action === "reject" ? (
               <div className="space-y-4">

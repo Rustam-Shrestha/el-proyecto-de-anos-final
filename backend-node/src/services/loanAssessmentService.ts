@@ -379,19 +379,33 @@ export const loanAssessmentService = {
     }
 
     const probability = Number(ml.default_probability ?? 0);
+    const hardRuleTriggered = Boolean(ml.hard_rule_triggered);
+    const reasonCodes = Array.isArray(ml.reason_codes) ? ml.reason_codes : [];
     const penalty = probability * FINGUARD_PENALTY_WEIGHT;
     const baseScore = Number(base.eligibilityScore ?? 0);
-    const eligibilityScore = round2(Math.max(0, baseScore - penalty));
-    const riskLevel = riskLevelFromScore(eligibilityScore);
-    const eligibleAmount = round2(requestedAmount * multiplierFor(riskLevel));
+    let eligibilityScore = round2(Math.max(0, baseScore - penalty));
+    let riskLevel = riskLevelFromScore(eligibilityScore);
+    let eligibleAmount = round2(requestedAmount * multiplierFor(riskLevel));
+
+    if (hardRuleTriggered || ml.recommendation === 'REJECT' || ml.decision === 'Decline') {
+      riskLevel = 'REJECTED';
+      eligibleAmount = 0;
+      eligibilityScore = Math.min(eligibilityScore, 35);
+    }
+
     const maxMonthlyEmi = round2(Number(base.maxMonthlyEmi ?? 0));
     const monthlyEmi = round2(Number(base.assessmentDetails && typeof base.assessmentDetails === 'object'
       ? ((base.assessmentDetails as { monthlyEmi?: number }).monthlyEmi ?? 0)
       : 0));
 
-    const recommendation = this.generateRecommendation({
-      riskLevel, eligibleAmount, eligibilityScore, maxMonthlyEmi, monthlyEmi,
-    });
+    let recommendation: string;
+    if (hardRuleTriggered && reasonCodes.length > 0) {
+      recommendation = `Application rejected by pre-model hard business rules: ${reasonCodes.join(', ')}.`;
+    } else {
+      recommendation = this.generateRecommendation({
+        riskLevel, eligibleAmount, eligibilityScore, maxMonthlyEmi, monthlyEmi,
+      });
+    }
 
     const assessmentDetails = {
       ...(typeof base.assessmentDetails === 'object' && base.assessmentDetails !== null ? base.assessmentDetails : {}),
@@ -401,7 +415,12 @@ export const loanAssessmentService = {
         creditScore: ml.credit_score,
         riskBand: ml.risk_band,
         decision: ml.decision,
+        decisionTier: ml.decision_tier,
+        recommendation: ml.recommendation,
+        hardRuleTriggered,
+        reasonCodes,
         modelVersion: ml.model_version,
+        pipelineVersion: ml.pipeline_version ?? '1.4.0',
         penaltyApplied: round2(penalty),
         penaltyWeight: FINGUARD_PENALTY_WEIGHT,
       },
@@ -421,7 +440,7 @@ export const loanAssessmentService = {
     }
 
     logger.info(
-      { userId, probability, baseScore, eligibilityScore, riskLevel },
+      { userId, probability, baseScore, eligibilityScore, riskLevel, hardRuleTriggered },
       'Loan assessment adjusted with FinGuard ML probability',
     );
 
@@ -438,7 +457,12 @@ export const loanAssessmentService = {
         creditScore: ml.credit_score,
         riskBand: ml.risk_band,
         decision: ml.decision,
+        decisionTier: ml.decision_tier,
+        recommendation: ml.recommendation,
+        hardRuleTriggered,
+        reasonCodes,
         modelVersion: ml.model_version,
+        pipelineVersion: ml.pipeline_version ?? '1.4.0',
         penaltyApplied: round2(penalty),
       },
     };

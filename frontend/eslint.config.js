@@ -30,10 +30,15 @@ export default [
         HTMLElement: "readonly",
         Blob: "readonly",
         React: "readonly",
+        HTMLSelectElement: "readonly",
         HTMLCanvasElement: "readonly",
         localStorage: "readonly",
+        sessionStorage: "readonly",
         navigator: "readonly",
         KeyboardEvent: "readonly",
+        MouseEvent: "readonly",
+        Event: "readonly",
+        CustomEvent: "readonly",
         URL: "readonly",
         setInterval: "readonly",
         setTimeout: "readonly",
@@ -50,6 +55,7 @@ export default [
       "@typescript-eslint": tseslint
     },
     rules: {
+      "no-undef": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",

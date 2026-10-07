@@ -12,6 +12,22 @@ import { useSubmitKYCMutation } from "@features/kyc/api/kycApi";
 import type { KYCApplication, User } from "@shared/types/common";
 import { DocumentType, FILE_VALIDATION } from "@shared/types/common";
 import CustomDatePicker from "@components/common/CutomDatePicker";
+import CustomSelectField from "@components/common/SelectField";
+
+const GENDER_OPTIONS = [
+  { value: "MALE", label: "Male" },
+  { value: "FEMALE", label: "Female" },
+  { value: "OTHER", label: "Other" },
+];
+
+const normalizeGender = (value?: string): string => {
+  if (!value) return "";
+  const v = value.trim().toUpperCase();
+  if (v === "M" || v === "MALE") return "MALE";
+  if (v === "F" || v === "FEMALE") return "FEMALE";
+  if (v === "O" || v === "OTHER" || v === "TG") return "OTHER";
+  return v;
+};
 
 type FileField = "selfie" | "idProof" | "addressProof";
 const MAX_POLLING_ATTEMPTS = 20;
@@ -510,12 +526,12 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Gender</label>
-              <input
-                type="text"
-                value={confirmedData.confirmedGender}
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+              <CustomSelectField
+                value={normalizeGender(confirmedData.confirmedGender)}
                 onChange={(e) => handleFieldChange("confirmedGender", e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                options={GENDER_OPTIONS}
+                placeholder="Select Gender"
               />
               {ocrData?.ocrGender ? (
                 <p className="mt-1 text-xs text-gray-400">From your submitted data: {ocrData.ocrGender}</p>

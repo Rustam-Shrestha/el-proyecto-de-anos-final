@@ -4,7 +4,6 @@ import { Building2, Users, CreditCard, Activity, Plus, Shield, FileCheck } from 
 import { MetricCard } from '../components/MetricCard';
 import { TenantList } from '../components/TenantList';
 import { TimeSeriesChart } from '../components/TimeSeriesChart';
-import { UsageGauge } from '../components/UsageGauge';
 import { FeatureTogglePanel } from '../components/FeatureTogglePanel';
 import { ExportBar } from '@shared/components/export/ExportBar';
 import { useSupercontrollerMetrics, useSupercontrollerTenants, useSupercontrollerTimeSeries, useTenantOverview, useCreateTenant, useUpdateTenantStatus, type TenantDto } from '../api/supercontrollerApi';
@@ -69,16 +68,9 @@ export default function SupercontrollerDashboardPage() {
           <MetricCard title="Total loans" value={metricsLoading ? '—' : (metrics?.totalLoans ?? 0).toLocaleString()} subtitle="Under management" icon={<CreditCard className="w-5 h-5" />} accent="#f59e0b" />
         </div>
 
-        {/* Charts */}
-        <div ref={chartWrapRef} className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <div className="lg:col-span-8"><TimeSeriesChart data={series} isLoading={seriesLoading} /></div>
-          <div className="lg:col-span-4">
-            {selected && overview ? (
-              <UsageGauge usersPct={overview.usagePercentage.users} loansPct={overview.usagePercentage.loans} title={`${selected.slug} capacity`} />
-            ) : (
-              <UsageGauge usersPct={tenants.length ? Math.round((tenants.reduce((a, t) => a + t.usageUsers, 0) / Math.max(1, tenants.reduce((a, t) => a + t.maxUsers, 0))) * 100) : 0} loansPct={tenants.length ? Math.round((tenants.reduce((a, t) => a + t.usageLoans, 0) / Math.max(1, tenants.reduce((a, t) => a + t.maxLoans, 0))) * 100) : 0} title="Platform capacity" />
-            )}
-          </div>
+        {/* Activity Chart */}
+        <div ref={chartWrapRef} className="w-full">
+          <TimeSeriesChart data={series} isLoading={seriesLoading} />
         </div>
 
         {/* Tenants */}
