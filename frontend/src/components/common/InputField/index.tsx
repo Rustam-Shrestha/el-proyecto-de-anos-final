@@ -5,7 +5,7 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "@/shared/icons";
 
 export type InputFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: string;

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import useClickOutside from "../../../hooks/useClickOutside";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/shared/icons";
 
 export type SelectOption = { value: string; label: string } | string;
 

@@ -6,7 +6,7 @@
  * changes but modal props haven't changed.
  */
 import React, { memo } from "react";
-import { X } from "lucide-react";
+import { X } from "@/shared/icons";
 
 const Modal = memo(({
   size = "xl",

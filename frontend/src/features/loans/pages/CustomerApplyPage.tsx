@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
-import { ArrowLeft, CheckCircle2, Landmark } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Landmark } from "@/shared/icons";
 import { env } from "@shared/lib/env";
 
 /**

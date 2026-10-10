@@ -13,6 +13,19 @@ export const userKeys = {
   detail: (id: string) => ["users", id] as const,
 };
 
+export const listUsers = async (page: number, limit = 10) => {
+  const { data } = await apiClient.get<ApiResponse<User[]> & { meta: PaginationMeta }>(
+    `/users?page=${page}&limit=${limit}`
+  );
+  return data;
+};
+
+export const createUser = async (payload: { email: string; password: string; role: string; fullName?: string }) => {
+  const { data } = await apiClient.post<ApiResponse<User>>("/users", payload);
+  return data.data;
+};
+
+
 export const useUsersList = (page: number, limit: number, role?: string) => {
   return useQuery<UsersListResponse>({
     queryKey: [...userKeys.list(page, limit), role].filter(Boolean),

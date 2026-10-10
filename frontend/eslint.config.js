@@ -1,84 +1,82 @@
 import js from "@eslint/js";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsparser from "@typescript-eslint/parser";
+import reactHooks from "eslint-plugin-react-hooks";
+import globals from "globals";
 
 export default [
+  {
+    ignores: [
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      "node_modules/**",
+      "**/*.d.ts",
+      ".vite/**"
+    ]
+  },
   js.configs.recommended,
   {
-    ignores: ["dist/**", "**/*.d.ts"]
-  },
-  {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["**/*.{ts,tsx}"],
     languageOptions: {
       parser: tsparser,
-      globals: {
-        clearInterval: "readonly",
-        clearTimeout: "readonly",
-        console: "readonly",
-        document: "readonly",
-        fetch: "readonly",
-        FormData: "readonly",
-        File: "readonly",
-        FileReader: "readonly",
-        HTMLButtonElement: "readonly",
-        HTMLDivElement: "readonly",
-        HTMLFormElement: "readonly",
-        HTMLInputElement: "readonly",
-        HTMLTextAreaElement: "readonly",
-        HTMLLinkElement: "readonly",
-        HTMLImageElement: "readonly",
-        HTMLElement: "readonly",
-        Blob: "readonly",
-        React: "readonly",
-        HTMLSelectElement: "readonly",
-        HTMLCanvasElement: "readonly",
-        localStorage: "readonly",
-        sessionStorage: "readonly",
-        navigator: "readonly",
-        KeyboardEvent: "readonly",
-        MouseEvent: "readonly",
-        Event: "readonly",
-        CustomEvent: "readonly",
-        URL: "readonly",
-        setInterval: "readonly",
-        setTimeout: "readonly",
-        URLSearchParams: "readonly",
-        window: "readonly",
-        alert: "readonly"
-      },
       parserOptions: {
         ecmaVersion: "latest",
-        sourceType: "module"
+        sourceType: "module",
+        ecmaFeatures: {
+          jsx: true
+        }
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.es2021,
+        React: "readonly",
+        process: "readonly"
       }
     },
     plugins: {
-      "@typescript-eslint": tseslint
+      "@typescript-eslint": tseslint,
+      "react-hooks": reactHooks
     },
     rules: {
+      // In TypeScript codebases, TypeScript compiler handles undefined variable checking
       "no-undef": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
-        "error",
+        "warn",
         {
           argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
           caughtErrorsIgnorePattern: "^_",
-          varsIgnorePattern: "^_"
+          ignoreRestSiblings: true
         }
       ],
-      "@typescript-eslint/no-explicit-any": "off"
+      "@typescript-eslint/no-explicit-any": "off",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn"
     }
   },
   {
-    files: ["vite.config.js"],
+    files: ["**/*.{js,cjs,mjs}"],
     languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
       globals: {
-        __dirname: "readonly",
-        process: "readonly"
-      },
-      parserOptions: {
-        ecmaVersion: "latest",
-        sourceType: "module"
+        ...globals.node,
+        ...globals.browser,
+        ...globals.es2021
       }
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_"
+        }
+      ]
     }
   }
 ];

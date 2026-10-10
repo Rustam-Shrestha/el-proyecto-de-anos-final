@@ -1,1 +1,1 @@
-declare module 'lucide-react';
+// Replaced by @/shared/icons

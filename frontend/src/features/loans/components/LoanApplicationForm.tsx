@@ -6,7 +6,7 @@ import { useToast } from "@shared/hooks/useToast";
 import { Tooltip } from "@components/common/Tooltip";
 import { z } from "zod";
 import { loanApplicationSchema } from "@shared/utils/validators";
-import type { LoanPurpose } from "@shared/types/common";
+import { LoanPurpose } from "@shared/types/common";
 import InputField from "@components/common/InputField";
 import CustomSelectField from "@components/common/SelectField";
 import Card from "@shared/components/Card";
@@ -16,10 +16,10 @@ const ANNUAL_INTEREST_RATE = 18;
 const tenureOptions = [6, 12, 18, 24, 36, 48, 60] as const;
 
 const purposeOptions: { value: LoanPurpose; label: string }[] = [
-  { value: "HOME", label: "Home" },
-  { value: "EDUCATION", label: "Education" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "PERSONAL", label: "Personal" },
+  { value: LoanPurpose.HOME, label: "Home" },
+  { value: LoanPurpose.EDUCATION, label: "Education" },
+  { value: LoanPurpose.BUSINESS, label: "Business" },
+  { value: LoanPurpose.PERSONAL, label: "Personal" },
 ];
 
 const formatNPR = (value: number) =>
@@ -52,7 +52,7 @@ const LoanApplicationForm = () => {
   const applyMutation = useApplyLoanMutation();
 
   const [amount, setAmount] = useState("");
-  const [purpose, setPurpose] = useState<LoanPurpose>("PERSONAL");
+  const [purpose, setPurpose] = useState<LoanPurpose>(LoanPurpose.PERSONAL);
   const [tenureMonths, setTenureMonths] = useState(12);
   const [errors, setErrors] = useState<FormErrors>({});
 

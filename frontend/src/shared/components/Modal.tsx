@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { X } from "@/shared/icons";
 
-type ModalProps = {
+export type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
   title: string;

@@ -1,5 +1,5 @@
 import { useRef, useState, type RefObject } from 'react';
-import { Download, FileCode, FileSpreadsheet, FileText, Table as TableIcon } from 'lucide-react';
+import { Download, FileCode, FileSpreadsheet, FileText, Table as TableIcon } from '@/shared/icons';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -9,7 +9,7 @@ interface Props<T extends Record<string, unknown>> {
   data: T[];
   columns: Array<{ key: string; header: string; accessor?: (row: T) => string | number }>;
   filename: string;
-  chartRef?: RefObject<HTMLElement>;
+  chartRef?: RefObject<HTMLElement | null>;
 }
 
 export function ExportBar<T extends Record<string, unknown>>({ data, columns, filename, chartRef }: Props<T>) {

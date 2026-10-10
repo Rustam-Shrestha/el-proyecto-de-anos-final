@@ -5,7 +5,7 @@ import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import PageHeader from "@shared/components/PageHeader";
 import Breadcrumb from "@components/seo/Breadcrumb";
 import { apiErrorMessage } from "@shared/utils/apiError";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@/shared/icons";
 
 const formatDate = (value?: string) => {
   if (!value) return "--";
@@ -119,7 +119,7 @@ const LoanStatusPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {loans.map((loan) => (
+                {loans.map((loan: any) => (
                   <tr
                     key={loan.id}
                     className="transition-colors hover:bg-gray-50"

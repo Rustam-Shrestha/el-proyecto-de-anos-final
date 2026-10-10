@@ -5,7 +5,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import useClickOutside from "../../../hooks/useClickOutside";
-import { Clock } from "lucide-react";
+import { Clock } from "@/shared/icons";
 
 const CustomTimePicker = memo(({
   label = null,

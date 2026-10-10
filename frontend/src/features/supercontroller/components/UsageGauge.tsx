@@ -4,8 +4,8 @@ import HighchartsMore from 'highcharts/highcharts-more';
 import SolidGauge from 'highcharts/modules/solid-gauge';
 
 // init once
-try { HighchartsMore(Highcharts); } catch (_e) { /* ignore */ }
-try { SolidGauge(Highcharts); } catch (_e) { /* ignore */ }
+try { (HighchartsMore as any)(Highcharts); } catch (_e) { /* ignore */ }
+try { (SolidGauge as any)(Highcharts); } catch (_e) { /* ignore */ }
 
 export function UsageGauge({ usersPct, loansPct, title = 'Capacity' }: { usersPct: number; loansPct: number; title?: string }) {
   const ref = useRef<HTMLDivElement>(null);

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Menu, LogOut, MessageSquare } from "lucide-react";
+import { Menu, LogOut, MessageSquare } from "@/shared/icons";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@store/hooks";
@@ -25,7 +25,7 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
       userData?.email?.split('@')[0] ||
       'User';
 
-    return rawName.trim() || 'User';
+    return String(rawName || 'User').trim() || 'User';
   }, [userData]);
 
   const handleLogout = async () => {
@@ -200,3 +200,5 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
     </header>
   );
 };
+
+export default Navbar;

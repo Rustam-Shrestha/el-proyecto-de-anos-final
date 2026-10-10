@@ -4,7 +4,8 @@ import { useKYC } from "../hooks/useKYC";
 
 interface Props {
   kycApplicationId: string;
-  _uploadedFiles: Record<string, unknown>;
+  uploadedFiles?: Record<string, unknown>;
+  _uploadedFiles?: Record<string, unknown>;
   onComplete: (ocrExtracted: Record<string, unknown>) => void;
   onSkip: () => void;
 }
@@ -71,8 +72,8 @@ export const Step2Processing = ({ kycApplicationId, _uploadedFiles, onComplete, 
 
   const mergeOcrFromAllDocs = async (): Promise<Record<string, unknown> | null> => {
     try {
-      const { default: apiClient } = await import("@shared/lib/apiClient");
-      const frontRes = await apiClient.post("/kyc/extract-ocr", {
+      const { apiClient } = await import("@shared/lib/apiClient");
+      const frontRes = await apiClient.post<any>("/kyc/extract-ocr", {
         kycApplicationId,
         documentType: "CITIZENSHIP_FRONT",
       });

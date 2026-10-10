@@ -1,7 +1,11 @@
-export const applyThemeToDocument = (color: string) => {
+export const applyThemeToDocument = (color: string, darkMode?: boolean) => {
   const root = document.documentElement;
   const body = document.body;
-  root.classList.remove("dark");
+  if (darkMode) {
+    root.classList.add("dark");
+  } else {
+    root.classList.remove("dark");
+  }
   const themeVars: Record<string, string> = {
     "--theme-primary": color,
     "--primary": "#15803D",

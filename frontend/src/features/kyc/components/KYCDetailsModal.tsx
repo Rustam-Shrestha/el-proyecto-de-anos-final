@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle, CheckCircle2, Download, ExternalLink, XCircle,
   ArrowRight, ArrowDown, UserCheck, ShieldAlert, FileText
-} from "lucide-react";
+} from "@/shared/icons";
 import { Modal } from "@shared/components/Modal";
 import { Button } from "@shared/components/Button";
 import { DocumentStatusBadge } from "@shared/components/DocumentStatusBadge";
@@ -350,10 +350,10 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                         <tr key={field.label} className={`border-b border-gray-100 ${hasDiff ? "bg-danger-50/50" : ""}`}>
                           <td className="py-2 pr-4 text-gray-700 font-medium">{field.label}</td>
                           <td className={`py-2 pr-4 ${ocrVal ? "text-gray-900" : "text-gray-400 italic"}`}>
-                            {ocrVal || "-"}
+                            {String(ocrVal || "-")}
                           </td>
                           <td className={`py-2 pl-4 ${confirmedVal ? "text-gray-900" : "text-gray-400 italic"}`}>
-                            {confirmedVal || "-"}
+                            {String(confirmedVal || "-")}
                           </td>
                           <td className="py-2 pl-4">
                             {hasDiff ? (
@@ -455,7 +455,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                   <div>
                     <span className="text-gray-500">OCR Confidence:</span>
                     <span className={`ml-2 font-semibold ${Number(parsedReport.ocrConfidence) >= 80 ? "text-green-600" : "text-red-600"}`}>
-                      {parsedReport.ocrConfidence}%
+                      {String(parsedReport.ocrConfidence)}%
                     </span>
                   </div>
                 )}
@@ -463,7 +463,7 @@ const KYCDetailsModal = ({ isOpen, onClose, application }: KYCDetailsModalProps)
                   <div>
                     <span className="text-gray-500">Face Match:</span>
                     <span className={`ml-2 font-semibold ${Number(parsedReport.faceSimilarity) >= 85 ? "text-green-600" : "text-red-600"}`}>
-                      {parsedReport.faceSimilarity}%
+                      {String(parsedReport.faceSimilarity)}%
                     </span>
                   </div>
                 )}

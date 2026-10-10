@@ -20,7 +20,7 @@ export const Step4FaceResult = ({ kycApplicationId, onComplete, onBack }: Props)
 
   const result = faceVerification
     ? {
-        similarityScore,
+        similarityScore: similarityScore ?? 0,
         status: faceVerification.status,
         recommendation: faceVerification.recommendation,
       }

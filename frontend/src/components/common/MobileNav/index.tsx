@@ -10,7 +10,7 @@
  */
 import React, { memo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/shared/icons";
 import useAuth from "../../../hooks/useAuth";
 import useUI from "../../../hooks/useUI";
 

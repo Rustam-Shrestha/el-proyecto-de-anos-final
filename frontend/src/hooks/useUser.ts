@@ -12,8 +12,9 @@ export const useUser = () => {
     setLoading(true);
     try {
       const res = await service.getMe();
-      setData(res.data);
-      return res.data;
+      const u = (res as any)?.data || res;
+      setData(u);
+      return u;
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to fetch user');
       throw err;
@@ -26,8 +27,9 @@ export const useUser = () => {
     setLoading(true);
     try {
       const res = await service.updateMe(payload);
-      setData(res.data);
-      return res.data;
+      const u = (res as any)?.data || res;
+      setData(u);
+      return u;
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to update');
       throw err;
@@ -40,8 +42,9 @@ export const useUser = () => {
     setLoading(true);
     try {
       const res = await service.uploadAvatar(file);
-      setData(res.data);
-      return res.data;
+      const u = (res as any)?.data || res;
+      setData(u);
+      return u;
     } finally {
       setLoading(false);
     }
@@ -51,8 +54,9 @@ export const useUser = () => {
     setLoading(true);
     try {
       const res = await service.deleteAvatar();
-      setData(res.data);
-      return res.data;
+      const u = (res as any)?.data || res;
+      setData(u);
+      return u;
     } finally {
       setLoading(false);
     }
@@ -72,7 +76,7 @@ export const useUser = () => {
     setLoading(true);
     try {
       const res = await service.getUser(id);
-      return res.data;
+      return (res as any)?.data || res;
     } finally {
       setLoading(false);
     }

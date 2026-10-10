@@ -10,7 +10,6 @@ import {
   FileUploadButton,
 } from "../../../components/common/Button";
 import { useKYC } from "../hooks/useKYC";
-import type { KYCStatus } from "../api/kycApi";
 
 type KYCInputProps = React.ComponentType<{
   label?: string;
@@ -46,7 +45,7 @@ const KYCForm = memo<KYCFormProps>(({ userId, onKYCComplete }) => {
     useKYC({ userId });
 
   const { control, handleSubmit } = useForm<Step1Values>({
-    resolver: zodResolver(step1Schema),
+    resolver: zodResolver(step1Schema as any),
     defaultValues: {
       name: "",
       email: "",
@@ -234,18 +233,18 @@ const KYCForm = memo<KYCFormProps>(({ userId, onKYCComplete }) => {
           {kycStatus && (
             <div className="space-y-3 rounded-xl bg-gray-50 p-4 ring-1 ring-gray-200">
               <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
-                <p><strong>Status:</strong> {kycStatus.status}</p>
-                <p><strong>Confidence:</strong> {(kycStatus.confidence_score * 100).toFixed(2)}%</p>
-                <p><strong>Documents:</strong> {kycStatus.document_count} / 3</p>
+                <p><strong>Status:</strong> {kycStatus.status ?? "PENDING"}</p>
+                <p><strong>Confidence:</strong> {kycStatus.confidence_score != null ? (kycStatus.confidence_score * 100).toFixed(2) : 0}%</p>
+                <p><strong>Documents:</strong> {kycStatus.document_count ?? 0} / 3</p>
               </div>
 
-              {kycStatus.ocr_results.length > 0 && (
+              {Boolean(kycStatus.ocr_results && kycStatus.ocr_results.length > 0) && (
                 <div className="space-y-2">
                   <p className="text-sm font-semibold text-gray-800">OCR Results</p>
-                  {kycStatus.ocr_results.map((ocr: KYCStatus["ocr_results"][number]) => (
+                  {(kycStatus.ocr_results || []).map((ocr: any) => (
                     <div key={ocr.id} className="rounded-lg bg-white p-3 text-xs ring-1 ring-gray-200">
                       <p>Language: {ocr.language_detected}</p>
-                      <p>Confidence: {(ocr.confidence_score * 100).toFixed(2)}%</p>
+                      <p>Confidence: {(Number(ocr.confidence_score || 0) * 100).toFixed(2)}%</p>
                       <p className="break-words">Data: {JSON.stringify(ocr.structured_data)}</p>
                     </div>
                   ))}
@@ -258,7 +257,7 @@ const KYCForm = memo<KYCFormProps>(({ userId, onKYCComplete }) => {
             onClick={handleVerifyFace}
             label="Verify Face & Complete KYC"
             className="w-full"
-            disabled={!kycStatus || kycStatus.document_count < 3}
+            disabled={!kycStatus || (kycStatus.document_count ?? 0) < 3}
           />
         </div>
       )}

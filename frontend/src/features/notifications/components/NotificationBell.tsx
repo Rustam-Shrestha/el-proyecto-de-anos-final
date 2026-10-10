@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, Eye, Trash2, CheckCheck, FileText, Briefcase, CircleDollarSign, FileCheck, Info } from "lucide-react";
+import { Bell, Eye, Trash2, CheckCheck, FileText, Briefcase, CircleDollarSign, FileCheck, Info } from "@/shared/icons";
 import {
   useNotifications,
   useMarkAsRead,

@@ -1,5 +1,5 @@
 import { memo, useRef, type RefObject } from "react";
-import { Activity, BarChart3, CheckCircle, Clock, FileText, Users, XCircle } from "lucide-react";
+import { Activity, BarChart3, CheckCircle, Clock, FileText, Users, XCircle } from "@/shared/icons";
 import { useAdminStats } from "@features/dashboard/api/dashboardApi";
 import PageHeader from "@shared/components/PageHeader";
 import Breadcrumb from "@components/seo/Breadcrumb";

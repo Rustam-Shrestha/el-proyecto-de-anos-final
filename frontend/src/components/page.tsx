@@ -19,7 +19,7 @@ import useAuth from "../hooks/useAuth";
 import useUI from "../hooks/useUI";
 import { CustomDatePicker } from "./common";
 import SelectFilter from "./common/SelectFilter/SelectFilter";
-import { Menu, X } from "lucide-react";
+import { Menu, X } from "@/shared/icons";
 import RightSidebar from "./common/RightSidebar";
 
 const PageMaker = ({ basePath, menu }) => {

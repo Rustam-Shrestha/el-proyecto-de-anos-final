@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye } from "@/shared/icons";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { useKYCApplications } from "@features/kyc/api/kycApi";
 import { KYCDetailsModal } from "@features/kyc/components/KYCDetailsModal";

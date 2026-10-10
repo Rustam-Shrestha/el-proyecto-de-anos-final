@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@shared/components/Button";
+import { ChevronLeft, ChevronRight } from "@/shared/icons";
+import { Button } from "./Button";
 
 type TablePaginationProps = {
   page: number;

@@ -9,9 +9,10 @@
     "noEmit": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "ignoreDeprecations": "5.0",
+    "ignoreDeprecations": "6.0",
     "skipLibCheck": true,
     "paths": {
+      "@/*": ["./src/*"],
       "@app/*": ["./src/app/*"],
       "@features/*": ["./src/features/*"],
       "@shared/*": ["./src/shared/*"],

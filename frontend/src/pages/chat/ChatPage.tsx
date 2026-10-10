@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquareText, SendHorizonal, UserCircle2 } from "lucide-react";
+import { MessageSquareText, SendHorizonal, UserCircle2 } from "@/shared/icons";
 import type { Socket } from "socket.io-client";
 import { initSocket } from "@shared/lib/socketClient";
 import { apiClient } from "@shared/lib/apiClient";
 import { Button } from "@shared/components/Button";
+import InputField from "@components/common/InputField";
 import { useAuth } from "@store/hooks";
 import { roleLabel } from "@shared/utils/roleUtils";
 
@@ -320,19 +321,20 @@ const ChatPage = () => {
                 {socketError ? (
                   <p className="mb-2 text-xs text-red-600">{socketError}</p>
                 ) : null}
-                <div className="flex gap-2">
-                  <input
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        void handleSendMessage();
-                      }
-                    }}
-                    placeholder="Write a message..."
-                    className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-[var(--green-icon)]"
-                  />
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <InputField
+                      value={draft}
+                      onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDraft(event.target.value)}
+                      onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          void handleSendMessage();
+                        }
+                      }}
+                      placeholder="Write a message..."
+                    />
+                  </div>
                   <Button
                     variant="primary"
                     size="md"

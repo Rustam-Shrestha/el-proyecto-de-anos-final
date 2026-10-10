@@ -4,7 +4,7 @@
  */
 import React, { memo, useEffect, useRef, useState } from "react";
 import useClickOutside from "../../../hooks/useClickOutside";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/shared/icons";
 
 const MultiSelectField = memo(({
   label,

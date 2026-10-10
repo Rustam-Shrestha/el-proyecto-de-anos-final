@@ -12,6 +12,14 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_FASTAPI_URL || "http://localhost:8000";
 
+export enum KYCStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  UNDER_REVIEW = "UNDER_REVIEW",
+  RESUBMIT_REQUIRED = "RESUBMIT_REQUIRED"
+}
+
 export interface KYCStatusResponse {
   kyc_application_id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";

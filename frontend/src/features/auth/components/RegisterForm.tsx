@@ -21,7 +21,7 @@ const RegisterForm = () => {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterInput>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema as any),
     defaultValues: {
       email: "",
       password: "",

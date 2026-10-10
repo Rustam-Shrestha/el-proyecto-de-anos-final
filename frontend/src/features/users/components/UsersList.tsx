@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, PencilLine, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, PencilLine, Trash2 } from "@/shared/icons";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { Button } from "@shared/components/Button";
 import { ExportBar } from "@shared/components/export/ExportBar";

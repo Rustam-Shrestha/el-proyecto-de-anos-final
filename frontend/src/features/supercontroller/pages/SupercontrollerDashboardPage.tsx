@@ -1,6 +1,6 @@
 import { useState, useRef, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Users, CreditCard, Activity, Plus, Shield, FileCheck } from 'lucide-react';
+import { Building2, Users, CreditCard, Activity, Plus, Shield, FileCheck } from '@/shared/icons';
 import { MetricCard } from '../components/MetricCard';
 import { TenantList } from '../components/TenantList';
 import { TimeSeriesChart } from '../components/TimeSeriesChart';

@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/shared/icons";
 import { companyApi } from "@features/company/api/companyApi";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";

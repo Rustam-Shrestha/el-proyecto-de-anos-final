@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { apiClient } from "@shared/lib/apiClient";
 import type { ApiResponse } from "@shared/types/common";
 import { useAuth } from "@store/hooks";
-import { BadgeCheck, Wallet, CreditCard, ArrowRight } from "lucide-react";
+import { BadgeCheck, Wallet, CreditCard, ArrowRight } from "@/shared/icons";
 import PageHeader from "@shared/components/PageHeader";
 import Breadcrumb from "@components/seo/Breadcrumb";
 

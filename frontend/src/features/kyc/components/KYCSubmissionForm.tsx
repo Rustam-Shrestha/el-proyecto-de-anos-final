@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { XCircle } from "lucide-react";
+import { XCircle } from "@/shared/icons";
 import { Button } from "@components/Button";
 import Input from "@components/Input";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
@@ -11,7 +11,8 @@ import { apiClient } from "@shared/lib/apiClient";
 import { useSubmitKYCMutation } from "@features/kyc/api/kycApi";
 import type { KYCApplication, User } from "@shared/types/common";
 import { DocumentType, FILE_VALIDATION } from "@shared/types/common";
-import CustomDatePicker from "@components/common/CutomDatePicker";
+import RawCustomDatePicker from "@components/common/CutomDatePicker";
+const CustomDatePicker = RawCustomDatePicker as React.ComponentType<any>;
 import CustomSelectField from "@components/common/SelectField";
 
 const GENDER_OPTIONS = [
@@ -192,16 +193,17 @@ export const KYCSubmissionForm = ({ onSubmitted }: KYCSubmissionFormProps) => {
           return;
         }
 
-        const hasOcr = app.ocrResults && app.ocrResults.length > 0;
-        const hasFace = app.faceVerification && app.faceVerification.status !== 'PENDING';
-        const isDone = app.processingStatus === 'DONE' || app.processingStatus === 'FAILED';
-        const isAwaitingUser = app.workflowStage === 'AWAITING_USER_CONFIRMATION' || app.workflowStage === 'COMPLETE';
-        const faceDone = hasFace || app.faceVerificationStatus === 'VERIFIED' || app.faceStatus === 'DONE';
+        const appAny = app as any;
+        const hasOcr = Boolean(app.ocrResults && app.ocrResults.length > 0);
+        const hasFace = Boolean(app.faceVerification && app.faceVerification.status !== 'PENDING');
+        const isDone = appAny.processingStatus === 'DONE' || appAny.processingStatus === 'FAILED';
+        const isAwaitingUser = appAny.workflowStage === 'AWAITING_USER_CONFIRMATION' || appAny.workflowStage === 'COMPLETE';
+        const faceDone = hasFace || appAny.faceVerificationStatus === 'VERIFIED' || appAny.faceStatus === 'DONE';
         const readyToProceed = hasOcr || isDone || isAwaitingUser || faceDone;
 
-        if (hasOcr) {
+        if (hasOcr && app.ocrResults && app.ocrResults[0]) {
           const ocrResult = app.ocrResults[0];
-          const extracted = ocrResult.extractedData as Record<string, string>;
+          const extracted = (ocrResult.extractedData || {}) as Record<string, string>;
           setOcrData({
             ocrFullName: extracted.name ?? app.ocrFullName ?? "",
             ocrCitizenshipNumber: extracted.citizenshipNumber ?? app.ocrCitizenshipNumber ?? "",

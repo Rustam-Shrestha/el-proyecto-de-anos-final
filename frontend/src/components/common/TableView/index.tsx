@@ -9,7 +9,7 @@ import React, { memo, useState } from "react";
 import { SearchIcon } from "../../../assets/data/icons";
 import InputField from "../InputField";
 import { SkeletonTable } from "../SkletonLoader/index";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/shared/icons";
 
 const TableHeader = memo(({ columns, onFilterChange, hasExpandableRows }) => {
   const [showSearch, setShowSearch] = useState(null);

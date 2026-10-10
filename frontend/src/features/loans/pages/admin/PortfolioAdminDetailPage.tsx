@@ -9,7 +9,7 @@ import {
 import { Button } from "@shared/components/Button";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import { useToast } from "@shared/hooks/useToast";
-import { CheckCircle2, XCircle, AlertTriangle, Edit3 } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Edit3 } from "@/shared/icons";
 
 const PortfolioAdminDetailPage = () => {
   const { userId } = useParams<{ userId: string }>();

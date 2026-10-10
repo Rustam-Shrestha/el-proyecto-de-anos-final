@@ -1,10 +1,21 @@
-import PopMessage from "@components/PopMessage";
+import PopMessage from '@/components/PopMessage';
 
 export const useToast = () => {
+  const showSuccess = (message: string) => PopMessage.success(message);
+  const showError = (message: string) => PopMessage.error(message);
+  const showWarning = (message: string) => PopMessage.warning(message);
+  const showInfo = (message: string) => PopMessage.warning(message);
+
   return {
-    success: (message: string) => PopMessage.success(message),
-    error: (message: string) => PopMessage.error(message),
-    warning: (message: string) => PopMessage.warning(message),
-    info: (message: string) => PopMessage.warning(message),
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    success: showSuccess,
+    error: showError,
+    warning: showWarning,
+    info: showInfo,
   };
 };
+
+export default useToast;

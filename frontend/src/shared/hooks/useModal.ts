@@ -13,3 +13,6 @@ export const useModal = (initial = false) => {
     toggleModal
   };
 };
+
+export default useModal;
+

@@ -50,11 +50,11 @@ apiClient.interceptors.response.use(
 
 // API service
 const apiService = {
-  get: (url, config = {}) => apiClient.get(url, config),
-  post: (url, data, config = {}) => apiClient.post(url, data, config),
-  put: (url, data, config = {}) => apiClient.put(url, data, config),
-  patch: (url, data, config = {}) => apiClient.patch(url, data, config),
-  delete: (url, config = {}) => apiClient.delete(url, config),
+  get: <T = any>(url: string, config: any = {}): Promise<{ data: T }> => apiClient.get<T>(url, config),
+  post: <T = any>(url: string, data?: any, config: any = {}): Promise<{ data: T }> => apiClient.post<T>(url, data, config),
+  put: <T = any>(url: string, data?: any, config: any = {}): Promise<{ data: T }> => apiClient.put<T>(url, data, config),
+  patch: <T = any>(url: string, data?: any, config: any = {}): Promise<{ data: T }> => apiClient.patch<T>(url, data, config),
+  delete: <T = any>(url: string, config: any = {}): Promise<{ data: T }> => apiClient.delete<T>(url, config),
 };
 
 export { apiService };

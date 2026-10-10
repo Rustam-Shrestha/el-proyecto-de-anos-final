@@ -9,7 +9,7 @@ import Card from "@shared/components/Card";
 import { env } from "@shared/lib/env";
 import type { KYCApplication, KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
 import { DocumentType } from "@shared/types/common";
-import { CheckCircle2, AlertCircle, FileCheck } from "lucide-react";
+import { CheckCircle2, AlertCircle, FileCheck } from "@/shared/icons";
 
 const resolveDocumentUrl = (filePath: string): string => {
   if (!filePath) return "#";

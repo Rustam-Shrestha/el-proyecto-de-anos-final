@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle } from "@/shared/icons";
 import { Modal } from "@shared/components/Modal";
 import { Button } from "@shared/components/Button";
 import RiskScoreBadge from "@features/loans/components/RiskScoreBadge";
@@ -77,7 +77,7 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
   if (!isOpen || !loan) return null;
 
   const isReviewable =
-    loan.status === "SUBMITTED" ||
+    (loan.status as string) === "SUBMITTED" ||
     loan.status === "PENDING" ||
     loan.status === "UNDER_REVIEW";
   const isSubmitting = reviewMutation.isPending;
@@ -145,7 +145,7 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
           <h3 className="text-sm font-semibold text-gray-900">Applicant Information</h3>
           <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Applicant" value={(loan as any).user?.email || loan.applicantEmail || loan.userId || "N/A"} />
+            <Row label="Applicant" value={(loan as any).user?.email || (loan as any).applicantEmail || loan.userId || "N/A"} />
             <div className="flex justify-between items-center pt-1">
               <dt className="text-gray-500">KYC & Financial Profile</dt>
               <dd className="flex items-center gap-3">
@@ -170,7 +170,7 @@ const LoanDetailsModal = ({ isOpen, onClose, loan }: LoanDetailsModalProps) => {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">FinGuard ML Risk Assessment (XGBoost)</h3>
             <RiskScoreBadge
-              score={(loan as any).creditScore || loan.riskScore || null}
+              score={(loan as any).creditScore || (loan as any).riskScore || null}
               level={(loan.riskLevel as RiskLevel) ?? null}
             />
           </div>

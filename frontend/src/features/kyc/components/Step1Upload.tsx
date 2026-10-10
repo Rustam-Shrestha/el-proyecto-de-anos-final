@@ -23,20 +23,31 @@ export const Step1Upload = ({ onComplete }: Props) => {
   const [email, setEmail] = useState("");
 
   const handleSubmit = useCallback(async () => {
-    if (!citizenshipFront || !citizenshipBack || !selfie) { toast("Please upload all required documents", "error"); return; }
-    if (!fullName || !phone) { toast("Please fill in your name and phone", "error"); return; }
+    if (!citizenshipFront || !citizenshipBack || !selfie) {
+      toast.error("Please upload all required documents");
+      return;
+    }
+    if (!fullName || !phone) {
+      toast.error("Please fill in your name and phone");
+      return;
+    }
     const formData = new FormData();
-    formData.append("fullName", fullName); formData.append("phone", phone);
+    formData.append("fullName", fullName);
+    formData.append("phone", phone);
     if (address) formData.append("address", address);
     if (dateOfBirth) formData.append("dateOfBirth", dateOfBirth);
     if (email) formData.append("email", email);
-    formData.append("idProof", citizenshipFront); formData.append("addressProof", citizenshipBack); formData.append("selfie", selfie);
+    formData.append("idProof", citizenshipFront);
+    formData.append("addressProof", citizenshipBack);
+    formData.append("selfie", selfie);
     try {
       const result = await submitMutation.mutateAsync(formData);
-      const kycId = result?.kyc_application_id || result?.id || "";
+      const kycId = (result as any)?.kyc_application_id || (result as any)?.id || "";
       onComplete({ citizenshipFront, citizenshipBack, selfie }, kycId);
-      toast("Documents uploaded successfully", "success");
-    } catch { toast("Upload failed. Please try again.", "error"); }
+      toast.success("Documents uploaded successfully");
+    } catch {
+      toast.error("Upload failed. Please try again.");
+    }
   }, [citizenshipFront, citizenshipBack, selfie, fullName, phone, address, dateOfBirth, email, submitMutation, onComplete, toast]);
 
   return (

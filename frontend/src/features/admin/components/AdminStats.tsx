@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Activity, CheckCircle, FileText, Users, XCircle } from "lucide-react";
+import { Activity, CheckCircle, FileText, Users, XCircle } from "@/shared/icons";
 import { useAdminDashboardQuery } from "@features/admin/api/adminApi";
 
 type AdminStatCardProps = {

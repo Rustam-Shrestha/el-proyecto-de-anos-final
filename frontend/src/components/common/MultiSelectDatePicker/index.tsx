@@ -5,7 +5,7 @@
 import React, { memo, useEffect, useState } from "react";
 import { parseDateString } from "../../../helper";
 import useClickOutside from "../../../hooks/useClickOutside";
-import { CalendarDays, ChevronLeft as LeftIcon, ChevronRight as RightIcon, X as CloseIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft as LeftIcon, ChevronRight as RightIcon, X as CloseIcon } from "@/shared/icons";
 
 const MultiSelectDatePicker = memo(({
   label = null,

@@ -13,8 +13,9 @@ export const useKyc = (id?: string) => {
     setLoading(true);
     try {
       const res = await service.submit(payload);
-      setData(res.data as KycApplication);
-      return res.data;
+      const app = (res as any)?.data || res;
+      setData(app as KycApplication);
+      return app;
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Submit failed');
       throw err;
@@ -27,8 +28,9 @@ export const useKyc = (id?: string) => {
     setLoading(true);
     try {
       const res = await service.getStatus();
-      setData(res.data as KycApplication);
-      return res.data;
+      const app = (res as any)?.data || res;
+      setData(app as KycApplication);
+      return app;
     } finally {
       setLoading(false);
     }
@@ -38,7 +40,8 @@ export const useKyc = (id?: string) => {
     setLoading(true);
     try {
       const res = await service.list(params);
-      setList(res.data as KycApplication[]);
+      const apps = (res as any)?.data || res;
+      setList(apps as KycApplication[]);
       return res;
     } finally {
       setLoading(false);
@@ -49,8 +52,9 @@ export const useKyc = (id?: string) => {
     setLoading(true);
     try {
       const res = await service.getById(fetchId || id || '');
-      setData(res.data as KycApplication);
-      return res.data;
+      const app = (res as any)?.data || res;
+      setData(app as KycApplication);
+      return app;
     } finally {
       setLoading(false);
     }

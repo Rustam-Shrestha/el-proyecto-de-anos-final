@@ -34,11 +34,11 @@ export const Step5Report = ({ kycApplicationId, onComplete, onBack }: Props) => 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      toast("KYC submitted for review!", "success");
+      toast.success("KYC submitted for review!");
       onComplete(report);
       navigate("/dashboard/kyc-status");
     } catch {
-      toast("Failed to submit. Please try again.", "error");
+      toast.error("Failed to submit. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -53,7 +53,7 @@ export const Step5Report = ({ kycApplicationId, onComplete, onBack }: Props) => 
     );
   }
 
-  const parsedReport = report?.report ? (() => { try { return JSON.parse(report.report); } catch { return null; } })() : null;
+  const parsedReport = report?.report ? (() => { try { return typeof report.report === 'string' ? JSON.parse(report.report) : report.report; } catch { return null; } })() : null;
 
   return (
     <div>

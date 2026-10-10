@@ -4,7 +4,7 @@
  */
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight } from "@/shared/icons";
 import { parseDateString } from "../../../helper";
 import useClickOutside from "../../../hooks/useClickOutside";
 

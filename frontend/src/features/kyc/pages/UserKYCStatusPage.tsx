@@ -8,7 +8,7 @@ import Breadcrumb from "@components/seo/Breadcrumb";
 import Card from "@shared/components/Card";
 import type { KYCDocument, DocumentVerificationStatus } from "@shared/types/common";
 import { DocumentType } from "@shared/types/common";
-import { AlertCircle, FileCheck } from "lucide-react";
+import { AlertCircle, FileCheck } from "@/shared/icons";
 
 const documentTypeLabels: Record<string, string> = {
   [DocumentType.CITIZENSHIP_FRONT]: "Citizenship (Front)",

@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from "react";
-import { Activity, CheckCircle, FileText, Users, XCircle } from "lucide-react";
+import { Activity, CheckCircle, FileText, Users, XCircle } from "@/shared/icons";
 import Highcharts from "highcharts";
 import "highcharts/modules/accessibility";
 import { useAdminStats } from "@features/dashboard/api/dashboardApi";

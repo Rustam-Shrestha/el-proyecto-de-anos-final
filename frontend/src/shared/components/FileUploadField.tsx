@@ -3,11 +3,11 @@ import { DocumentType } from "@shared/types/common";
 
 interface FileUploadFieldProps {
   label: string
-  documentType: DocumentType
-  accept: string
-  maxSizeMB: number
+  documentType?: DocumentType
+  accept?: string
+  maxSizeMB?: number
   onFileSelect: (file: File) => void
-  onClear: () => void
+  onClear?: () => void
   currentFile?: File | null
   uploadedUrl?: string | null
   isUploading?: boolean
@@ -36,10 +36,10 @@ const UploadIcon = () => (
 export const FileUploadField = ({
   label,
   documentType: _documentType,
-  accept,
-  maxSizeMB,
+  accept = "image/*",
+  maxSizeMB = 5,
   onFileSelect,
-  onClear,
+  onClear = () => {},
   currentFile,
   uploadedUrl,
   isUploading,

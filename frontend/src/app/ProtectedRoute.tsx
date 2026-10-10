@@ -49,7 +49,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         role:
           typeof meQuery.data.role === "string"
             ? meQuery.data.role
-            : meQuery.data.role?.name ?? userData?.role,
+            : (meQuery.data.role as any)?.name ?? userData?.role,
       };
       dispatch(setUser(nextUser));
     }

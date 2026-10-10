@@ -33,7 +33,7 @@ export const ProfileForm = () => {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<ProfileFormValues>({
-    resolver: zodResolver(updateProfileSchema),
+    resolver: zodResolver(updateProfileSchema as any),
     defaultValues,
   });
 

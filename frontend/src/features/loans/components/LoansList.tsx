@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye } from "@/shared/icons";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
 import RiskScoreBadge from "@features/loans/components/RiskScoreBadge";
 import { LoanDetailsModal } from "@features/loans/components/LoanDetailsModal";
@@ -37,7 +37,7 @@ const LoansList = ({ status }: LoansListProps) => {
       key: "applicant",
       header: "Applicant",
       render: (loan) => {
-        const identifier = (loan as any).user?.email || loan.applicantEmail || loan.userId || "--";
+        const identifier = (loan as any).user?.email || (loan as any).applicantEmail || loan.userId || "--";
         const short = identifier.length > 20 ? `${identifier.slice(0, 18)}...` : identifier;
         return (
           <span className="font-medium text-xs text-[#0F172A]" title={identifier}>
@@ -75,7 +75,7 @@ const LoansList = ({ status }: LoansListProps) => {
       header: "Risk",
       render: (loan) => (
         <RiskScoreBadge
-          score={(loan as any).creditScore || loan.riskScore || null}
+          score={(loan as any).creditScore || (loan as any).riskScore || null}
           level={(loan.riskLevel as RiskLevel) ?? null}
         />
       ),
@@ -114,7 +114,7 @@ const LoansList = ({ status }: LoansListProps) => {
     const headers = ["Loan ID", "Applicant", "Amount (NPR)", "Term (Months)", "Monthly EMI (NPR)", "Purpose", "Risk Level", "Status", "Applied Date"];
     const csvRows = [
       headers.join(","),
-      ...loans.map((l) =>
+      ...loans.map((l: any) =>
         [
           `"${l.id}"`,
           `"${l.userId || ""}"`,

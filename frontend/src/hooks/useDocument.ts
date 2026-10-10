@@ -13,8 +13,9 @@ export const useDocument = () => {
     setLoading(true);
     try {
       const res = await service.upload(form);
-      setData(res.data as DocumentItem);
-      return res.data;
+      const doc = (res as any)?.data || res;
+      setData(doc as DocumentItem);
+      return doc;
     } finally {
       setLoading(false);
     }
@@ -24,8 +25,9 @@ export const useDocument = () => {
     setLoading(true);
     try {
       const res = await service.getById(id);
-      setData(res.data as DocumentItem);
-      return res.data;
+      const doc = (res as any)?.data || res;
+      setData(doc as DocumentItem);
+      return doc;
     } finally {
       setLoading(false);
     }
@@ -35,8 +37,9 @@ export const useDocument = () => {
     setLoading(true);
     try {
       const res = await service.getVersions(id);
-      setVersions(res.data as DocumentItem[]);
-      return res.data;
+      const vers = (res as any)?.data || res;
+      setVersions(vers as DocumentItem[]);
+      return vers;
     } finally {
       setLoading(false);
     }

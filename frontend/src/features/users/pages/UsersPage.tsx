@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus } from "@/shared/icons";
 import { Button } from "@shared/components/Button";
 import { useModal } from "@shared/hooks/useModal";
 import UsersList from "@features/users/components/UsersList";

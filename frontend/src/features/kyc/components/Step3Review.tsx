@@ -6,7 +6,7 @@ import CustomSelectField from "@components/common/SelectField";
 
 interface Props {
   kycApplicationId: string;
-  ocrData: Record<string, string>;
+  ocrData: Record<string, any>;
   onComplete: (confirmedData: Record<string, string>) => void;
   onBack: () => void;
 }

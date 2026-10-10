@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase, MessageSquareText, Sparkles, Building2, ClipboardCheck } from "lucide-react";
+import { LayoutDashboard, FileText, Gauge, ShieldCheck, Users, FileBarChart2, UserCircle2, HandCoins, Landmark, ShieldPlus, Briefcase, MessageSquareText, Sparkles, Building2, ClipboardCheck } from "@/shared/icons";
 import { useAuth } from "@store/hooks";
 import { roleKind } from "@shared/utils/roleUtils";
 import { useGetMyKYCStatus } from "@features/kyc/api/kycApi";
@@ -13,7 +13,7 @@ type SidebarProps = {
 type MenuItem = {
   label: string;
   path: string;
-  icon: typeof LayoutDashboard;
+  icon: React.ComponentType<{ className?: string }>;
 };
 
 // End customer: own KYC, loans, assistant, chat with company staff.
@@ -123,7 +123,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:bg-gray-100   :bg-gray-800 lg:hidden"
+          className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:bg-gray-100 lg:hidden"
         >
           Close
         </button>
@@ -176,3 +176,5 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     </aside>
   );
 };
+
+export default Sidebar;

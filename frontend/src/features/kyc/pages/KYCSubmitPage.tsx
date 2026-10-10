@@ -9,7 +9,6 @@ import { Step2Processing } from "@features/kyc/components/Step2Processing";
 import { Step3Review } from "@features/kyc/components/Step3Review";
 import { Step4FaceResult } from "@features/kyc/components/Step4FaceResult";
 import { Step5Report } from "@features/kyc/components/Step5Report";
-import type { KYCApplication } from "@shared/types/common";
 
 const STEPS = ["Upload", "OCR", "Review", "Face", "Submit"];
 
@@ -25,7 +24,7 @@ const KYCSubmitPage = () => {
 
   useEffect(() => {
     if (existingKyc) {
-      const status = existingKyc?.status || (existingKyc as KYCApplication & { applicationStatus?: string })?.applicationStatus;
+      const status = (existingKyc?.status as string) || (existingKyc as any)?.applicationStatus;
       if (status === "APPROVED" || status === "UNDER_REVIEW" || status === "PENDING_REVIEW") {
         navigate("/dashboard/kyc-status");
       }
@@ -52,7 +51,7 @@ const KYCSubmitPage = () => {
   }, []);
 
   const handleReportGenerated = useCallback((_report: Record<string, unknown> | null) => {
-    toast("KYC submitted successfully!", "success");
+    toast.success("KYC submitted successfully!");
     navigate("/dashboard/kyc-status");
   }, [navigate, toast]);
 

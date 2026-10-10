@@ -54,7 +54,7 @@ const DocumentUploadField: React.FC<Props> = ({ kycId, type, onSuccess }) => {
       onSuccess?.(response.data ?? response);
       setFile(null);
       setPreview(null);
-    } catch (error: unknown) {
+    } catch (error: any) {
       toast.error(error?.message || 'Upload failed');
     } finally {
       setUploading(false);

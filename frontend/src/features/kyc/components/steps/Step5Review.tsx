@@ -22,7 +22,7 @@ interface Step5ReviewProps {
   onSubmit: () => void;
 }
 
-const Row = ({ label, value }: { label: string; value: string }) => (
+const Row = ({ label, value }: { label: string; value: ReactNode }) => (
   <div className="flex justify-between gap-4 py-2">
     <span className="text-sm font-medium" style={{ color: "var(--text-color)" }}>
       {label}
@@ -43,7 +43,6 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
       style={{
         backgroundColor: "var(--surface-color)",
         borderColor: "var(--border-color)",
-        divideColor: "var(--border-color)",
       }}
     >
       {children}

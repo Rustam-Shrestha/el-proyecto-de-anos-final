@@ -10,7 +10,7 @@
  */
 import React, { memo } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/shared/icons";
 
 const DesktopNav = ({
   navItems,

@@ -21,6 +21,11 @@ export interface ProcessingStatus {
   pendingReviewQueue: unknown[];
   faceError: string | null;
   processingError: string | null;
+  document_count?: number;
+  documents?: any[];
+  status?: string;
+  confidence_score?: number;
+  ocr_results?: any[];
 }
 
 export const useKYC = (options: UseKYCOptions = {}) => {

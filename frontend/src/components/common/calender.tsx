@@ -6,7 +6,7 @@
  * it has no props and only depends on the current date.
  */
 import React, { memo } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays } from "@/shared/icons";
 
 const Calendar = memo(() => {
   // Format the date (e.g., "24 Jan 2024")

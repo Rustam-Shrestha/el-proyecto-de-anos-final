@@ -1,6 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "outline";
 type ButtonSize = "sm" | "md" | "lg";
 type IconValue = ReactNode | (() => ReactNode);
 
@@ -21,6 +21,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary: "bg-white text-[#0F172A] border border-[#E2E8F0] hover:bg-[#F8FAFC] focus-visible:ring-[#15803D]",
   danger: "bg-[#DC2626] text-white hover:bg-[#B91C1C] focus-visible:ring-[#DC2626] border border-transparent",
   ghost: "bg-transparent text-[#334155] hover:bg-[#F1F5F9] focus-visible:ring-[#CBD5E1]",
+  outline: "bg-transparent text-[#334155] border border-[#CBD5E1] hover:bg-[#F1F5F9] focus-visible:ring-[#CBD5E1]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -80,7 +81,7 @@ export const Button = forwardRef<HTMLButtonElement, SharedButtonProps>(
         type={type}
         disabled={disabled || showLoading}
         aria-busy={showLoading}
-        className={`${variantClasses[variant]} ${sizeClasses[size]} inline-flex items-center justify-center gap-2 rounded-[6px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+        className={`${variantClasses[variant] || variantClasses.primary} ${sizeClasses[size] || sizeClasses.md} inline-flex items-center justify-center gap-2 rounded-[6px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
         {...props}
       >
         {showLoading ? <Spinner /> : resolvedLeftIcon}
@@ -97,3 +98,5 @@ export const PrimaryButton = (props: SharedButtonProps) => <Button {...props} va
 export const SecondaryButton = (props: SharedButtonProps) => <Button {...props} variant="secondary" />;
 export const DangerButton = (props: SharedButtonProps) => <Button {...props} variant="danger" />;
 export const OutlineButton = (props: SharedButtonProps) => <Button {...props} variant="ghost" />;
+
+export default Button;

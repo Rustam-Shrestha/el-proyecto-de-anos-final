@@ -3,7 +3,7 @@
  * CustomFileUpload — Memoized
  */
 import React, { memo, useRef, useState } from "react";
-import { CloudUpload } from "lucide-react";
+import { CloudUpload } from "@/shared/icons";
 
 const CustomFileUpload = memo(({ onFileUpload }) => {
   const fileInputRef = useRef();

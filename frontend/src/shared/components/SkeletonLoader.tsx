@@ -3,6 +3,7 @@ export type SkeletonType = "list" | "table" | "grid";
 type SkeletonLoaderProps = {
   count?: number;
   type?: SkeletonType;
+  className?: string;
 };
 
 type SkeletonHookArgs<T> = {

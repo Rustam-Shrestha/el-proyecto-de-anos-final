@@ -44,8 +44,8 @@ export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) =
     reset,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<CreateFormValues | UpdateFormValues>({
-    resolver: zodResolver(isEditing ? updateFormSchema : createFormSchema),
+  } = useForm<any>({
+    resolver: zodResolver((isEditing ? updateFormSchema : createFormSchema) as any),
     defaultValues: {
       email: "",
       role: "USER",
@@ -125,7 +125,7 @@ export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) =
           type="email"
           placeholder="user@example.com"
           disabled={isEditing}
-          error={errors.email?.message}
+          error={errors.email?.message ? String(errors.email.message) : undefined}
           {...register("email")}
         />
 
@@ -134,7 +134,7 @@ export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) =
             label="Password"
             type="password"
             placeholder="Min. 8 characters"
-            error={"password" in errors ? (errors.password?.message ?? "") : ""}
+            error={"password" in errors ? String((errors as any).password?.message ?? "") : undefined}
             {...register("password")}
           />
         )}
@@ -144,7 +144,7 @@ export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) =
             label="Full Name"
             type="text"
             placeholder="John Doe"
-            error={"fullName" in errors ? (errors.fullName?.message ?? "") : ""}
+            error={"fullName" in errors ? String((errors as any).fullName?.message ?? "") : undefined}
             {...register("fullName")}
           />
         )}
@@ -154,7 +154,7 @@ export const UserFormModal = ({ isOpen, onClose, userId }: UserFormModalProps) =
           value={""}
           options={[{ value: "USER", label: "User" }, { value: "ADMIN", label: "Admin" }, { value: "REVIEWER", label: "Reviewer" }]}
           {...register("role")}
-          error={errors.role?.message}
+          error={errors.role?.message ? String(errors.role.message) : undefined}
         />
 
         <div className="flex items-center justify-end gap-3 pt-2">

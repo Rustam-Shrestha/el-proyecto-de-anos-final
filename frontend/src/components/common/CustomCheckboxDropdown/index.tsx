@@ -7,7 +7,7 @@
  * - Wrapped in React.memo
  */
 import React, { memo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@/shared/icons';
 import useClickOutside from '../../../hooks/useClickOutside';
 
 const CustomCheckboxDropdown = memo(({ options, value, onChange, placeholder }) => {

@@ -12,9 +12,10 @@ import {
 import { Button } from "@shared/components/Button";
 import { FileUploadField } from "@shared/components/FileUploadField";
 import InputField from "@components/common/InputField";
-import CustomDatePicker from "@components/common/CutomDatePicker";
+import RawCustomDatePicker from "@components/common/CutomDatePicker";
+const CustomDatePicker = RawCustomDatePicker as React.ComponentType<any>;
 import CustomSelectField from "@components/common/SelectField";
-import { Check } from "lucide-react";
+import { Check } from "@/shared/icons";
 import { DocumentType } from "@shared/types/common";
 import { useToast } from "@shared/hooks/useToast";
 import { SkeletonLoader } from "@shared/components/SkeletonLoader";
@@ -137,8 +138,8 @@ const PortfolioPage = () => {
     updateField(key, e.target.value as FormData[typeof key]);
   };
 
-  const handleSelectChange = (key: keyof FormData) => (e: { target: { name: string; value: string } }) => {
-    updateField(key, e.target.value as FormData[typeof key]);
+  const handleSelectChange = (key: keyof FormData) => (e: any) => {
+    updateField(key, (e?.target?.value ?? e) as FormData[typeof key]);
   };
 
   const handleIncomeTypeSelect = (type: IncomeType) => {

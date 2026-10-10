@@ -23,14 +23,14 @@ const useApi = () => {
     return base;
   };
 
-  const get = async (path: string, config?: { params?: Record<string, unknown> }) => {
+  const get = async <T = any>(path: string, config?: { params?: Record<string, unknown> }): Promise<T> => {
     const url = buildUrl(path, config?.params);
     const res = await fetch(url, { method: 'GET', headers: headersWithAuth() });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   };
 
-  const post = async (path: string, data?: unknown, config?: Record<string, unknown>) => {
+  const post = async <T = any>(path: string, data?: unknown, config?: Record<string, unknown>): Promise<T> => {
     const isForm = data instanceof FormData;
     const url = buildUrl(path, config?.params as Record<string, string> | undefined);
     const res = await fetch(url, { method: 'POST', headers: headersWithAuth(isForm), body: isForm ? data : JSON.stringify(data) });
@@ -38,7 +38,7 @@ const useApi = () => {
     return res.json();
   };
 
-  const patch = async (path: string, data?: unknown, config?: Record<string, unknown>) => {
+  const patch = async <T = any>(path: string, data?: unknown, config?: Record<string, unknown>): Promise<T> => {
     const isForm = data instanceof FormData;
     const url = buildUrl(path, config?.params as Record<string, string> | undefined);
     const res = await fetch(url, { method: 'PATCH', headers: headersWithAuth(isForm), body: isForm ? data : JSON.stringify(data) });
@@ -46,7 +46,7 @@ const useApi = () => {
     return res.json();
   };
 
-  const del = async (path: string, config?: { params?: Record<string, unknown> }) => {
+  const del = async <T = any>(path: string, config?: { params?: Record<string, unknown> }): Promise<T> => {
     const url = buildUrl(path, config?.params);
     const res = await fetch(url, { method: 'DELETE', headers: headersWithAuth() });
     if (!res.ok) throw new Error(await res.text());
