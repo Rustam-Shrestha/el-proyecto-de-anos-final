@@ -8,6 +8,7 @@ import { prisma } from '@/config/database';
 import { auditService } from '@/services/auditService';
 import { chatbotService } from '@/services/chatbotService';
 import { setIO } from '@/config/socket';
+import { socketCache } from '@/services/cache';
 // Static import, not await import(): the build emits CommonJS, where a dynamic
 // import resolves through ESM rules and would need an explicit .js extension
 // that tsc-alias does not add — which crashed OCR job reset at boot.
@@ -23,13 +24,24 @@ const io = new Server(httpServer, {
 });
 setIO(io);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token as string | undefined;
   const authHeader = socket.handshake.headers.authorization as string | undefined;
   const candidate = token || authHeader?.replace(/^Bearer\s+/i, '');
 
   if (!candidate) {
     return next(new Error('Unauthorized'));
+  }
+
+  // Fast-path: check socket auth cache to bypass repeated crypto verification
+  try {
+    const cachedUser = await socketCache.getCachedTokenPayload(candidate);
+    if (cachedUser) {
+      socket.data.user = cachedUser;
+      return next();
+    }
+  } catch {
+    // If cache fails, fall through to JWT verification
   }
 
   try {
@@ -39,18 +51,24 @@ io.use((socket, next) => {
       role: string;
     };
 
-    socket.data.user = {
+    const userPayload = {
       id: decoded.sub,
       email: decoded.email,
       role: decoded.role,
     };
+
+    socket.data.user = userPayload;
+
+    // Cache verified token payload with 120s TTL
+    void socketCache.setCachedTokenPayload(candidate, userPayload, 120);
+
     return next();
   } catch {
     return next(new Error('Invalid token'));
   }
 });
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   const user = socket.data.user as { id: string; email: string; role: string } | undefined;
   if (!user) {
     socket.disconnect();
@@ -59,14 +77,61 @@ io.on('connection', (socket) => {
 
   socket.join(`user:${user.id}`);
 
-  socket.on('chat:join', ({ conversationId }: { conversationId?: string }) => {
+  // Register active socket connection and user presence in cache
+  await socketCache.registerConnection(user.id, socket.id, {
+    email: user.email,
+    role: user.role,
+  });
+
+  // Push cached unread notification count on connection if available
+  try {
+    const cachedUnread = await socketCache.getCachedUnreadCount(user.id);
+    if (cachedUnread !== null) {
+      socket.emit('notification:unread_count', { unreadCount: cachedUnread });
+    }
+  } catch {
+    /* ignore */
+  }
+
+  socket.on('chat:join', async ({ conversationId }: { conversationId?: string }) => {
     if (!conversationId) return;
     socket.join(`conversation:${conversationId}`);
+
+    // Fast-path delivery of cached recent conversation history
+    try {
+      let recent = await socketCache.getRecentMessages(conversationId);
+      if (!recent) {
+        // Warm cache from database if missing
+        const conv = await chatbotService.getMessagesForConversation(user.id, conversationId).catch(() => null);
+        if (conv && conv.messages) {
+          recent = conv.messages.slice(-50);
+          await socketCache.setRecentMessages(conversationId, recent, 1800);
+        }
+      }
+
+      if (recent && recent.length > 0) {
+        socket.emit('chat:cached_history', {
+          conversationId,
+          messages: recent,
+        });
+      }
+    } catch (err) {
+      logger.warn({ err, conversationId }, 'Failed to provide cached chat history');
+    }
   });
 
   socket.on('chat:message', async ({ conversationId, content }: { conversationId?: string; content?: string }) => {
     if (!conversationId || !content || !content.trim()) {
       socket.emit('chat:error', { message: 'Message is required.' });
+      return;
+    }
+
+    // Socket-level sliding-window rate limit (max 60 messages / minute)
+    const rateCheck = await socketCache.checkRateLimit(user.id, 'chat:message', 60, 60);
+    if (!rateCheck.allowed) {
+      socket.emit('chat:error', {
+        message: 'Rate limit exceeded. Please wait a moment before sending more messages.',
+      });
       return;
     }
 
@@ -77,6 +142,9 @@ io.on('connection', (socket) => {
         message: result.message,
       };
 
+      // Append to socket cache history immediately
+      await socketCache.appendMessage(conversationId, result.message);
+
       io.to(`conversation:${conversationId}`).emit('chat:message', payload);
       io.to(`user:${user.id}`).emit('chat:conversation_updated', { conversationId });
     } catch (error) {
@@ -84,7 +152,12 @@ io.on('connection', (socket) => {
       socket.emit('chat:error', { message });
     }
   });
+
+  socket.on('disconnect', async () => {
+    await socketCache.unregisterConnection(user.id, socket.id);
+  });
 });
+
 
 const server = httpServer.listen(PORT, async () => {
   server.timeout = 120000;

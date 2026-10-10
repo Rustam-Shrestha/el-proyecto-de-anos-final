@@ -2,6 +2,7 @@ import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils/AppError';
 import { statementParserService } from './statementParserService';
+import { cacheManager } from './cache/cacheManager';
 // Static import: dist is CommonJS, where await import() resolves via ESM rules
 // and needs an explicit .js extension that tsc-alias does not add.
 import { normalizeRoleName } from '@/utils/roles';
@@ -651,84 +652,89 @@ Try asking about income, spending, or loan eligibility — or upload a statement
   },
 
   async getFinancialProfile(userId: string) {
-    let profile = await prisma.financialProfile.findUnique({ where: { userId } });
+    return cacheManager.getOrSet(`financial_profile:${userId}`, async () => {
+      let profile = await prisma.financialProfile.findUnique({ where: { userId } });
 
-    if (!profile) {
-      await statementParserService.recalculateFinancialProfile(userId);
-      profile = await prisma.financialProfile.findUnique({ where: { userId } });
-    }
+      if (!profile) {
+        await statementParserService.recalculateFinancialProfile(userId);
+        profile = await prisma.financialProfile.findUnique({ where: { userId } });
+      }
 
-    if (!profile) {
-      // Graceful empty: the chatbot must answer with guidance, never 404.
+      if (!profile) {
+        // Graceful empty: the chatbot must answer with guidance, never 404.
+        return {
+          avgMonthlyIncome: 0,
+          avgMonthlyExpense: 0,
+          savingsRate: 0,
+          debtToIncomeRatio: 0,
+          incomeStabilityScore: 0,
+          creditScoreEstimate: 600,
+          totalStatements: 0,
+          totalIncome: 0,
+          totalExpense: 0,
+          totalSavings: 0,
+          hasData: false,
+        };
+      }
+
       return {
-        avgMonthlyIncome: 0,
-        avgMonthlyExpense: 0,
-        savingsRate: 0,
-        debtToIncomeRatio: 0,
-        incomeStabilityScore: 0,
-        creditScoreEstimate: 600,
-        totalStatements: 0,
-        totalIncome: 0,
-        totalExpense: 0,
-        totalSavings: 0,
-        hasData: false,
+        avgMonthlyIncome: Number(profile.avgMonthlyIncome || 0),
+        avgMonthlyExpense: Number(profile.avgMonthlyExpense || 0),
+        savingsRate: Number(profile.savingsRate || 0),
+        debtToIncomeRatio: Number(profile.debtToIncomeRatio || 0),
+        incomeStabilityScore: Number(profile.incomeStabilityScore || 0),
+        creditScoreEstimate: Number(profile.creditScoreEstimate || 600),
+        totalStatements: profile.totalStatements,
+        totalIncome: Number(profile.totalIncome || 0),
+        totalExpense: Number(profile.totalExpense || 0),
+        totalSavings: Number(profile.totalSavings || 0),
+        hasData: (profile.totalStatements ?? 0) > 0,
       };
-    }
-
-    return {
-      avgMonthlyIncome: Number(profile.avgMonthlyIncome || 0),
-      avgMonthlyExpense: Number(profile.avgMonthlyExpense || 0),
-      savingsRate: Number(profile.savingsRate || 0),
-      debtToIncomeRatio: Number(profile.debtToIncomeRatio || 0),
-      incomeStabilityScore: Number(profile.incomeStabilityScore || 0),
-      creditScoreEstimate: Number(profile.creditScoreEstimate || 600),
-      totalStatements: profile.totalStatements,
-      totalIncome: Number(profile.totalIncome || 0),
-      totalExpense: Number(profile.totalExpense || 0),
-      totalSavings: Number(profile.totalSavings || 0),
-      hasData: (profile.totalStatements ?? 0) > 0,
-    };
+    }, 300);
   },
 
   async getFinancialProfileForStatement(userId: string, bankStatementId: string) {
-    const transactions = await prisma.transaction.findMany({ where: { userId, bankStatementId } });
-    if (transactions.length === 0) {
+    return cacheManager.getOrSet(`financial_profile:${userId}:${bankStatementId}`, async () => {
+      const transactions = await prisma.transaction.findMany({ where: { userId, bankStatementId } });
+      if (transactions.length === 0) {
+        return {
+          avgMonthlyIncome: 0,
+          avgMonthlyExpense: 0,
+          savingsRate: 0,
+          debtToIncomeRatio: 0,
+          incomeStabilityScore: 50,
+          creditScoreEstimate: 600,
+          totalStatements: 1,
+          totalIncome: 0,
+          totalExpense: 0,
+          totalSavings: 0,
+          hasData: false,
+        };
+      }
+
+      const incomeTx = transactions.filter((t) => t.category === 'INCOME');
+      const expenseTx = transactions.filter((t) => t.category === 'EXPENSE');
+      const totalIncome = incomeTx.reduce((s, t) => s + Number(t.credit || 0), 0);
+      const totalExpense = expenseTx.reduce((s, t) => s + Number(t.debit || 0), 0);
+      const totalSavings = totalIncome - totalExpense;
+      const savingsRate = totalIncome > 0 ? totalSavings / totalIncome : 0;
+
       return {
-        avgMonthlyIncome: 0,
-        avgMonthlyExpense: 0,
-        savingsRate: 0,
+        avgMonthlyIncome: totalIncome, // single-statement scope: treat period total as the "monthly" figure
+        avgMonthlyExpense: totalExpense,
+        totalIncome,
+        totalExpense,
+        totalSavings,
+        savingsRate,
         debtToIncomeRatio: 0,
         incomeStabilityScore: 50,
         creditScoreEstimate: 600,
         totalStatements: 1,
-        totalIncome: 0,
-        totalExpense: 0,
-        totalSavings: 0,
-        hasData: false,
+        hasData: true,
       };
-    }
-
-    const incomeTx = transactions.filter((t) => t.category === 'INCOME');
-    const expenseTx = transactions.filter((t) => t.category === 'EXPENSE');
-    const totalIncome = incomeTx.reduce((s, t) => s + Number(t.credit || 0), 0);
-    const totalExpense = expenseTx.reduce((s, t) => s + Number(t.debit || 0), 0);
-    const totalSavings = totalIncome - totalExpense;
-    const savingsRate = totalIncome > 0 ? totalSavings / totalIncome : 0;
-
-    return {
-      avgMonthlyIncome: totalIncome, // single-statement scope: treat period total as the "monthly" figure
-      avgMonthlyExpense: totalExpense,
-      totalIncome,
-      totalExpense,
-      totalSavings,
-      savingsRate,
-      debtToIncomeRatio: 0,
-      incomeStabilityScore: 50,
-      creditScoreEstimate: 600,
-      totalStatements: 1,
-      hasData: true,
-    };
+    }, 300);
   },
+
 
   async updateConversation(userId: string, sessionId: string, userMessage: string, botResponse: string): Promise<void> {
     const existing = await prisma.chatConversation.findFirst({

@@ -1,6 +1,7 @@
 /* eslint-disable no-useless-escape */
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
+import { cacheManager } from './cache/cacheManager';
 import { AppError as _AppError } from '@/utils/AppError';
 
 export interface ParsedTransaction {
@@ -295,5 +296,8 @@ export const statementParserService = {
     });
 
     logger.info({ userId }, 'Financial profile recalculated');
+    await cacheManager.delete(`financial_profile:${userId}`);
+    await cacheManager.invalidatePattern(`financial_profile:${userId}:*`);
   },
 };
+

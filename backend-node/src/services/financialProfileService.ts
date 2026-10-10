@@ -1,6 +1,7 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
 import { statementParserService } from './statementParserService';
+import { cacheManager } from './cache/cacheManager';
 
 function resolveTid(tenantId?: number): number {
   if (tenantId === undefined || tenantId === null) {
@@ -18,59 +19,65 @@ function isTenantSchemaError(e: unknown): boolean {
 export const financialProfileService = {
   async getProfile(userId: string, tenantId?: number) {
     const tid = resolveTid(tenantId);
-    let profile: Awaited<ReturnType<typeof prisma.financialProfile.findFirst>>;
-    try {
-      profile = await prisma.financialProfile.findFirst({ where: { userId, tenantId: tid } });
-    } catch (e) {
-      if (isTenantSchemaError(e)) profile = await prisma.financialProfile.findUnique({ where: { userId } }) as never;
-      else throw e;
-    }
-
-    if (!profile) {
-      await statementParserService.recalculateFinancialProfile(userId);
+    return cacheManager.getOrSet(`fin_profile:${userId}:${tid}`, async () => {
+      let profile: Awaited<ReturnType<typeof prisma.financialProfile.findFirst>>;
       try {
         profile = await prisma.financialProfile.findFirst({ where: { userId, tenantId: tid } });
       } catch (e) {
         if (isTenantSchemaError(e)) profile = await prisma.financialProfile.findUnique({ where: { userId } }) as never;
         else throw e;
       }
-    }
 
-    if (!profile) {
-      // Graceful empty (two-stage flow: financial data arrives once, at KYC/statement
-      // upload). Consumers (chatbot, assess, dashboard) render zeros + hasData:false.
-      // Never 404 — a missing profile is an empty state, not a missing route.
-      return {
-        id: `empty-${userId}`,
-        tenantId: tid,
-        userId,
-        totalStatements: 0,
-        dateRangeStart: null,
-        dateRangeEnd: null,
-        avgMonthlyIncome: 0,
-        avgMonthlyExpense: 0,
-        totalIncome: 0,
-        totalExpense: 0,
-        totalSavings: 0,
-        savingsRate: 0,
-        debtToIncomeRatio: 0,
-        incomeStabilityScore: 0,
-        creditScoreEstimate: 600,
-        lastUpdated: new Date(),
-        hasData: false,
-      } as unknown as NonNullable<typeof profile>;
-    }
+      if (!profile) {
+        await statementParserService.recalculateFinancialProfile(userId);
+        try {
+          profile = await prisma.financialProfile.findFirst({ where: { userId, tenantId: tid } });
+        } catch (e) {
+          if (isTenantSchemaError(e)) profile = await prisma.financialProfile.findUnique({ where: { userId } }) as never;
+          else throw e;
+        }
+      }
 
-    return profile;
+      if (!profile) {
+        // Graceful empty (two-stage flow: financial data arrives once, at KYC/statement
+        // upload). Consumers (chatbot, assess, dashboard) render zeros + hasData:false.
+        // Never 404 — a missing profile is an empty state, not a missing route.
+        return {
+          id: `empty-${userId}`,
+          tenantId: tid,
+          userId,
+          totalStatements: 0,
+          dateRangeStart: null,
+          dateRangeEnd: null,
+          avgMonthlyIncome: 0,
+          avgMonthlyExpense: 0,
+          totalIncome: 0,
+          totalExpense: 0,
+          totalSavings: 0,
+          savingsRate: 0,
+          debtToIncomeRatio: 0,
+          incomeStabilityScore: 0,
+          creditScoreEstimate: 600,
+          lastUpdated: new Date(),
+          hasData: false,
+        } as unknown as NonNullable<typeof profile>;
+      }
+
+      return profile;
+    }, 300);
   },
 
   async recalculate(userId: string, tenantId?: number) {
+    const tid = resolveTid(tenantId);
+    await cacheManager.delete(`fin_profile:${userId}:${tid}`);
+    await cacheManager.invalidatePattern(`fin_*:${userId}:*`);
     await statementParserService.recalculateFinancialProfile(userId);
     return this.getProfile(userId, tenantId);
   },
 
   async getMonthlyTrends(userId: string, tenantId?: number) {
     const tid = resolveTid(tenantId);
+    return cacheManager.getOrSet(`fin_trends:${userId}:${tid}`, async () => {
     try {
       const raw = await prisma.$queryRawUnsafe(
         `SELECT
@@ -98,51 +105,55 @@ export const financialProfileService = {
           ORDER BY month`,
           userId,
         ) as Array<{ month: string; income: number; expense: number }>;
-        return raw || [];
+          return raw || [];
+        }
+        throw e;
       }
-      throw e;
-    }
+    }, 300);
   },
 
   async getCategoryBreakdown(userId: string, tenantId?: number) {
     const tid = resolveTid(tenantId);
-    try {
-      const expenses = await prisma.transaction.groupBy({
-        by: ['transactionType'],
-        where: { userId, tenantId: tid, category: 'EXPENSE' },
-        _sum: { debit: true },
-        _count: true,
-        orderBy: { _sum: { debit: 'desc' } },
-      });
-
-      const income = await prisma.transaction.groupBy({
-        by: ['transactionType'],
-        where: { userId, tenantId: tid, category: 'INCOME' },
-        _sum: { credit: true },
-        _count: true,
-        orderBy: { _sum: { credit: 'desc' } },
-      });
-
-      return { expenses, income };
-    } catch (e) {
-      if (isTenantSchemaError(e)) {
+    return cacheManager.getOrSet(`fin_categories:${userId}:${tid}`, async () => {
+      try {
         const expenses = await prisma.transaction.groupBy({
           by: ['transactionType'],
-          where: { userId, category: 'EXPENSE' },
+          where: { userId, tenantId: tid, category: 'EXPENSE' },
           _sum: { debit: true },
           _count: true,
           orderBy: { _sum: { debit: 'desc' } },
         });
+
         const income = await prisma.transaction.groupBy({
           by: ['transactionType'],
-          where: { userId, category: 'INCOME' },
+          where: { userId, tenantId: tid, category: 'INCOME' },
           _sum: { credit: true },
           _count: true,
           orderBy: { _sum: { credit: 'desc' } },
         });
+
         return { expenses, income };
+      } catch (e) {
+        if (isTenantSchemaError(e)) {
+          const expenses = await prisma.transaction.groupBy({
+            by: ['transactionType'],
+            where: { userId, category: 'EXPENSE' },
+            _sum: { debit: true },
+            _count: true,
+            orderBy: { _sum: { debit: 'desc' } },
+          });
+          const income = await prisma.transaction.groupBy({
+            by: ['transactionType'],
+            where: { userId, category: 'INCOME' },
+            _sum: { credit: true },
+            _count: true,
+            orderBy: { _sum: { credit: 'desc' } },
+          });
+          return { expenses, income };
+        }
+        throw e;
       }
-      throw e;
-    }
+    }, 300);
   },
 };
+

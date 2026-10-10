@@ -17,6 +17,8 @@ export interface CreateNotificationInput {
   priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
 }
 
+import { socketCache } from '@/services/cache';
+
 function resolveTid(tenantId?: number): number {
   if (tenantId === undefined || tenantId === null) {
     logger.warn("notificationService: tenantId not provided, falling back to 1");
@@ -25,10 +27,10 @@ function resolveTid(tenantId?: number): number {
   return tenantId;
 }
 /**
- * Push the new notification to the user's socket room (user:<userId>).
+ * Push the new notification and updated unread count to the user's socket room (user:<userId>).
  * No-op when socket.io isn't initialized (tests, scripts). Never throws.
  */
-function emitRealtime(userId: string, notificationId: string | undefined, input: CreateNotificationInput): void {
+function emitRealtime(userId: string, notificationId: string | undefined, input: CreateNotificationInput, unreadCount?: number): void {
   try {
     const io = getIO();
     if (!io || !notificationId) return;
@@ -40,10 +42,14 @@ function emitRealtime(userId: string, notificationId: string | undefined, input:
       actionUrl: input.actionUrl ?? null,
       priority: input.priority ?? 'NORMAL',
     });
+    if (typeof unreadCount === 'number') {
+      io.to(`user:${userId}`).emit('notification:unread_count', { unreadCount });
+    }
   } catch (error) {
     logger.warn({ err: error, userId }, 'Failed to emit realtime notification');
   }
 }
+
 
 function isTenantSchemaError(e: unknown): boolean {
   const code = (e as { code?: string })?.code;
@@ -106,7 +112,10 @@ export const notificationService = {
           });
         } else throw e;
       }
-      emitRealtime(input.userId, created?.id, input);
+      // Invalidate cached unread count so next read is fresh
+      await socketCache.invalidateUnreadCount(input.userId);
+      const currentUnread = await this.getUnreadCount(input.userId, finalTid).catch(() => undefined);
+      emitRealtime(input.userId, created?.id, input, currentUnread);
     } catch (error) {
       logger.error({ err: error }, 'Failed to create notification');
     }
@@ -130,7 +139,7 @@ export const notificationService = {
       const [notifications, total, unreadCount] = await Promise.all([
         prisma.notification.findMany({ where: where as never, orderBy: { createdAt: 'desc' }, take: limit, skip: offset }),
         prisma.notification.count({ where: where as never }),
-        prisma.notification.count({ where: { userId, status: 'UNREAD', ...(tid !== undefined ? { tenantId: tid } : {}) } as never }),
+        this.getUnreadCount(userId, tid),
       ]);
       return { notifications, total, unreadCount };
     } catch (e) {
@@ -139,7 +148,7 @@ export const notificationService = {
         const [notifications, total, unreadCount] = await Promise.all([
           prisma.notification.findMany({ where: fallbackWhere, orderBy: { createdAt: 'desc' }, take: limit, skip: offset }),
           prisma.notification.count({ where: fallbackWhere }),
-          prisma.notification.count({ where: { userId, status: 'UNREAD' } as never }),
+          this.getUnreadCount(userId),
         ]);
         return { notifications, total, unreadCount };
       }
@@ -152,18 +161,26 @@ export const notificationService = {
       const existing = await prisma.notification.findFirst({ where: { id: notificationId, tenantId } });
       if (!existing) throw new Error('Notification not found');
     }
-    return prisma.notification.update({
+    const updated = await prisma.notification.update({
       where: { id: notificationId },
       data: { status: 'READ', readAt: new Date() },
     });
+    await socketCache.invalidateUnreadCount(updated.userId);
+    return updated;
   },
 
   async markAllAsRead(userId: string, tenantId?: number) {
     const where = { userId, status: 'UNREAD', ...(tenantId !== undefined ? { tenantId } : {}) } as never;
     try {
-      return await prisma.notification.updateMany({ where, data: { status: 'READ', readAt: new Date() } });
+      const res = await prisma.notification.updateMany({ where, data: { status: 'READ', readAt: new Date() } });
+      await socketCache.invalidateUnreadCount(userId);
+      return res;
     } catch (e) {
-      if (isTenantSchemaError(e)) return prisma.notification.updateMany({ where: { userId, status: 'UNREAD' } as never, data: { status: 'READ', readAt: new Date() } });
+      if (isTenantSchemaError(e)) {
+        const res = await prisma.notification.updateMany({ where: { userId, status: 'UNREAD' } as never, data: { status: 'READ', readAt: new Date() } });
+        await socketCache.invalidateUnreadCount(userId);
+        return res;
+      }
       throw e;
     }
   },
@@ -173,20 +190,37 @@ export const notificationService = {
       const existing = await prisma.notification.findFirst({ where: { id: notificationId, tenantId } });
       if (!existing) throw new Error('Notification not found');
     }
-    return prisma.notification.update({
+    const updated = await prisma.notification.update({
       where: { id: notificationId },
       data: { status: 'ARCHIVED', archivedAt: new Date() },
     });
+    await socketCache.invalidateUnreadCount(updated.userId);
+    return updated;
   },
 
-  async getUnreadCount(userId: string, tenantId?: number) {
-    const where = { userId, status: 'UNREAD', ...(tenantId !== undefined ? { tenantId } : {}) } as never;
-    try {
-      return await prisma.notification.count({ where });
-    } catch (e) {
-      if (isTenantSchemaError(e)) return prisma.notification.count({ where: { userId, status: 'UNREAD' } as never });
-      throw e;
+  async getUnreadCount(userId: string, tenantId?: number): Promise<number> {
+    const isDefaultTenant = tenantId === undefined || tenantId === 1;
+    if (isDefaultTenant) {
+      const cached = await socketCache.getCachedUnreadCount(userId);
+      if (cached !== null) return cached;
     }
+
+    const where = { userId, status: 'UNREAD', ...(tenantId !== undefined ? { tenantId } : {}) } as never;
+    let count = 0;
+    try {
+      count = await prisma.notification.count({ where });
+    } catch (e) {
+      if (isTenantSchemaError(e)) {
+        count = await prisma.notification.count({ where: { userId, status: 'UNREAD' } as never });
+      } else {
+        throw e;
+      }
+    }
+
+    if (isDefaultTenant) {
+      await socketCache.setCachedUnreadCount(userId, count, 300);
+    }
+    return count;
   },
 
   async delete(notificationId: string, tenantId?: number) {
@@ -194,6 +228,9 @@ export const notificationService = {
       const existing = await prisma.notification.findFirst({ where: { id: notificationId, tenantId } });
       if (!existing) throw new Error('Notification not found');
     }
-    return prisma.notification.delete({ where: { id: notificationId } });
+    const deleted = await prisma.notification.delete({ where: { id: notificationId } });
+    await socketCache.invalidateUnreadCount(deleted.userId);
+    return deleted;
   },
 };
+
